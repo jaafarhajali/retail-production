@@ -172,6 +172,51 @@ payment dialog; the Sales list shows the type; reprint keeps it.
 
 Each phase: tests first, browser check by the owner, decisions in `docs/ROADMAP.md`.
 
+## 10b. What the owner's documents say (received 2026-10-12, filed in `docs/specs/factory/`)
+
+**The company**: Malika For Trading / Malika Marshmallow, Lebanon, Arab Salim, main road; phones +961 70316708 and
++961 76564645; malikamarshmallow@gmail.com; MOF 3900717. Logo: `logo-malika-marshmallow.jpeg` (teal, pink, honey).
+
+**Official invoice** (`official-invoice-300017.pdf`, A4, numbered 300017): company header with logo and MOF; "Bill To"
+block with Name, TVA, Address, Phone; Invoice No., Date of Issue, **Due Date** (45 days after issue in the sample);
+line table **Item, Box, Qty in Box, Code (barcode), Description, Total Qty, Unit Price, Amount**; Subtotal, Discount,
+Total; "Thank you for your business!"; signature lines **Recipient / المستلم** and **Deliverer / المسلّم**. So the
+official invoice needs: company legal settings (name, address, phones, email, MOF), customer TVA number and address,
+its own number sequence, a due date, and lines expressed in boxes × quantity per box, which is exactly what product
+units (Box of 100) already carry.
+
+**Normal invoice** (`delivery-note-1591.jpeg`, the paper form "INVOICE & Delivery Note" No. 1591): date, **Delivery
+charge yes/no**, Invoice to: name, phone, location; **Shipping full address**; lines No, Item Description, Qty, Price,
+Total; Sub Total, **Delivery**, Total; contact line and QR; items may be **Free** (price 0). So the normal invoice needs
+a delivery charge line, a shipping address on the sale, and a price of zero allowed for a line (a gift) under the
+price-override rule.
+
+**Price list** (`owner-notes-prices-and-flow.jpeg`), wholesale / retail in USD: Stick 25g 0.65 / 0.80; Bags 0.65 / 0.80;
+Joy 100g 2.50 / 3.00; Joy 200g 5.00 / 6.00; Mini Joy 100g 3.20 / 4.00; Excellence 100g 3.00 / 3.80; Pistachio 100g
+3.25 / 4.00; Choco Dream 100g 3.25 / 4.00; Gold 100g 3.50 / 4.00; **Customized: name and price typed at the sale**.
+These become the seed of the finished products (barcodes from the official invoice: Stick 850009611772, Joy 100g
+850009611789, Mini Joy 850009611819).
+
+**The owner's flow notes** (Arabic): two kinds of invoices, normal and official; **the hold is wanted on the till**:
+"on the till, hold, print the receipt, and when back finish it"; a stock of products and a stock of raw materials;
+production: "produce → a quantity, e.g. 1 kg → raw materials A, B, C, D, E", example 5 and 4 (produce 5, materials
+scale); BEP monthly; every item's sold quantity and total per month.
+
+**What this changes in the plan above**
+
+- F3 is built **into the till**, not a separate Delivery screen: Hold becomes a real invoice (number, stock out, printable
+  as normal or official), the Held list shows the invoices out with the salesperson, and "Finish" opens the settlement
+  (returns, payment received, remainder as debt). The old JSON hold disappears; every hold is an invoice.
+- The normal invoice print gets the delivery-note layout (A5/A4, as the paper form) next to the thermal receipt; the sale
+  gets `delivery_charge_usd` and `shipping_address`.
+- A line price of **0** is allowed (gift) on products that allow override, logged like any override.
+- Customized Box = a product "Customized" whose name detail and price are typed at the sale (price override allowed,
+  stock not tracked, a note on the line for flavours and weight). The box's cost is estimated from its weight × the mix
+  cost when the mix exists (question 1 below).
+- The official invoice gets its own counter starting where the paper one stopped (the owner gives the number, e.g. 300018),
+  a due date (default 45 days, changeable), and the customer record gets **TVA number** and **shipping address**.
+- Company settings gain MOF number, email, a second phone, and the official-invoice header lines.
+
 ## 11. Decide before F1 (the owner answers, the answers go in the decisions log)
 
 1. **Finished products: counted in pieces or in grams?** Joy 100g is a piece (a box) made from 100 g of marshmallow.
