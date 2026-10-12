@@ -21,7 +21,7 @@ return [
         (new StockService())->adjust($p, $kg, '5', 'opening', '', '10', TEST_ADMIN_ID);
         $registerId = (new Register())->create('Register 01');
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
-        foreach (['dashboard', 'products', 'categories', 'stock', 'stock/adjust', 'purchases', 'purchases/create', 'suppliers', 'suppliers/edit', 'customers', 'customers/edit',
+        foreach (['dashboard', 'products', 'categories', 'stock', 'stock/adjust', 'purchases', 'purchases/create', 'recipes', 'recipes/edit', 'production', 'production/new', 'suppliers', 'suppliers/edit', 'customers', 'customers/edit',
                   'sessions', 'sessions/open', 'sales', 'returns', 'expenses', 'counts', 'backup', 'reports', 'users', 'roles', 'registers', 'rates', 'settings', 'audit', 'pos'] as $route) {
             $r = $client->get($route);
             assert_same(200, $r->status, "GET {$route}");

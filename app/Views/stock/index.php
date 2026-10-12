@@ -10,7 +10,7 @@
     <div><label class="form-label">Product</label><select class="form-select" name="product_id" style="max-width: 18rem"><option value="0">All</option>
       <?php foreach ($products as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $filters['product_id'] ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select></div>
     <div><label class="form-label">Type</label><select class="form-select" name="type"><option value="">All</option>
-      <?php foreach (['opening', 'purchase', 'sale', 'sale_void', 'return_restock', 'waste', 'adjustment', 'stocktake'] as $t): ?><option value="<?= $t ?>" <?= $filters['type'] === $t ? 'selected' : '' ?>><?= str_replace('_', ' ', $t) ?></option><?php endforeach; ?></select></div>
+      <?php foreach (['opening', 'purchase', 'sale', 'sale_void', 'return_restock', 'waste', 'adjustment', 'stocktake', 'production_in', 'production_out'] as $t): ?><option value="<?= $t ?>" <?= $filters['type'] === $t ? 'selected' : '' ?>><?= str_replace('_', ' ', $t) ?></option><?php endforeach; ?></select></div>
     <div><label class="form-label">From</label><input class="form-control" type="date" name="from" value="<?= e($filters['from']) ?>"></div>
     <div><label class="form-label">To</label><input class="form-control" type="date" name="to" value="<?= e($filters['to']) ?>"></div>
     <button class="btn btn-outline-primary" type="submit">Filter</button>

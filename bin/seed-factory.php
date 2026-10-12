@@ -160,4 +160,45 @@ if (!$exists('Marshmallow mix')) {
     $out('Mix: Marshmallow mix (recipe in Phase F2)');
 }
 
+// ---------------------------------------------------------------- recipes (F2): the mix from ingredients, the products from the mix + packaging
+$recipes = new App\Services\RecipeService();
+$pid = static fn (string $name): int => (int) Database::pdo()->query('SELECT id FROM products WHERE name = ' . Database::pdo()->quote($name))->fetchColumn();
+$unitOf = static function (int $productId, string $type): int {
+    foreach ((new App\Models\ProductUnit())->forProduct($productId) as $u) {
+        if (stripos($u['name'], $type) === 0) {
+            return (int) $u['id'];
+        }
+    }
+    throw new RuntimeException("no unit {$type} on product {$productId}");
+};
+$hasRecipe = static fn (int $productId): bool => (int) Database::pdo()->query("SELECT COUNT(*) FROM recipes WHERE product_id = {$productId}")->fetchColumn() > 0;
+$line = static fn (string $name, string $qty, string $type): array => ['material_id' => $pid($name), 'qty' => $qty, 'unit_id' => $unitOf($pid($name), $type)];
+$made = 0;
+$mixId = $pid('Marshmallow mix');
+if ($mixId > 0 && !$hasRecipe($mixId)) {
+    $recipes->save(0, ['product_id' => $mixId, 'name' => 'Standard', 'output_qty' => '1', 'output_unit_id' => $unitOf($mixId, 'kg'), 'notes' => 'One kilo of plain mix; flavour and colour are added per product',
+        'lines' => [$line('Sugar', '0.45', 'kg'), $line('Glucose syrup', '0.25', 'kg'), $line('Honey', '0.2', 'kg'), $line('Gelatin', '0.03', 'kg'), $line('Food colouring', '0.005', 'kg'), $line('Raspberry flavour', '0.015', 'L')]], $admin);
+    $made++;
+}
+foreach ([['Joy 100g', '10', '1', 'Box 100g', '10'], ['Joy 200g', '10', '2', 'Box 200g', '10'], ['Mini Joy 100g', '10', '1', 'Box 100g', '10'], ['Excellence 100g', '10', '1', 'Box 100g', '10'],
+          ['Pistachio 100g', '10', '1', 'Box 100g', '10'], ['Choco Dream 100g', '10', '1', 'Box 100g', '10'], ['Gold 100g', '10', '1', 'Box 100g', '10'], ['Marshmallow Stick 25g', '40', '1', 'Stick bag', '40']] as [$name, $pieces, $mixKg, $box, $boxes]) {
+    $id = $pid($name);
+    if ($id <= 0 || $mixId <= 0 || $hasRecipe($id)) {
+        continue;
+    }
+    $lines = [['material_id' => $mixId, 'qty' => $mixKg, 'unit_id' => $unitOf($mixId, 'kg')], $line($box, $boxes, 'Piece')];
+    if ($name !== 'Marshmallow Stick 25g') {
+        $lines[] = $line('Label', $pieces, 'Piece');
+    }
+    if ($name === 'Pistachio 100g') {
+        $lines[] = $line('Pistachio paste', '0.1', 'kg');
+    }
+    if ($name === 'Choco Dream 100g') {
+        $lines[] = $line('Cocoa powder', '0.05', 'kg');
+    }
+    $recipes->save(0, ['product_id' => $id, 'name' => 'Standard', 'output_qty' => $pieces, 'output_unit_id' => $unitOf($id, 'Piece'), 'notes' => '', 'lines' => $lines], $admin);
+    $made++;
+}
+$out("Recipes: {$made} (the mix, and one per product from the mix and its packaging)");
+
 $out('Done. Sign in as admin.');

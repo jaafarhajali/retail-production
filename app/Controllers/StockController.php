@@ -19,7 +19,7 @@ final class StockController extends Controller
         $type = $this->query('type');
         $filters = [
             'product_id' => $this->queryInt('product_id'),
-            'type' => in_array($type, ['opening', 'purchase', 'sale', 'sale_void', 'return_restock', 'waste', 'adjustment', 'stocktake'], true) ? $type : '',
+            'type' => in_array($type, ['opening', 'purchase', 'sale', 'sale_void', 'return_restock', 'waste', 'adjustment', 'stocktake', 'production_in', 'production_out'], true) ? $type : '',
             'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('from')) ? $this->query('from') : '',
             'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('to')) ? $this->query('to') : '',
             'kind' => isset(\App\Services\ProductService::KINDS[$this->query('kind')]) ? $this->query('kind') : '',

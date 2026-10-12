@@ -259,6 +259,9 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
       </div></div>
 
       <div class="card"><div class="card-body">
+        <?php if ($isEdit && $product['kind'] !== 'material' && \App\Core\Gate::allows('production.view')): ?>
+          <p class="mb-3"><a class="btn btn-outline-primary btn-sm" href="<?= url('recipes/edit', ['product_id' => $pid]) ?>"><i class="bi bi-journal-text"></i> Write a recipe</a> <a class="btn btn-link btn-sm" href="<?= url('recipes') ?>">All recipes</a></p>
+        <?php endif; ?>
         <h2 class="h5">Options</h2>
         <div class="pf-switches">
         <div class="form-check form-switch" data-finished-only>

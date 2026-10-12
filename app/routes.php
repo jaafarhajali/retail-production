@@ -17,6 +17,8 @@ use App\Controllers\ExchangeRateController;
 use App\Controllers\ExpenseController;
 use App\Controllers\PosController;
 use App\Controllers\PriceController;
+use App\Controllers\ProductionController;
+use App\Controllers\RecipeController;
 use App\Controllers\ProductController;
 use App\Controllers\PurchaseController;
 use App\Controllers\RegisterController;
@@ -101,6 +103,16 @@ return [
     ['GET',  'stock',            [StockController::class, 'index'],      'stock.view'],
     ['GET',  'stock/adjust',     [StockController::class, 'adjustForm'], 'stock.adjust'],
     ['POST', 'stock/adjust',     [StockController::class, 'adjust'],     'stock.adjust'],
+    // F2 (2026-10-13) — recipes and production runs
+    ['GET',  'recipes',            [RecipeController::class, 'index'],      'production.view'],
+    ['GET',  'recipes/edit',       [RecipeController::class, 'edit'],       'production.manage'],
+    ['POST', 'recipes/save',       [RecipeController::class, 'save'],       'production.manage'],
+    ['POST', 'recipes/delete',     [RecipeController::class, 'delete'],     'production.manage'],
+    ['GET',  'production',         [ProductionController::class, 'index'],  'production.view'],
+    ['GET',  'production/new',     [ProductionController::class, 'create'], 'production.manage'],
+    ['POST', 'production/preview', [ProductionController::class, 'preview'], 'production.manage'],
+    ['POST', 'production/store',   [ProductionController::class, 'store'],  'production.manage'],
+    ['GET',  'production/view',    [ProductionController::class, 'view'],   'production.view'],
     // Phase 4 — customers, cash sessions, the till
     ['GET',  'customers',        [CustomerController::class, 'index'],  'customer.manage'],
     ['GET',  'customers/edit',   [CustomerController::class, 'edit'],   'customer.manage'],

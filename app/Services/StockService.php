@@ -50,6 +50,22 @@ final class StockService
         });
     }
 
+    /** Stock in from a production run (F2): the product's cost becomes the moving average of its runs, like purchases. */
+    public function produce(int $productId, int $baseQty, string $costPerBase, int $runId, ?int $userId): void
+    {
+        Database::transaction(function () use ($productId, $baseQty, $costPerBase, $runId, $userId): void {
+            $m = new StockMovement();
+            $product = $m->lockProduct($productId);
+            $stock = (int) $product['stock_base'];
+            $newCost = $stock > 0
+                ? number_format(($stock * (float) $product['cost_per_base'] + $baseQty * (float) $costPerBase) / ($stock + $baseQty), 6, '.', '')
+                : number_format((float) $costPerBase, 6, '.', '');
+            $m->add(['product_id' => $productId, 'base_qty' => $baseQty, 'type' => 'production_in', 'cost_per_base' => $costPerBase,
+                     'ref_type' => 'production', 'ref_id' => $runId, 'user_id' => $userId]);
+            $m->setCost($productId, $newCost);
+        });
+    }
+
     /** Opening stock, adjustment or waste typed by unit ("2 Box"). Positive adds, negative removes. */
     public function adjust(int $productId, int $unitId, string $qty, string $type, string $reason, ?string $unitCost, int $userId): int
     {

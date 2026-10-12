@@ -20,6 +20,8 @@ $navGroups = [
         ['prices', 'tag', "Today's prices", 'price.manage'],
         ['categories', 'tags', 'Categories', 'category.manage'],
         ['stock', 'boxes', 'Stock', 'stock.view'],
+        ['production', 'gear', 'Production', 'production.view'],
+        ['recipes', 'journal-text', 'Recipes', 'production.view'],
         ['purchases', 'truck', 'Purchases', 'purchase.manage'],
         ['suppliers', 'building', 'Suppliers', 'supplier.manage'],
         ['counts', 'clipboard-check', 'Stocktaking', 'stocktake.manage'],
