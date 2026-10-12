@@ -1,0 +1,78 @@
+<?php
+$authUser = \App\Core\Auth::user();
+try {
+    $headerRate = (new \App\Models\ExchangeRate())->current();
+} catch (\Throwable $rateError) {
+    $headerRate = null;
+}
+$userName = (string) ($authUser['full_name'] ?? '');
+$userInitial = $userName === '' ? '?' : mb_strtoupper(mb_substr($userName, 0, 1));
+// Until a forced password change is done every other page bounces back here, so the menu and shortcuts stay hidden.
+$navLocked = (int) ($authUser['must_change_password'] ?? 0) === 1;
+// Back: a page inside a section goes to the section (products/edit → products); a section page with filters goes to
+// the section without them; a plain section page goes to the dashboard. The dashboard has none.
+$backRoute = trim(is_string($_GET['r'] ?? null) ? $_GET['r'] : 'dashboard', '/');
+$backParts = explode('/', $backRoute);
+$backTo = null;
+if (!$navLocked && $backRoute !== '' && $backRoute !== 'dashboard') {
+    $backTo = (count($backParts) > 1 || array_diff_key($_GET, ['r' => 1]) !== []) && $backParts[0] !== 'auth' ? $backParts[0] : 'dashboard';
+}
+?>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><?= e($pageTitle ?? APP_NAME) ?> · <?= e(setting('shop_name', APP_NAME)) ?></title>
+  <link rel="stylesheet" href="assets/vendor/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="<?= e(asset('assets/css/app.css')) ?>">
+</head>
+<body>
+<div class="app">
+  <?php require APP_PATH . '/Views/partials/sidebar.php'; ?>
+  <main class="app-main">
+    <header class="app-top">
+      <div class="app-top-title">
+        <?php if ($backTo !== null): ?><a class="back-link" href="<?= url($backTo) ?>" title="Back"><i class="bi bi-arrow-left"></i><span>Back</span></a><?php endif; ?>
+        <h1 dir="auto"><?= e($pageTitle ?? '') ?></h1>
+      </div>
+      <div class="app-top-actions">
+        <?php if ($headerRate !== null && !$navLocked): ?>
+          <?php if (\App\Core\Gate::allows('rate.manage')): ?>
+            <a class="rate-chip" href="<?= url('rates') ?>" title="Exchange rate"><i class="bi bi-currency-exchange"></i>1 USD = <?= e(number_format($headerRate)) ?> LBP</a>
+          <?php else: ?>
+            <span class="rate-chip" title="Exchange rate"><i class="bi bi-currency-exchange"></i>1 USD = <?= e(number_format($headerRate)) ?> LBP</span>
+          <?php endif; ?>
+        <?php endif; ?>
+        <?php if (!$navLocked && \App\Core\Gate::allows('pos.use')): ?>
+          <a class="btn btn-outline-primary" href="<?= url('pos') ?>"><i class="bi bi-cart3"></i> Open the till</a>
+        <?php endif; ?>
+        <div class="dropdown">
+          <button class="user-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="avatar" dir="auto"><?= e($userInitial) ?></span>
+            <span class="user-name" dir="auto"><?= e($userName) ?></span>
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end">
+            <div class="dropdown-header"><strong dir="auto"><?= e($userName) ?></strong><?= e($authUser['role_name'] ?? '') ?></div>
+            <a class="dropdown-item" href="<?= url('auth/password') ?>"><i class="bi bi-key"></i> Change password</a>
+            <form method="post" action="<?= url('auth/logout') ?>" class="m-0">
+              <?= csrf_field() ?>
+              <button class="dropdown-item" type="submit"><i class="bi bi-box-arrow-right"></i> Sign out</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="app-content">
+      <?php require APP_PATH . '/Views/partials/flash.php'; ?>
+      <?= $content ?>
+    </div>
+  </main>
+</div>
+<script src="assets/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="<?= e(asset('assets/js/app.js')) ?>"></script>
+</body>
+</html>
+<?php clear_form_stash(); ?>
