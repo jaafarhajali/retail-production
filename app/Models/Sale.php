@@ -117,12 +117,13 @@ final class Sale extends Model
     {
         $this->execute(
             'INSERT INTO sales (invoice_no, register_id, session_id, user_id, customer_id, price_level, subtotal_usd, discount_usd, total_usd, rounding_usd,
-                                cost_total_usd, exchange_rate, change_usd, change_lbp, notes)
-             VALUES (:no, :r, :s, :u, :c, :pl, :sub, :d, :t, :ro, :ct, :x, :cu, :cl, :n)',
+                                cost_total_usd, exchange_rate, change_usd, change_lbp, notes, status, held_at)
+             VALUES (:no, :r, :s, :u, :c, :pl, :sub, :d, :t, :ro, :ct, :x, :cu, :cl, :n, :st, :ha)',
             [
                 'no' => $f['invoice_no'], 'r' => $f['register_id'], 's' => $f['session_id'], 'u' => $f['user_id'], 'c' => $f['customer_id'],
                 'pl' => $f['price_level'], 'sub' => $f['subtotal_usd'], 'd' => $f['discount_usd'], 't' => $f['total_usd'], 'ro' => $f['rounding_usd'],
                 'ct' => $f['cost_total_usd'], 'x' => $f['exchange_rate'], 'cu' => $f['change_usd'], 'cl' => $f['change_lbp'], 'n' => $f['notes'],
+                'st' => $f['status'] ?? 'completed', 'ha' => $f['held_at'] ?? null,
             ]
         );
 
@@ -143,6 +144,54 @@ final class Sale extends Model
         );
 
         return $this->lastId();
+    }
+
+    /** F3: the invoices out with the seller, newest first. */
+    public function onHold(): array
+    {
+        return $this->fetchAll(self::SELECT . " WHERE s.status = 'on_hold' ORDER BY s.id DESC");
+    }
+
+    /** F3: a line after settlement: the net quantity and its share of the money. */
+    public function settleItem(int $itemId, array $l): void
+    {
+        $this->execute('UPDATE sale_items SET qty = :q, base_qty = :b, line_discount_usd = :ld, line_total_usd = :lt, line_cost_usd = :lc WHERE id = :id',
+            ['q' => $l['qty'], 'b' => $l['base_qty'], 'ld' => $l['line_discount_usd'], 'lt' => $l['line_total_usd'], 'lc' => $l['line_cost_usd'], 'id' => $itemId]);
+    }
+
+    /** F3: the held invoice becomes a completed sale in the settler's session. */
+    public function settle(int $id, array $f): void
+    {
+        $this->execute(
+            "UPDATE sales SET status = 'completed', session_id = :ses, register_id = :reg, subtotal_usd = :sub, discount_usd = :d, total_usd = :t, rounding_usd = :ro, cost_total_usd = :ct,
+                              exchange_rate = :x, change_usd = :cu, change_lbp = :cl, settled_at = NOW(), settled_by = :by WHERE id = :id AND status = 'on_hold'",
+            ['ses' => $f['session_id'], 'reg' => $f['register_id'], 'sub' => $f['subtotal_usd'], 'd' => $f['discount_usd'], 't' => $f['total_usd'], 'ro' => $f['rounding_usd'], 'ct' => $f['cost_total_usd'],
+             'x' => $f['exchange_rate'], 'cu' => $f['change_usd'], 'cl' => $f['change_lbp'], 'by' => $f['settled_by'], 'id' => $id]
+        );
+    }
+
+    public function addSettlement(int $saleId, array $f): int
+    {
+        $this->execute('INSERT INTO sale_settlements (sale_id, original_usd, returned_usd, net_usd, paid_usd, balance_usd, settled_by, notes) VALUES (:s, :o, :r, :n, :p, :b, :by, :t)',
+            ['s' => $saleId, 'o' => $f['original_usd'], 'r' => $f['returned_usd'], 'n' => $f['net_usd'], 'p' => $f['paid_usd'], 'b' => $f['balance_usd'], 'by' => $f['settled_by'], 't' => $f['notes']]);
+
+        return $this->lastId();
+    }
+
+    public function addSettlementReturn(int $settlementId, array $b): void
+    {
+        $this->execute('INSERT INTO settlement_returns (settlement_id, sale_item_id, qty, base_qty, value_usd) VALUES (:s, :i, :q, :b, :v)',
+            ['s' => $settlementId, 'i' => $b['sale_item_id'], 'q' => $b['qty'], 'b' => $b['base_qty'], 'v' => $b['value_usd']]);
+    }
+
+    public function settlement(int $saleId): ?array
+    {
+        $st = $this->fetch('SELECT t.*, u.username AS settled_by_name FROM sale_settlements t LEFT JOIN users u ON u.id = t.settled_by WHERE t.sale_id = :s', ['s' => $saleId]);
+        if ($st !== null) {
+            $st['returns'] = $this->fetchAll('SELECT r.*, i.product_name, i.unit_name FROM settlement_returns r JOIN sale_items i ON i.id = r.sale_item_id WHERE r.settlement_id = :t ORDER BY r.id', ['t' => (int) $st['id']]);
+        }
+
+        return $st;
     }
 
     public function addPayment(int $saleId, string $method, string $currency, string $amount, string $amountUsd): void

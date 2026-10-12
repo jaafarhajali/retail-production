@@ -8,7 +8,7 @@
   var low = [], lowSig = '', lowTimer = null;
   var $ = function (id) { return document.getElementById(id); };
   var modals = {};
-  ['m-line', 'm-pay', 'm-done', 'm-customer', 'm-hold', 'm-pin', 'm-return', 'm-unit', 'm-expense'].forEach(function (id) { modals[id] = new bootstrap.Modal($(id)); });
+  ['m-line', 'm-pay', 'm-done', 'm-customer', 'm-hold', 'm-pin', 'm-return', 'm-unit', 'm-expense', 'm-settle'].forEach(function (id) { modals[id] = new bootstrap.Modal($(id)); });
 
   function money(n) { n = Math.round(n * 100) / 100; return (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function lbp(n) { return Math.round(n).toLocaleString('en-US') + ' LBP'; }
@@ -567,6 +567,10 @@
   // ---- hold / resume
   $('btn-hold').addEventListener('click', function () {
     $('hold-new').hidden = !cart.length;
+    $('hold-invoice-box').hidden = !cart.length;
+    $('hold-invoice-customer').textContent = customer ? customer.name : 'a customer (choose one first)';
+    $('hold-invoice-ok').disabled = !customer;
+    loadHeldInvoices();
     api(P.urls.held).then(function (j) {
       var list = $('hold-list'); list.innerHTML = '';
       j.held.forEach(function (h) {
@@ -580,6 +584,97 @@
       if (!j.held.length) list.innerHTML = '<div class="empty"><b>No held sales</b>Hold a cart to serve the next customer, then resume it here.</div>';
       modals['m-hold'].show();
     });
+  });
+  // ---- F3: the delivery invoice. Hold = number + print, nothing else; Finish = what came back, what was paid, the rest on the account.
+  function loadHeldInvoices() {
+    api(P.urls.heldInvoices).then(function (j) {
+      var list = $('hold-invoices'); list.innerHTML = '';
+      j.invoices.forEach(function (s) {
+        var row = document.createElement('div'); row.className = 'list-group-item hold-inv';
+        row.innerHTML = '<span class="li-main"><b></b><small dir="auto"></small></span><span class="li-meta"></span><span class="hold-inv-actions"><a class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-printer"></i></a><button type="button" class="btn btn-sm btn-primary">Finish</button></span>';
+        row.querySelector('b').textContent = s.invoice_no + ' · ' + (s.customer || 'Walk-in'); row.querySelector('small').textContent = 'held ' + s.held_at + ' by ' + s.by;
+        row.querySelector('.li-meta').textContent = money(s.total); row.querySelector('a').href = s.receipt + '&auto=1';
+        row.querySelector('button').addEventListener('click', function () { modals['m-hold'].hide(); settleOpen(s.id); });
+        list.appendChild(row);
+      });
+      if (!j.invoices.length) list.innerHTML = '<div class="empty">Nothing out with the seller.</div>';
+    }).catch(function () {});
+  }
+  $('hold-invoice-ok').addEventListener('click', function () {
+    var btn = this; if (!customer) { msg('Choose the customer first', true); return; }
+    btn.disabled = true;
+    api(P.urls.holdInvoice, { customer_id: customer.id, price_level: level, lines: cartLines(), invoice_discount: $('pay-discount').value, notes: $('pay-note').value, pin: approvedPin || $('pay-pin').value })
+      .then(function (j) {
+        modals['m-hold'].hide(); cart = []; selected = -1; clearPayment(); renderCart();
+        $('done-no').textContent = j.invoice_no; $('done-label').textContent = 'On hold · out with the seller'; $('done-change').textContent = money(j.total_usd);
+        $('done-sub').textContent = 'Finish it from Hold when the seller is back.'; $('done-warn').textContent = ''; $('done-print').href = j.receipt + '&auto=1';
+        modals['m-done'].show(); window.open(j.receipt + '&auto=1', '_blank');
+      })
+      .catch(function (e) {
+        if (e.needs_pin) { modals['m-hold'].hide(); askPin(String(e.error).replace('Needs an Admin PIN: ', 'Approve: '), function () { $('btn-hold').click(); setTimeout(function () { $('hold-invoice-ok').click(); }, 500); }); return; }
+        msg(e.error || 'Failed', true);
+      })
+      .finally(function () { btn.disabled = false; });
+  });
+  var settle = { sale: null, lines: [] };
+  function settleOpen(id) {
+    api(P.urls.heldInvoice + '&id=' + id).then(function (j) {
+      settle.sale = j.sale; settle.lines = j.lines;
+      $('settle-inv').textContent = j.sale.invoice_no; $('settle-meta').textContent = '· ' + (j.sale.customer || 'Walk-in') + ' · held ' + j.sale.held_at + (parseFloat(j.sale.owed) > 0 ? ' · already owes ' + money(j.sale.owed) : '');
+      var body = $('settle-lines'); body.innerHTML = '';
+      j.lines.forEach(function (l, i) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td dir="auto"></td><td class="text-end"></td><td class="text-end"></td><td><input class="form-control form-control-sm" inputmode="decimal" placeholder="0" aria-label="Came back"></td><td class="text-end kept"></td>';
+        tr.children[0].textContent = l.name; tr.children[1].textContent = l.qty + ' ' + l.unit; tr.children[2].textContent = money(l.line_total); tr.children[4].textContent = money(l.line_total);
+        var q = tr.querySelector('input'); q.dataset.i = i; q.addEventListener('input', settleTotals);
+        body.appendChild(tr);
+      });
+      $('settle-usd').value = ''; $('settle-lbp').value = ''; $('settle-error').textContent = ''; settle.allowShort = false; $('settle-ok').textContent = 'Finish';
+      settleTotals(); modals['m-settle'].show(); setTimeout(function () { $('settle-usd').focus(); }, 300);
+    }).catch(function (e) { msg(e.error || 'Failed', true); });
+  }
+  function settleTotals() {
+    var returned = 0, netSub = 0, rows = $('settle-lines').querySelectorAll('tr');
+    rows.forEach(function (tr) {
+      var q = tr.querySelector('input'), l = settle.lines[+q.dataset.i], back = Math.round(num(q.value) * l.factor);
+      if (back > l.base_qty) { back = l.base_qty; q.value = l.qty; }
+      var value = l.base_qty > 0 ? Math.round(parseFloat(l.line_total) * back / l.base_qty * 100) / 100 : 0;
+      returned += value; netSub += parseFloat(l.line_total) - value; tr.querySelector('.kept').textContent = money(parseFloat(l.line_total) - value);
+    });
+    settle.net = Math.round(netSub * 100) / 100; settle.returned = Math.round(returned * 100) / 100;   // line totals already carry the invoice discount
+    $('settle-original').textContent = money(settle.sale.total); $('settle-returned').textContent = settle.returned > 0 ? '-' + money(settle.returned) : money(0); $('settle-net').textContent = money(settle.net);
+    var got = num($('settle-usd').value) + num($('settle-lbp').value) / P.rate, tol = (P.step / 2) / P.rate, el = $('settle-result'), over = Math.round((got - settle.net) * 100) / 100;
+    el.className = 'settle-result';
+    if (settle.net <= 0.004) { el.textContent = 'Everything came back: nothing to pay.'; }
+    else if (got <= 0.004) { el.textContent = 'Nothing received: ' + money(settle.net) + ' goes on the account.'; el.classList.add('is-debt'); }
+    else if (got < settle.net - tol) { el.textContent = 'Paid ' + money(got) + ' · ' + money(settle.net - got) + ' goes on the account.'; el.classList.add('is-debt'); }
+    else if (over > tol) { el.textContent = 'Paid in full · change ' + changeText(over, $('settle-change-cur').value); el.classList.add('is-change'); }
+    else { el.textContent = 'Paid in full.'; el.classList.add('is-paid'); }
+  }
+  $('settle-usd').addEventListener('input', settleTotals); $('settle-lbp').addEventListener('input', function () { groupField(this); settleTotals(); }); $('settle-change-cur').addEventListener('change', settleTotals);
+  $('settle-ok').addEventListener('click', function () {
+    var btn = this, returns = {}, payments = [];
+    $('settle-lines').querySelectorAll('input').forEach(function (q) { if (num(q.value) > 0) returns[settle.lines[+q.dataset.i].id] = q.value; });
+    var usd = num($('settle-usd').value), lbp = num($('settle-lbp').value), got = usd + lbp / P.rate, tol = (P.step / 2) / P.rate;
+    if (usd > 0) payments.push({ method: 'cash', currency: 'USD', amount: usd.toFixed(2) });
+    if (lbp > 0) payments.push({ method: 'cash', currency: 'LBP', amount: String(Math.round(lbp)) });
+    if (settle.net - got > tol) payments.push({ method: 'credit', currency: 'USD', amount: (Math.round((settle.net - got) * 100) / 100).toFixed(2) });
+    btn.disabled = true; $('settle-error').textContent = '';
+    api(P.urls.settle, { sale_id: settle.sale.id, returns: returns, payments: payments, change_currency: $('settle-change-cur').value, allow_short_drawer: settle.allowShort, pin: approvedPin || '' })
+      .then(function (j) {
+        modals['m-settle'].hide();
+        $('done-no').textContent = j.invoice_no; $('done-label').textContent = parseFloat(j.balance_usd) > 0 ? 'On the account' : (parseFloat(j.change_usd) > 0 || j.change_lbp > 0 ? 'Change to give' : 'Paid in full');
+        $('done-change').textContent = parseFloat(j.balance_usd) > 0 ? money(j.balance_usd) : (parseFloat(j.change_usd) > 0 || j.change_lbp > 0 ? changeText(parseFloat(j.change_usd) + j.change_lbp / P.rate, $('settle-change-cur').value) : money(j.net_usd));
+        $('done-sub').textContent = 'Invoice ' + money(j.original_usd) + (parseFloat(j.returned_usd) > 0 ? ' · came back ' + money(j.returned_usd) : '') + ' · to pay ' + money(j.net_usd) + ' · paid ' + money(j.paid_usd);
+        $('done-warn').textContent = (j.warnings || []).join(' '); $('done-print').href = j.receipt + '&auto=1';
+        modals['m-done'].show();
+      })
+      .catch(function (e) {
+        if (e.short_drawer) { settle.allowShort = true; btn.textContent = 'Continue: I add the money myself'; }
+        if (e.needs_pin) { modals['m-settle'].hide(); askPin(String(e.error).replace('Needs an Admin PIN: ', 'Approve: '), function () { modals['m-settle'].show(); setTimeout(function () { $('settle-ok').click(); }, 400); }, function () { modals['m-settle'].show(); }); return; }
+        $('settle-error').textContent = e.error || 'Could not finish the invoice';
+      })
+      .finally(function () { btn.disabled = false; });
   });
   $('hold-ok').addEventListener('click', function () {
     api(P.urls.hold, { name: $('hold-name').value, cart: cart }).then(function () { cart = []; selected = -1; clearPayment(); renderCart(); modals['m-hold'].hide(); msg('Cart held'); $('hold-name').value = ''; }).catch(function (e) { msg(e.error || 'Failed', true); });
@@ -801,6 +896,7 @@
     function fallback() {
       if (modal.id === 'm-return') return $('ret-pin-step').hidden ? $('ret-usd') : $('ret-pin');
       if (modal.id === 'm-expense') return $('exp-usd');
+      if (modal.id === 'm-settle') return $('settle-usd');
       return modal.id === 'm-pin' ? $('pin-input') : (modal.id === 'm-pay' ? modal.querySelector('#pay-lines .pay-line:last-child input') : $('line-qty'));
     }
     modal.addEventListener('focusin', function (e) { if (e.target.matches('input[inputmode]')) { field = e.target; fresh = true; } });

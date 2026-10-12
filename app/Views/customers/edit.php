@@ -33,6 +33,17 @@
           <?php if ($customer['credit_limit_usd'] !== null): ?><div class="text-muted small">Credit limit <?= usd($customer['credit_limit_usd']) ?></div><?php endif; ?>
         </div>
         <?php if ((float) $pending['amount'] > 0): ?><p class="form-text">Includes <strong>+<?= usd($pending['amount']) ?></strong> price of the day, charged when they pay: <?= e((new \App\Services\DebtService())->describe($pending)) ?></p><?php endif; ?>
+        <?php $cid = (int) $customer['id']; $pdo = \App\Core\Database::pdo();
+          $tot = ['sales' => (float) $pdo->query("SELECT COALESCE(SUM(total_usd), 0) FROM sales WHERE customer_id = {$cid} AND status = 'completed'")->fetchColumn(),
+                  'payments' => -(float) $pdo->query("SELECT COALESCE(SUM(amount_usd), 0) FROM customer_ledger WHERE customer_id = {$cid} AND type = 'payment'")->fetchColumn(),
+                  'returns' => (float) $pdo->query("SELECT COALESCE(SUM(total_usd), 0) FROM returns WHERE customer_id = {$cid}")->fetchColumn() + (float) $pdo->query("SELECT COALESCE(SUM(t.returned_usd), 0) FROM sale_settlements t JOIN sales s ON s.id = t.sale_id WHERE s.customer_id = {$cid}")->fetchColumn(),
+                  'on_hold' => (int) $pdo->query("SELECT COUNT(*) FROM sales WHERE customer_id = {$cid} AND status = 'on_hold'")->fetchColumn()]; ?>
+        <dl class="kv mb-3">
+          <dt>Total sales</dt><dd><?= usd($tot['sales']) ?></dd>
+          <dt>Total payments</dt><dd><?= usd($tot['payments']) ?></dd>
+          <dt>Total returns</dt><dd><?= usd($tot['returns']) ?></dd>
+          <?php if ($tot['on_hold'] > 0): ?><dt>Out with the seller</dt><dd><?= $tot['on_hold'] ?> invoice<?= $tot['on_hold'] === 1 ? '' : 's' ?> on hold</dd><?php endif; ?>
+        </dl>
         <h2 class="h6">Adjust the balance</h2>
         <form method="post" action="<?= url('customers/adjust') ?>" class="row g-2 align-items-end">
           <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $customer['id'] ?>">

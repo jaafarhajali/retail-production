@@ -138,7 +138,12 @@ return [
     ['GET',  'pos/held',         [PosController::class, 'held'],      'pos.use'],
     ['POST', 'pos/resume',       [PosController::class, 'resume'],    'pos.use'],
     ['POST', 'pos/debt',         [PosController::class, 'debt'],      'debt.collect'],
-    ['POST', 'pos/expense',      [PosController::class, 'expense'],   'pos.use'],   // from the drawer; the administrator's PIN without expense.manage (2026-10-10)
+    ['POST', 'pos/expense',      [PosController::class, 'expense'],   'pos.use'],
+    // F3 (2026-10-13): the delivery invoice held on the till, finished when the seller is back
+    ['POST', 'pos/hold-invoice',  [PosController::class, 'holdInvoice'],  'sale.create'],
+    ['GET',  'pos/held-invoices', [PosController::class, 'heldInvoices'], 'pos.use'],
+    ['GET',  'pos/held-invoice',  [PosController::class, 'heldInvoice'],  'pos.use'],
+    ['POST', 'pos/settle',        [PosController::class, 'settle'],       'sale.create'],   // from the drawer; the administrator's PIN without expense.manage (2026-10-10)
     // Returns in the till (2026-10-04): pos.use to open; without return.create every step needs the administrator's PIN
     ['POST', 'pos/return-pin',    [PosController::class, 'returnPin'],    'pos.use'],
     ['GET',  'pos/return-search', [PosController::class, 'returnSearch'], 'pos.use'],

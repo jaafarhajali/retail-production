@@ -161,11 +161,47 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
 </div></div></div>
 
 <div class="modal fade pos-modal" id="m-hold" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-  <div class="modal-header"><h5 class="modal-title">Held sales</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+  <div class="modal-header"><h5 class="modal-title">Hold</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
   <div class="modal-body">
-    <div class="input-group mb-3" id="hold-new"><input class="form-control" id="hold-name" dir="auto" placeholder="Name for this cart (e.g. Ahmad)"><button class="btn btn-primary" id="hold-ok">Hold current cart</button></div>
+    <div class="hold-invoice mb-3" id="hold-invoice-box">
+      <div class="hold-title">Delivery invoice</div>
+      <p class="hold-hint" id="hold-invoice-hint">The cart becomes a numbered invoice for <b id="hold-invoice-customer" dir="auto"></b>, printed, and goes out with the seller. Nothing is paid and no stock moves until you finish it.</p>
+      <button class="pos-btn primary w-100" id="hold-invoice-ok"><i class="bi bi-receipt"></i> Hold as invoice and print</button>
+    </div>
+    <div class="hold-title">Out with the seller</div>
+    <div class="list-group mb-3" id="hold-invoices"></div>
+    <div class="hold-title">Parked carts</div>
+    <div class="input-group mb-2" id="hold-new"><input class="form-control" id="hold-name" dir="auto" placeholder="Name for this cart (e.g. Ahmad)"><button class="btn btn-outline-primary" id="hold-ok">Park current cart</button></div>
     <div class="list-group" id="hold-list"></div>
   </div>
+</div></div></div>
+
+<?php /* F3 (2026-10-13): finishing a held invoice when the seller is back: what came back, what was paid, the rest on the account. */ ?>
+<div class="modal fade pos-modal" id="m-settle" tabindex="-1"><div class="modal-dialog modal-dialog-centered modal-xl"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title" id="settle-title">Finish the invoice</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+  <div class="modal-body pos-split">
+    <div>
+      <div class="ret-head"><b id="settle-inv"></b> <span id="settle-meta" dir="auto"></span></div>
+      <div class="table-responsive"><table class="table ret-table">
+        <thead><tr><th>Item</th><th class="text-end">Delivered</th><th class="text-end">Invoiced</th><th style="width:9rem">Came back</th><th class="text-end">Kept</th></tr></thead>
+        <tbody id="settle-lines"></tbody>
+      </table></div>
+      <div class="settle-sum" id="settle-sum">
+        <div><span>Invoice as printed</span><b id="settle-original"></b></div>
+        <div><span>Came back</span><b id="settle-returned"></b></div>
+        <div class="is-net"><span>To pay</span><b id="settle-net"></b></div>
+      </div>
+      <div class="row g-2 mt-1">
+        <div class="col-md-4"><label class="form-label" for="settle-usd">Received in USD</label><input class="form-control" id="settle-usd" inputmode="decimal" placeholder="0.00"></div>
+        <div class="col-md-4"><label class="form-label" for="settle-lbp">Received in LBP</label><input class="form-control" id="settle-lbp" inputmode="numeric" placeholder="0"></div>
+        <div class="col-md-4"><label class="form-label" for="settle-change-cur">Change in</label><select class="form-select" id="settle-change-cur"><option value="LBP">LBP</option><option value="USD">USD</option></select></div>
+      </div>
+      <div class="settle-result" id="settle-result"></div>
+      <p class="pin-error mt-2" id="settle-error" role="alert"></p>
+    </div>
+    <?php require APP_PATH . '/Views/pos/_keypad.php'; ?>
+  </div>
+  <div class="modal-footer"><button class="pay-ok" id="settle-ok">Finish</button></div>
 </div></div></div>
 
 <?php /* An expense paid from this drawer (2026-10-10): what for, how much in USD and/or LBP, the administrator's PIN for a cashier. */ ?>
@@ -276,7 +312,7 @@ window.POS = {
   token: <?= json_encode($token) ?>, rate: <?= (int) $rate ?>, step: <?= (int) $step ?>,
   can: <?= json_encode($can) ?>, maxDiscount: <?= (float) $maxDiscount ?>,
   urls: { data: <?= json_encode(url('pos/data')) ?>, prices: <?= json_encode(url('pos/prices')) ?>, complete: <?= json_encode(url('pos/complete')) ?>, hold: <?= json_encode(url('pos/hold')) ?>, held: <?= json_encode(url('pos/held')) ?>,
-          resume: <?= json_encode(url('pos/resume')) ?>, expense: <?= json_encode(url('pos/expense')) ?>, customers: <?= json_encode(url('pos/customers')) ?>, debt: <?= json_encode(url('pos/debt')) ?>, pin: <?= json_encode(url('pos/pin')) ?>, check: <?= json_encode(url('pos/check')) ?>,
+          resume: <?= json_encode(url('pos/resume')) ?>, expense: <?= json_encode(url('pos/expense')) ?>, holdInvoice: <?= json_encode(url('pos/hold-invoice')) ?>, heldInvoices: <?= json_encode(url('pos/held-invoices')) ?>, heldInvoice: <?= json_encode(url('pos/held-invoice')) ?>, settle: <?= json_encode(url('pos/settle')) ?>, customers: <?= json_encode(url('pos/customers')) ?>, debt: <?= json_encode(url('pos/debt')) ?>, pin: <?= json_encode(url('pos/pin')) ?>, check: <?= json_encode(url('pos/check')) ?>,
           returnPin: <?= json_encode(url('pos/return-pin')) ?>, returnSearch: <?= json_encode(url('pos/return-search')) ?>, returnSale: <?= json_encode(url('pos/return-sale')) ?>, returnStore: <?= json_encode(url('pos/return')) ?> }
 };
 </script>

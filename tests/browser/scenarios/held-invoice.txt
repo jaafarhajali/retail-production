@@ -1,0 +1,33 @@
+// F3: a customer, two lines, Hold as invoice; then Finish it with one item back and a part payment.
+const pick = async (re) => { const i = await ev(`[...document.querySelectorAll('.tile')].findIndex(t => ${re}.test(t.textContent))`); await ev(`document.querySelectorAll('.tile')[${i}].click()`); await sleep(500); if (await ev(shown('m-unit'))) { await ev(`document.querySelector('#unit-list button').click()`); await sleep(500); } };
+await pick('/Adalya/'); await pick('/Mazaya/');
+await click('#btn-qty'); await waitFor(shown('m-line'), 'line dialog'); await sleep(300); await type('line-qty', '4'); await click('#line-ok'); await sleep(800);
+if (await ev(shown('m-pin'))) { await click('#m-pin .btn-close'); await sleep(400); }
+// choose a customer
+await click('#btn-customer'); await waitFor(shown('m-customer'), 'customer dialog'); await sleep(500);
+await type('cust-q', 'a'); await sleep(900);
+log('customers found:', await ev(`document.querySelectorAll('#cust-list button').length`));
+await ev(`document.querySelector('#cust-list button').click()`); await sleep(600);
+log('customer:', await ev(`document.getElementById('customer-name').textContent`) + ' · due ' + await ev(`document.getElementById('t-usd').textContent`));
+// Hold → invoice
+await click('#btn-hold'); await waitFor(shown('m-hold'), 'hold dialog'); await sleep(500);
+log('hold dialog:', await ev(`document.getElementById('hold-invoice-ok').disabled ? 'invoice button OFF' : 'invoice button ON for ' + document.getElementById('hold-invoice-customer').textContent`));
+await shot('h1-hold-dialog');
+await ev(`window.open = function () {}`);   // the receipt tab would steal the screen
+await click('#hold-invoice-ok'); await waitFor(shown('m-done'), 'done dialog', 10000); await sleep(500);
+log('held:', await ev(`document.getElementById('done-no').textContent + ' · ' + document.getElementById('done-label').textContent + ' · ' + document.getElementById('done-change').textContent`));
+log('cart after hold:', await ev(`document.querySelectorAll('#cart .cart-line').length`) + ' lines');
+await click('#done-next'); await waitFor(`!${shown('m-done')}`, 'done to close'); await sleep(400);
+// the list, then Finish
+await click('#btn-hold'); await waitFor(shown('m-hold'), 'hold dialog'); await sleep(900);
+log('out with the seller:', await ev(`[...document.querySelectorAll('#hold-invoices .hold-inv')].map(r => r.querySelector('b').textContent + ' ' + r.querySelector('.li-meta').textContent).join(' | ')`));
+await ev(`document.querySelector('#hold-invoices .hold-inv button').click()`); await waitFor(shown('m-settle'), 'settle dialog'); await sleep(600);
+log('settle lines:', await ev(`[...document.querySelectorAll('#settle-lines tr')].map(tr => tr.children[0].textContent + ' ' + tr.children[1].textContent + ' ' + tr.children[2].textContent).join(' | ')`));
+await ev(`(() => { const q = document.querySelectorAll('#settle-lines input')[1]; q.value = '1'; q.dispatchEvent(new Event('input', { bubbles: true })); })()`); await sleep(300);
+await type('settle-usd', '20'); await sleep(300);
+log('sum:', await ev(`document.getElementById('settle-original').textContent + ' came back ' + document.getElementById('settle-returned').textContent + ' to pay ' + document.getElementById('settle-net').textContent + ' → ' + document.getElementById('settle-result').textContent`));
+await shot('h2-settle');
+await click('#settle-ok'); await waitFor(shown('m-done'), 'done dialog', 10000); await sleep(500);
+log('finished:', await ev(`document.getElementById('done-no').textContent + ' · ' + document.getElementById('done-label').textContent + ' ' + document.getElementById('done-change').textContent + ' · ' + document.getElementById('done-sub').textContent`));
+await shot('h3-finished');
+await click('#done-next'); await sleep(400);

@@ -1,9 +1,9 @@
-<?php $s = $sale; $voided = $s['status'] === 'voided'; ?>
+<?php $s = $sale; $voided = $s['status'] === 'voided'; $onHold = $s['status'] === 'on_hold'; $settlement = (new \App\Models\Sale())->settlement((int) $s['id']); ?>
 <div class="row g-3">
   <div class="col-xl-4">
     <div class="card"><div class="card-body">
       <dl class="kv">
-        <dt>Invoice</dt><dd><code><?= e($s['invoice_no']) ?></code><?= $voided ? ' <span class="badge text-bg-danger">voided</span>' : '' ?></dd>
+        <dt>Invoice</dt><dd><code><?= e($s['invoice_no']) ?></code><?= $voided ? ' <span class="badge text-bg-danger">voided</span>' : '' ?><?= $onHold ? ' <span class="badge text-bg-warning">on hold · out with the seller</span>' : '' ?><?= $settlement !== null ? ' <span class="badge text-bg-info">delivery</span>' : '' ?></dd>
         <dt>When</dt><dd><?= e(date('d/m/Y H:i', strtotime($s['created_at']))) ?></dd>
         <dt>Cashier</dt><dd><?= e($s['username']) ?><span class="cell-sub"><span dir="auto"><?= e($s['register_name']) ?></span> · <?= e($s['session_no']) ?></span></dd>
         <dt>Customer</dt><dd dir="auto"><?= e($s['customer_name'] ?? 'Walk-in') ?></dd>
@@ -17,6 +17,19 @@
     </div></div>
   </div>
   <div class="col-xl-8">
+    <?php if ($settlement !== null): ?>
+      <div class="card mb-3"><div class="card-header">Finished <?= e(date('d/m/Y H:i', strtotime($settlement['settled_at']))) ?> · <?= e($settlement['settled_by_name'] ?? '') ?></div><div class="card-body">
+        <dl class="kv mb-2">
+          <dt>Invoice as printed</dt><dd><?= usd($settlement['original_usd']) ?></dd>
+          <dt>Came back</dt><dd><?= (float) $settlement['returned_usd'] > 0 ? '-' . usd($settlement['returned_usd']) : usd(0) ?><?php foreach ($settlement['returns'] as $b): ?><span class="cell-sub" dir="auto"><?= e(rtrim(rtrim($b['qty'], '0'), '.')) ?> <?= e($b['unit_name']) ?> <?= e($b['product_name']) ?> · <?= usd($b['value_usd']) ?></span><?php endforeach; ?></dd>
+          <dt>To pay</dt><dd><?= usd($settlement['net_usd']) ?></dd>
+          <dt>Paid</dt><dd><?= usd($settlement['paid_usd']) ?></dd>
+          <dt>On the account</dt><dd class="<?= (float) $settlement['balance_usd'] > 0 ? 'text-danger fw-semibold' : '' ?>"><?= usd($settlement['balance_usd']) ?></dd>
+        </dl>
+        <span class="badge <?= (float) $settlement['balance_usd'] > 0.004 ? ((float) $settlement['paid_usd'] > 0.004 ? 'text-bg-warning' : 'text-bg-danger') : 'text-bg-success' ?>"><?= (float) $settlement['balance_usd'] > 0.004 ? ((float) $settlement['paid_usd'] > 0.004 ? 'Partially paid' : 'Unpaid') : 'Paid' ?></span>
+        <?php if ($settlement['returns'] !== []): ?><span class="badge text-bg-secondary"><?= (float) $settlement['net_usd'] <= 0.004 ? 'Returned' : 'Partially returned' ?></span><?php endif; ?>
+      </div></div>
+    <?php endif; ?>
     <div class="card mb-3"><div class="table-responsive"><table class="table">
       <thead><tr><th>Item</th><th class="text-end">Qty</th><th class="text-end">Price</th><th class="text-end">Discount</th><th class="text-end">Total</th><th class="text-end">Returned</th></tr></thead>
       <tbody><?php foreach ($items as $i): ?>

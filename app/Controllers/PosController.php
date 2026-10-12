@@ -90,6 +90,63 @@ final class PosController extends Controller
         }, $rows)]);
     }
 
+    // ---- F3 (2026-10-13): the delivery invoice held on the till, finished when the seller is back.
+
+    public function holdInvoice(): void
+    {
+        [$register, $session] = $this->requireSession();
+        $in = $this->jsonInput();
+        try {
+            $r = (new SaleService())->hold([
+                'register_id' => (int) $register['id'], 'session_id' => (int) $session['id'], 'user_id' => Auth::id(),
+                'customer_id' => (int) ($in['customer_id'] ?? 0) ?: null, 'price_level' => (string) ($in['price_level'] ?? 'retail'),
+                'lines' => is_array($in['lines'] ?? null) ? $in['lines'] : [], 'invoice_discount' => (string) ($in['invoice_discount'] ?? ''),
+                'notes' => (string) ($in['notes'] ?? ''), 'pin' => (string) ($in['pin'] ?? ''),
+            ]);
+        } catch (\DomainException $e) {
+            $this->json(['error' => $e->getMessage(), 'needs_pin' => str_starts_with($e->getMessage(), 'Needs an Admin PIN')], 422);
+        }
+        $this->json($r + ['receipt' => url('sales/receipt', ['id' => $r['id']])]);
+    }
+
+    public function heldInvoices(): void
+    {
+        $this->requireSession();
+        $this->json(['invoices' => array_map(static fn (array $s): array => [
+            'id' => (int) $s['id'], 'invoice_no' => $s['invoice_no'], 'customer' => $s['customer_name'], 'total' => $s['total_usd'], 'by' => $s['username'],
+            'held_at' => date('d/m H:i', strtotime((string) ($s['held_at'] ?? $s['created_at']))), 'receipt' => url('sales/receipt', ['id' => $s['id']]),
+        ], (new \App\Models\Sale())->onHold())]);
+    }
+
+    public function heldInvoice(): void
+    {
+        $this->requireSession();
+        $sales = new \App\Models\Sale();
+        $sale = $sales->find($this->queryInt('id'));
+        if ($sale === null || $sale['status'] !== 'on_hold') {
+            $this->json(['error' => 'This invoice is not out with the seller.'], 404);
+        }
+        $owed = $sale['customer_id'] === null ? '0.00' : (new Customer())->balance((int) $sale['customer_id']);
+        $this->json([
+            'sale' => ['id' => (int) $sale['id'], 'invoice_no' => $sale['invoice_no'], 'customer' => $sale['customer_name'], 'total' => $sale['total_usd'], 'subtotal' => $sale['subtotal_usd'], 'discount' => $sale['discount_usd'], 'owed' => $owed, 'held_at' => date('d/m/Y H:i', strtotime((string) ($sale['held_at'] ?? $sale['created_at'])))],
+            'lines' => array_map(static fn (array $i): array => ['id' => (int) $i['id'], 'name' => $i['product_name'], 'unit' => $i['unit_name'], 'factor' => (int) $i['factor'], 'fraction' => (int) $i['allows_fraction'] === 1,
+                'base_qty' => (int) $i['base_qty'], 'qty' => \App\Services\Quantity::unitQty((int) $i['base_qty'], (int) $i['factor']), 'line_total' => $i['line_total_usd']], $sales->items((int) $sale['id'])),
+        ]);
+    }
+
+    public function settle(): void
+    {
+        [$register, $session] = $this->requireSession();
+        $in = $this->jsonInput();
+        try {
+            $r = (new SaleService())->settle((int) ($in['sale_id'] ?? 0), is_array($in['returns'] ?? null) ? $in['returns'] : [], is_array($in['payments'] ?? null) ? $in['payments'] : [],
+                (string) ($in['change_currency'] ?? 'LBP'), ($in['allow_short_drawer'] ?? false) === true, (string) ($in['pin'] ?? ''), Auth::id(), (int) $session['id'], (int) $register['id']);
+        } catch (\DomainException $e) {
+            $this->json(['error' => $e->getMessage(), 'needs_pin' => str_starts_with($e->getMessage(), 'Needs an Admin PIN'), 'short_drawer' => $e->getCode() === CashService::SHORT_DRAWER], 422);
+        }
+        $this->json($r + ['receipt' => url('sales/receipt', ['id' => $r['id']])]);
+    }
+
     /**
      * An expense paid from this drawer at the till (owner, 2026-10-10): the electricity man paid by the cashier. Without
      * expense.manage the administrator's PIN approves it. It lands in Expenses and on this session's Z like any drawer expense.

@@ -34,6 +34,173 @@ final class SaleService
      */
     public function complete(array $in): array
     {
+        $p = $this->prepare($in);
+        $pay = $this->payments($in, $p['total'], $p['rate'], $p['step'], $p['customer'], $p['needsPin']);
+        // Change must come out of a drawer that has it; lira the customer just handed over counts (I5, warn and allow).
+        $short = CashService::drawerShortfall((int) $in['session_id'], ['USD' => $pay['change_usd'], 'LBP' => $pay['change_lbp']], $pay['cash_in'], 'change');
+        if ($short !== null && empty($in['allow_short_drawer'])) {
+            throw new \DomainException($short, CashService::SHORT_DRAWER);
+        }
+        // Admin PIN for anything the cashier may not do alone (§15)
+        $approver = $p['needsPin'] !== [] ? $this->verifyPin((string) ($in['pin'] ?? ''), $p['needsPin']) : null;
+        $warnings = $p['warnings'];
+
+        $result = Database::transaction(function () use ($in, $p, $pay, $approver, &$warnings): array {
+            $no = Counter::format('INV-', Counter::next('invoice'));
+            $sales = new Sale();
+            $saleId = $sales->create($this->saleFields($no, $in, $p, $pay, 'completed'));
+            foreach ($p['lines'] as $l) {
+                $sales->addItem($saleId, $l);
+                if ($l['stock_base'] - $l['base_qty'] < 0) {
+                    $warnings[] = $l['product_name'] . ' is now below zero stock.';
+                }
+            }
+            $this->fulfil($saleId, $no, $p['lines'], $pay, $p['customer'], $p['rate'], (int) $in['session_id'], (int) $in['user_id']);
+            Audit::log('sale.completed', 'sale', $saleId, ['no' => $no, 'lines' => count($p['lines']), 'level' => $p['level']], (float) $p['total'], 'USD');
+            $this->auditOverrides($saleId, $p, $approver);
+
+            return ['id' => $saleId, 'invoice_no' => $no];
+        });
+        $this->auditAfter($result, $p, $short);
+
+        return $result + ['change_usd' => $pay['change_usd'], 'change_lbp' => $pay['change_lbp'], 'warnings' => $warnings, 'total_usd' => $p['total'], 'rounding_usd' => Money::fmt($pay['rounding'])];
+    }
+
+    /**
+     * F3 (2026-10-13): the delivery invoice. Same lines and rules as a sale, a customer is required, and nothing else
+     * happens yet: no payment, no stock, no ledger. It gets its number, prints, and goes out with the seller.
+     *
+     * @return array{id: int, invoice_no: string, total_usd: string}
+     */
+    public function hold(array $in): array
+    {
+        $p = $this->prepare($in);
+        if ($p['customer'] === null) {
+            throw new \DomainException('A held invoice needs the customer it goes to. Choose the customer first.');
+        }
+        $approver = $p['needsPin'] !== [] ? $this->verifyPin((string) ($in['pin'] ?? ''), $p['needsPin']) : null;
+        $empty = ['payments' => [], 'change_usd' => '0.00', 'change_lbp' => 0, 'rounding' => 0.0];
+
+        return Database::transaction(function () use ($in, $p, $empty, $approver): array {
+            $no = Counter::format('INV-', Counter::next('invoice'));
+            $sales = new Sale();
+            $saleId = $sales->create($this->saleFields($no, $in, $p, $empty, 'on_hold') + ['held_at' => date('Y-m-d H:i:s')]);
+            foreach ($p['lines'] as $l) {
+                $sales->addItem($saleId, $l);
+            }
+            Audit::log('sale.held', 'sale', $saleId, ['no' => $no, 'customer' => $p['customer']['name'], 'lines' => count($p['lines'])], (float) $p['total'], 'USD');
+            $this->auditOverrides($saleId, $p, $approver);
+
+            return ['id' => $saleId, 'invoice_no' => $no, 'total_usd' => $p['total']];
+        });
+    }
+
+    /**
+     * F3: the seller is back. What came back is taken off the lines at the invoice's own prices, the net quantities
+     * leave the stock, the cash goes into the settler's drawer and the rest onto the customer's account. The invoice
+     * as printed stays in sale_settlements.
+     *
+     * @param array<int|string, string> $returns  sale_item_id => quantity that came back, in the line's unit
+     * @param list<array{method: string, currency: string, amount: string}> $payments
+     */
+    public function settle(int $saleId, array $returns, array $payments, string $changeCurrency, bool $allowShort, string $pin, int $userId, int $sessionId, int $registerId): array
+    {
+        $sales = new Sale();
+        $sale = $sales->find($saleId) ?? throw new \DomainException('Invoice not found.');
+        if ($sale['status'] !== 'on_hold') {
+            throw new \DomainException($sale['invoice_no'] . ' is not out with the seller: it was already finished.');
+        }
+        $customer = $sale['customer_id'] === null ? null : (new Customer())->find((int) $sale['customer_id']);
+        $rate = (new ExchangeRate())->current();
+        $step = Money::step();
+        $products = new Product();
+        $lines = [];
+        $back = [];
+        $returnedValue = 0.0;
+        $netSubtotal = 0.0;
+        foreach ($sales->items($saleId) as $i) {
+            $text = trim((string) ($returns[(int) $i['id']] ?? ''));
+            $retBase = 0;
+            if ($text !== '' && (float) str_replace(',', '', $text) > 0) {
+                $fraction = (int) $i['allows_fraction'] === 1;
+                $retQty = Quantity::parse($text, $fraction);
+                $retBase = Quantity::toBase($retQty, (int) $i['factor'], $fraction);
+                if ($retBase > (int) $i['base_qty']) {
+                    throw new \DomainException('Only ' . Quantity::unitQty((int) $i['base_qty'], (int) $i['factor']) . " {$i['unit_name']} of {$i['product_name']} went out, so no more than that can come back.");
+                }
+            }
+            $netBase = (int) $i['base_qty'] - $retBase;
+            $value = (int) $i['base_qty'] > 0 ? Money::fmt((float) $i['line_total_usd'] * $retBase / (int) $i['base_qty']) : '0.00';
+            $ratio = (int) $i['base_qty'] > 0 ? $netBase / (int) $i['base_qty'] : 0;
+            $product = $products->find((int) $i['product_id']);
+            $lineTotal = Money::sub($i['line_total_usd'], $value);
+            $lines[] = [
+                'item_id' => (int) $i['id'], 'product_id' => (int) $i['product_id'], 'product_name' => $i['product_name'], 'base_qty' => $netBase,
+                'qty' => Quantity::unitQty($netBase, (int) $i['factor']), 'line_total_usd' => $lineTotal, 'line_discount_usd' => Money::fmt((float) $i['line_discount_usd'] * $ratio),
+                'cost_per_base' => $i['cost_per_base'], 'line_cost_usd' => Money::fmt($netBase * (float) $i['cost_per_base']), 'stock_base' => (int) ($product['stock_base'] ?? 0),
+            ];
+            if ($retBase > 0) {
+                $back[] = ['sale_item_id' => (int) $i['id'], 'qty' => Quantity::unitQty($retBase, (int) $i['factor']), 'base_qty' => $retBase, 'value_usd' => $value, 'product_name' => $i['product_name']];
+            }
+            $returnedValue += (float) $value;
+            $netSubtotal += (float) $lineTotal;
+        }
+        // Line totals already carry their share of the invoice discount (§6), so the net total is simply their sum;
+        // the discount and the subtotal shown on the invoice shrink in the same proportion.
+        $netTotal = Money::fmt($netSubtotal);
+        $netDiscount = (float) $sale['total_usd'] > 0 ? Money::fmt((float) $sale['discount_usd'] * (float) $netTotal / (float) $sale['total_usd']) : '0.00';
+        $netSubtotal = (float) $netTotal + (float) $netDiscount;
+        if ((float) $netTotal <= 0.004 && $back === []) {
+            throw new \DomainException('Nothing to settle on this invoice.');
+        }
+        $needsPin = [];
+        $pay = $this->payments(['payments' => $payments, 'change_currency' => $changeCurrency], $netTotal, $rate, $step, $customer, $needsPin);
+        $short = CashService::drawerShortfall($sessionId, ['USD' => $pay['change_usd'], 'LBP' => $pay['change_lbp']], $pay['cash_in'], 'change');
+        if ($short !== null && !$allowShort) {
+            throw new \DomainException($short, CashService::SHORT_DRAWER);
+        }
+        $approver = $needsPin !== [] ? $this->verifyPin($pin, $needsPin) : null;
+        $warnings = [];
+
+        $result = Database::transaction(function () use ($sales, $sale, $saleId, $lines, $back, $pay, $customer, $rate, $userId, $sessionId, $registerId, $netSubtotal, $netDiscount, $netTotal, $returnedValue, $approver, $needsPin, &$warnings): array {
+            foreach ($lines as $l) {
+                $sales->settleItem($l['item_id'], $l);
+                if ($l['base_qty'] > 0 && $l['stock_base'] - $l['base_qty'] < 0) {
+                    $warnings[] = $l['product_name'] . ' is now below zero stock.';
+                }
+            }
+            $sales->settle($saleId, [
+                'session_id' => $sessionId, 'register_id' => $registerId, 'subtotal_usd' => Money::fmt($netSubtotal), 'discount_usd' => $netDiscount, 'total_usd' => $netTotal,
+                'rounding_usd' => Money::fmt($pay['rounding']), 'cost_total_usd' => Money::fmt(array_sum(array_map(static fn (array $l): float => (float) $l['line_cost_usd'], $lines))),
+                'exchange_rate' => $rate, 'change_usd' => $pay['change_usd'], 'change_lbp' => $pay['change_lbp'], 'settled_by' => $userId,
+            ]);
+            $this->fulfil($saleId, $sale['invoice_no'], array_filter($lines, static fn (array $l): bool => $l['base_qty'] > 0), $pay, $customer, $rate, $sessionId, $userId);
+            $paidCash = array_sum(array_map(static fn (array $x): float => $x['method'] === 'credit' ? 0.0 : (float) $x['amount_usd'], $pay['payments']));
+            $settlementId = $sales->addSettlement($saleId, [
+                'original_usd' => $sale['total_usd'], 'returned_usd' => Money::fmt($returnedValue), 'net_usd' => $netTotal, 'paid_usd' => Money::fmt($paidCash - (float) $pay['change_usd'] - (float) Money::lbpToUsd($pay['change_lbp'], $rate)),
+                'balance_usd' => Money::fmt($pay['credit']), 'settled_by' => $userId, 'notes' => null,
+            ]);
+            foreach ($back as $b) {
+                $sales->addSettlementReturn($settlementId, $b);
+            }
+            Audit::log('sale.settled', 'sale', $saleId, ['no' => $sale['invoice_no'], 'original' => $sale['total_usd'], 'returned' => Money::fmt($returnedValue), 'net' => $netTotal, 'credit' => Money::fmt($pay['credit'])], (float) $netTotal, 'USD');
+            if ($approver !== null) {
+                Audit::log('pin.override', 'sale', $saleId, ['approved_by' => $approver['username'], 'for' => $needsPin]);
+            }
+
+            return ['id' => $saleId, 'invoice_no' => $sale['invoice_no'], 'original_usd' => $sale['total_usd'], 'returned_usd' => Money::fmt($returnedValue), 'net_usd' => $netTotal,
+                    'paid_usd' => Money::fmt($paidCash), 'balance_usd' => Money::fmt($pay['credit']), 'change_usd' => $pay['change_usd'], 'change_lbp' => $pay['change_lbp'], 'returned_lines' => $back];
+        });
+        if ($short !== null) {
+            Audit::log('drawer.short', 'sale', $saleId, ['no' => $sale['invoice_no'], 'warning' => $short]);
+        }
+
+        return $result + ['warnings' => $warnings];
+    }
+
+    /** The lines, totals, customer and what needs the administrator: everything a sale needs before money or stock move. */
+    private function prepare(array $in): array
+    {
         $rate = (new ExchangeRate())->current();
         $step = Money::step();
         $level = $in['price_level'] === 'wholesale' ? 'wholesale' : 'retail';
@@ -85,7 +252,13 @@ final class SaleService
             }
         }
 
-        // Payments (§7.1)
+        return ['rate' => $rate, 'step' => $step, 'level' => $level, 'customer' => $customer, 'lines' => $lines, 'subtotal' => $subtotal, 'invoiceDiscount' => $invoiceDiscount,
+                'total' => $total, 'needsPin' => $needsPin, 'warnings' => $warnings, 'belowCost' => $belowCost];
+    }
+
+    /** Payments (§7.1), then the settlement: tolerance, change and rounding (§7.2, §7.3). */
+    private function payments(array $in, string $total, int $rate, int $step, ?array $customer, array &$needsPin): array
+    {
         $payments = [];
         $paid = 0.0;
         $credit = 0.0;
@@ -122,7 +295,6 @@ final class SaleService
             $needsPin[] = 'credit limit of ' . usd($customer['credit_limit_usd']);
         }
 
-        // Settle: tolerance, change and rounding (§7.2, §7.3)
         $remaining = round((float) $total - $paid, 2);
         $tolerance = ($step / 2) / $rate;
         $rounding = 0.0;
@@ -155,82 +327,74 @@ final class SaleService
                 $rounding = round($over - (float) Money::lbpToUsd($changeLbp, $rate), 2);
             }
         }
-
-        // Change must come out of a drawer that has it; lira the customer just handed over counts (I5, warn and allow).
         $cashIn = ['USD' => 0.0, 'LBP' => 0.0];
         foreach ($payments as $p) {
             if ($p['method'] === 'cash') {
                 $cashIn[$p['currency']] += (float) $p['amount'];
             }
         }
-        $short = CashService::drawerShortfall((int) $in['session_id'], ['USD' => $changeUsd, 'LBP' => $changeLbp], $cashIn, 'change');
-        if ($short !== null && empty($in['allow_short_drawer'])) {
-            throw new \DomainException($short, CashService::SHORT_DRAWER);
+
+        return ['payments' => $payments, 'paid' => $paid, 'credit' => $credit, 'change_usd' => $changeUsd, 'change_lbp' => $changeLbp, 'rounding' => $rounding, 'cash_in' => $cashIn];
+    }
+
+    private function saleFields(string $no, array $in, array $p, array $pay, string $status): array
+    {
+        return [
+            'invoice_no' => $no, 'register_id' => $in['register_id'], 'session_id' => $in['session_id'], 'user_id' => $in['user_id'],
+            'customer_id' => $p['customer'] === null ? null : (int) $p['customer']['id'], 'price_level' => $p['level'], 'subtotal_usd' => Money::fmt($p['subtotal']),
+            'discount_usd' => $p['invoiceDiscount'], 'total_usd' => $p['total'], 'rounding_usd' => Money::fmt($pay['rounding']),
+            'cost_total_usd' => Money::fmt(array_sum(array_map(static fn (array $l): float => (float) $l['line_cost_usd'], $p['lines']))),
+            'exchange_rate' => $p['rate'], 'change_usd' => $pay['change_usd'], 'change_lbp' => $pay['change_lbp'], 'notes' => trim((string) ($in['notes'] ?? '')) ?: null, 'status' => $status,
+        ];
+    }
+
+    /** Stock out, payments and their cash movements, change, and the credit part on the customer's ledger. */
+    private function fulfil(int $saleId, string $no, array $lines, array $pay, ?array $customer, int $rate, int $sessionId, int $userId): void
+    {
+        $stock = new StockService();
+        foreach ($lines as $l) {
+            $stock->move($l['product_id'], -$l['base_qty'], 'sale', null, $l['cost_per_base'], 'sale', $saleId, $userId, $sessionId);
         }
-
-        // Admin PIN for anything the cashier may not do alone (§15)
-        $approver = null;
-        if ($needsPin !== []) {
-            $approver = $this->verifyPin((string) ($in['pin'] ?? ''), $needsPin);
+        $sales = new Sale();
+        $cash = new CashSession();
+        foreach ($pay['payments'] as $p) {
+            $sales->addPayment($saleId, $p['method'], $p['currency'], $p['amount'], $p['amount_usd']);
+            if ($p['method'] === 'cash') {
+                $cash->addMovement(['session_id' => $sessionId, 'currency' => $p['currency'], 'amount' => $p['amount'], 'type' => 'sale', 'ref_type' => 'sale', 'ref_id' => $saleId, 'user_id' => $userId]);
+            }
         }
+        if ((float) $pay['change_usd'] > 0) {
+            $cash->addMovement(['session_id' => $sessionId, 'currency' => 'USD', 'amount' => '-' . $pay['change_usd'], 'type' => 'change', 'ref_type' => 'sale', 'ref_id' => $saleId, 'user_id' => $userId]);
+        }
+        if ($pay['change_lbp'] > 0) {
+            $cash->addMovement(['session_id' => $sessionId, 'currency' => 'LBP', 'amount' => '-' . $pay['change_lbp'], 'type' => 'change', 'ref_type' => 'sale', 'ref_id' => $saleId, 'user_id' => $userId]);
+        }
+        if ($pay['credit'] > 0 && $customer !== null) {
+            (new Customer())->addLedger(['customer_id' => (int) $customer['id'], 'type' => 'sale_credit', 'amount_usd' => Money::fmt($pay['credit']), 'currency' => 'USD',
+                                         'amount_original' => Money::fmt($pay['credit']), 'exchange_rate' => $rate, 'sale_id' => $saleId, 'session_id' => $sessionId, 'user_id' => $userId, 'note' => $no]);
+        }
+    }
 
-        $stockService = new StockService();
-        $result = Database::transaction(function () use ($in, $lines, $payments, $customer, $level, $subtotal, $invoiceDiscount, $total, $rounding, $rate, $changeUsd, $changeLbp, $stockService, $credit, &$warnings, $needsPin, $approver): array {
-            $no = Counter::format('INV-', Counter::next('invoice'));
-            $sales = new Sale();
-            $saleId = $sales->create([
-                'invoice_no' => $no, 'register_id' => $in['register_id'], 'session_id' => $in['session_id'], 'user_id' => $in['user_id'],
-                'customer_id' => $customer === null ? null : (int) $customer['id'], 'price_level' => $level, 'subtotal_usd' => Money::fmt($subtotal),
-                'discount_usd' => $invoiceDiscount, 'total_usd' => $total, 'rounding_usd' => Money::fmt($rounding),
-                'cost_total_usd' => Money::fmt(array_sum(array_map(static fn (array $l): float => (float) $l['line_cost_usd'], $lines))),
-                'exchange_rate' => $rate, 'change_usd' => $changeUsd, 'change_lbp' => $changeLbp, 'notes' => trim((string) ($in['notes'] ?? '')) ?: null,
-            ]);
-            foreach ($lines as $l) {
-                $sales->addItem($saleId, $l);
-                if ($l['stock_base'] - $l['base_qty'] < 0) {
-                    $warnings[] = $l['product_name'] . ' is now below zero stock.';
-                }
-                $stockService->move($l['product_id'], -$l['base_qty'], 'sale', null, $l['cost_per_base'], 'sale', $saleId, $in['user_id'], $in['session_id']);
+    private function auditOverrides(int $saleId, array $p, ?array $approver): void
+    {
+        if ($approver !== null) {
+            Audit::log('pin.override', 'sale', $saleId, ['approved_by' => $approver['username'], 'for' => $p['needsPin']]);
+        }
+        foreach ($p['lines'] as $l) {
+            if ($l['price_overridden']) {
+                Audit::log('sale.price_override', 'sale', $saleId, ['product' => $l['product_name'], 'price' => $l['unit_price_usd']]);
             }
-            $cash = new CashSession();
-            foreach ($payments as $p) {
-                $sales->addPayment($saleId, $p['method'], $p['currency'], $p['amount'], $p['amount_usd']);
-                if ($p['method'] === 'cash') {
-                    $cash->addMovement(['session_id' => $in['session_id'], 'currency' => $p['currency'], 'amount' => $p['amount'], 'type' => 'sale',
-                                        'ref_type' => 'sale', 'ref_id' => $saleId, 'user_id' => $in['user_id']]);
-                }
-            }
-            if ((float) $changeUsd > 0) {
-                $cash->addMovement(['session_id' => $in['session_id'], 'currency' => 'USD', 'amount' => '-' . $changeUsd, 'type' => 'change', 'ref_type' => 'sale', 'ref_id' => $saleId, 'user_id' => $in['user_id']]);
-            }
-            if ($changeLbp > 0) {
-                $cash->addMovement(['session_id' => $in['session_id'], 'currency' => 'LBP', 'amount' => '-' . $changeLbp, 'type' => 'change', 'ref_type' => 'sale', 'ref_id' => $saleId, 'user_id' => $in['user_id']]);
-            }
-            if ($credit > 0 && $customer !== null) {
-                (new Customer())->addLedger(['customer_id' => (int) $customer['id'], 'type' => 'sale_credit', 'amount_usd' => Money::fmt($credit), 'currency' => 'USD',
-                                             'amount_original' => Money::fmt($credit), 'exchange_rate' => $rate, 'sale_id' => $saleId, 'session_id' => $in['session_id'], 'user_id' => $in['user_id'], 'note' => $no]);
-            }
-            Audit::log('sale.completed', 'sale', $saleId, ['no' => $no, 'lines' => count($lines), 'level' => $level], (float) $total, 'USD');
-            if ($approver !== null) {
-                Audit::log('pin.override', 'sale', $saleId, ['approved_by' => $approver['username'], 'for' => $needsPin]);
-            }
-            foreach ($lines as $l) {
-                if ($l['price_overridden']) {
-                    Audit::log('sale.price_override', 'sale', $saleId, ['product' => $l['product_name'], 'price' => $l['unit_price_usd']]);
-                }
-            }
+        }
+    }
 
-            return ['id' => $saleId, 'invoice_no' => $no];
-        });
-
-        if ($belowCost !== []) {
-            Audit::log('sale.below_cost', 'sale', (int) $result['id'], ['no' => $result['invoice_no'], 'products' => $belowCost]);
+    private function auditAfter(array $result, array $p, ?string $short): void
+    {
+        if ($p['belowCost'] !== []) {
+            Audit::log('sale.below_cost', 'sale', (int) $result['id'], ['no' => $result['invoice_no'], 'products' => $p['belowCost']]);
         }
         if ($short !== null) {   // confirmed by the cashier: the owner sees who gave change the drawer did not hold
             Audit::log('drawer.short', 'sale', (int) $result['id'], ['no' => $result['invoice_no'], 'warning' => $short]);
         }
-
-        return $result + ['change_usd' => $changeUsd, 'change_lbp' => $changeLbp, 'warnings' => $warnings, 'total_usd' => $total, 'rounding_usd' => Money::fmt($rounding)];
     }
 
 

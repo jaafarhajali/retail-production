@@ -900,6 +900,21 @@ body > .error-wrap .blocked { width: 100%; }
 #m-return .ret-results { margin-top: .6rem; max-height: 46vh; overflow-y: auto; }
 #m-return .ret-head { margin-bottom: .6rem; color: var(--t-ink-2); }
 #m-return .ret-noinv { margin-top: .5rem; }
+#m-hold .hold-title { font-weight: 700; color: var(--t-ink-2); font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; margin: .2rem 0 .5rem; }
+#m-hold .hold-invoice { padding: .9rem 1rem; border-radius: 12px; background: var(--t-well); }
+#m-hold .hold-hint { color: var(--t-ink-2); margin: 0 0 .7rem; }
+#m-hold .hold-inv { display: flex; align-items: center; gap: .6rem; }
+#m-hold .hold-inv .li-main { flex: 1 1 auto; min-width: 0; }
+#m-hold .hold-inv-actions { display: flex; gap: .4rem; }
+#m-settle .settle-sum { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .6rem; }
+#m-settle .settle-sum > div { padding: .55rem .8rem; border-radius: 10px; background: var(--t-well); display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; }
+#m-settle .settle-sum > div span { color: var(--t-ink-2); font-size: .85rem; }
+#m-settle .settle-sum > div.is-net { background: var(--t-bar-strong); color: var(--t-ink); }
+#m-settle .settle-sum > div.is-net b { font-size: 1.25rem; }
+#m-settle .settle-result { margin-top: .8rem; padding: .7rem .9rem; border-radius: 10px; font-weight: 700; background: var(--t-well); }
+#m-settle .settle-result.is-debt { background: rgba(179, 38, 30, .14); }
+#m-settle .settle-result.is-paid { background: rgba(30, 150, 80, .18); }
+#m-settle .settle-result.is-change { background: rgba(230, 170, 40, .22); }
 #m-return .ret-free-results { max-height: 26vh; margin-bottom: .6rem; }
 #m-return .ret-free-results:empty { display: none; }
 #m-return .ret-table .line-del { width: 2.2rem; height: 2.2rem; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--t-ink-2); }
