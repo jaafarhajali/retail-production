@@ -303,6 +303,9 @@ td.empty { background: var(--surface) !important; }
 .dash-status.is-open .dot { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
 .dash-status.is-warn { color: var(--amber); }
 .dash-status.is-warn .dot { background: var(--amber); }
+.kind-tabs .nav-link { font-weight: 600; }
+.kind-tabs .nav-link:not(.active) .badge { background: var(--line) !important; color: var(--ink-2) !important; }
+.pf-kind .btn-group .btn { font-weight: 600; }
 .backup-status.is-ok { border-color: var(--green); }
 .backup-status.is-warn { border-color: var(--amber); }
 .backup-status .backup-light { font-size: 2rem; line-height: 1; }

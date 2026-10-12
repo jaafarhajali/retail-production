@@ -18,4 +18,4 @@ MAXPCT=10 PREFIX=n bash tests/browser/till_test.sh <out dir> tests/browser/scena
   `shot(name)` saves a PNG, `type(id, text)`, `click(selector)`, `shown(modalId)`, `log(label, value)`, `send(cdpMethod, params)`, `sleep(ms)`.
 - `set_max.php` and `float_price.php` are helpers the runner and some scenarios call on the test database.
 
-Never run this while `tests/run.php` is running: both use `retail_pos_test`.
+Never run this while `tests/run.php` is running: both use `retail_production_test`.

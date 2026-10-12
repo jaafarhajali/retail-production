@@ -169,11 +169,18 @@ foreach ([
 $out('Suppliers: ' . count($sup) . ', customers: ' . count($cust));
 
 // ---------------------------------------------------------------- a purchase (part paid, rest on the supplier ledger)
+// F1 (factory edition): only raw materials are bought, so the demo purchase buys two materials made for it.
+$materialIds = [];
+foreach ([['Raw tobacco leaf', 'g', 'Bag', 5000, '25.00'], ['Glycerin', 'ml', 'Bottle', 1000, '8.00']] as [$mName, $mBase, $mType, $mSize, $mCost]) {
+    $mid = $products->create(['name' => $mName, 'category_id' => (string) $cat['Tobacco'], 'base_unit' => $mBase, 'internal_code' => '', 'description' => '', 'target_margin_pct' => '', 'show_on_pos_grid' => false, 'allow_price_override' => false, 'kind' => 'material']);
+    $materialIds[$mName] = [$mid, $products->addUnit($mid, $mType, (string) $mSize, false, false)];
+    $products->setCost($mid, $mCost, $mSize);
+}
 $purchaseId = (new PurchaseService())->create($sup['Al Fakher Lebanon SAL'], 'INV-AF-1042', date('Y-m-d', strtotime('-3 days')), [
-    ['product_id' => $p['Al Fakher Two Apples 250g']['id'], 'unit_id' => $p['Al Fakher Two Apples 250g']['units'][0], 'qty' => '20', 'unit_cost' => '6.00'],
-    ['product_id' => $p['Al Fakher Mint 250g']['id'], 'unit_id' => $p['Al Fakher Mint 250g']['units'][0], 'qty' => '10', 'unit_cost' => '6.00'],
+    ['product_id' => $materialIds['Raw tobacco leaf'][0], 'unit_id' => $materialIds['Raw tobacco leaf'][1], 'qty' => '6', 'unit_cost' => '25.00'],
+    ['product_id' => $materialIds['Glycerin'][0], 'unit_id' => $materialIds['Glycerin'][1], 'qty' => '5', 'unit_cost' => '6.00'],
 ], '100', 'outside', 'Demo purchase', $admin);
-$out('Purchase created (id ' . $purchaseId . '): $180 of tobacco, $100 paid, $80 owed to the supplier');
+$out('Purchase created (id ' . $purchaseId . '): $180 of raw materials, $100 paid, $80 owed to the supplier');
 
 // ---------------------------------------------------------------- a cash session with sales and an expense
 $cash = new CashService();

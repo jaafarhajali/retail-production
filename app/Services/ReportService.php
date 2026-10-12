@@ -123,8 +123,12 @@ final class ReportService
         $d = date('Y-m-d');
         $s = $this->rows("SELECT COUNT(*) AS invoices, COALESCE(SUM(total_usd), 0) AS total FROM sales WHERE status = 'completed' AND created_at BETWEEN :f AND :t", $this->range($d, $d))[0];
         $low = $this->rows('SELECT COUNT(*) FROM products WHERE is_active = 1 AND min_stock_base IS NOT NULL AND stock_base <= min_stock_base', [])[0];
+        $lowKind = ['finished' => 0, 'intermediate' => 0, 'material' => 0];
+        foreach ($this->rows('SELECT kind, COUNT(*) AS n FROM products WHERE is_active = 1 AND min_stock_base IS NOT NULL AND stock_base <= min_stock_base GROUP BY kind', []) as $r) {
+            $lowKind[$r['kind']] = (int) $r['n'];
+        }
         $open = $this->rows("SELECT COUNT(*) FROM cash_sessions WHERE status = 'open'", [])[0];
 
-        return ['invoices' => (int) $s['invoices'], 'total' => Money::fmt($s['total']), 'low_stock' => (int) reset($low), 'open_sessions' => (int) reset($open)];
+        return ['invoices' => (int) $s['invoices'], 'total' => Money::fmt($s['total']), 'low_stock' => (int) reset($low), 'low_kind' => $lowKind, 'open_sessions' => (int) reset($open)];
     }
 }

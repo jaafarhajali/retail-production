@@ -1,5 +1,11 @@
 <form class="mb-3" method="get">
   <input type="hidden" name="r" value="stock">
+  <ul class="nav nav-pills kind-tabs mb-3">
+    <?php foreach (['' => 'Everything', 'finished' => 'Finished products', 'intermediate' => 'Mixes', 'material' => 'Raw materials'] as $k => $label): ?>
+      <li class="nav-item"><a class="nav-link <?= $filters['kind'] === $k ? 'active' : '' ?>" href="<?= url('stock', $k === '' ? [] : ['kind' => $k]) ?>"><?= $label ?></a></li>
+    <?php endforeach; ?>
+  </ul>
+  <input type="hidden" name="kind" value="<?= e($filters['kind']) ?>">
   <div class="filters">
     <div><label class="form-label">Product</label><select class="form-select" name="product_id" style="max-width: 18rem"><option value="0">All</option>
       <?php foreach ($products as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $filters['product_id'] ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select></div>

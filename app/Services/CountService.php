@@ -18,7 +18,7 @@ final class CountService
         if ($counts->openCount() !== null) {
             throw new \DomainException('A count is already open. Confirm or cancel it first.');
         }
-        $scope = $scope === 'category' ? 'category' : 'all';
+        $scope = in_array($scope, ['category', 'finished', 'intermediate', 'material'], true) ? $scope : 'all';   // F1: a kind is a scope too
         if ($scope === 'category' && $categoryId <= 0) {
             throw new \DomainException('Choose the category to count.');
         }
@@ -26,9 +26,9 @@ final class CountService
         return Database::transaction(function () use ($counts, $scope, $categoryId, $note, $userId): int {
             $no = Counter::format('CNT-', Counter::next('count'));
             $id = $counts->create($no, $scope, $scope === 'category' ? $categoryId : null, $userId, trim($note) ?: null);
-            $sql = 'SELECT id, stock_base, cost_per_base FROM products WHERE is_active = 1' . ($scope === 'category' ? ' AND category_id = :c' : '');
+            $sql = 'SELECT id, stock_base, cost_per_base FROM products WHERE is_active = 1' . ($scope === 'category' ? ' AND category_id = :c' : ($scope === 'all' ? '' : ' AND kind = :k'));
             $stmt = Database::pdo()->prepare($sql);
-            $stmt->execute($scope === 'category' ? ['c' => $categoryId] : []);
+            $stmt->execute($scope === 'category' ? ['c' => $categoryId] : ($scope === 'all' ? [] : ['k' => $scope]));
             foreach ($stmt->fetchAll() as $p) {
                 $counts->addLine($id, (int) $p['id'], (int) $p['stock_base'], $p['cost_per_base']);
             }

@@ -88,6 +88,9 @@ final class ReturnService
                 throw new \DomainException('Choose a product and one of its units on every line.');
             }
             $product = $products->find((int) $unit['product_id']) ?? throw new \DomainException('Product not found.');
+            if (($product['kind'] ?? 'finished') !== 'finished') {
+                throw new \DomainException($product['name'] . ' is a ' . ($product['kind'] === 'material' ? 'raw material' : 'mix') . ', it is never sold or returned.');
+            }
             $qtyText = trim((string) ($it['qty'] ?? ''));
             if ($qtyText === '' || (float) $qtyText == 0.0) {
                 continue;

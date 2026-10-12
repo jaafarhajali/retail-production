@@ -50,7 +50,7 @@ final class PosController extends Controller
     /** Catalog for the grid: active products with sellable units and barcodes. */
     public function data(): void
     {
-        $products = (new Product())->forPrint();
+        $products = (new Product())->forPrint('finished');   // F1: a raw material or a mix is never on the till
         $units = (new ProductUnit())->forProducts(array_map('intval', array_column($products, 'id')));
         $barcodes = [];
         foreach (\App\Core\Database::pdo()->query('SELECT b.barcode, b.product_unit_id, u.product_id FROM barcodes b JOIN product_units u ON u.id = b.product_unit_id') as $b) {

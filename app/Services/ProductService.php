@@ -39,6 +39,8 @@ final class ProductService
         'Bag'    => ['bases' => ['piece', 'g', 'ml'], 'factor' => null],
         'Roll'   => ['bases' => ['piece', 'g', 'ml'], 'factor' => null],
         'Bottle' => ['bases' => ['piece', 'g', 'ml'], 'factor' => null],
+        'Jar'    => ['bases' => ['piece', 'g', 'ml'], 'factor' => null],   // F1 (2026-10-12): the factory buys paste in jars and honey in buckets
+        'Bucket' => ['bases' => ['piece', 'g', 'ml'], 'factor' => null],
     ];
 
     /** "Box" of 6 pieces → "Box of 6"; "Pack" of 250 g → "Pack 250g"; "Box" of 1000 g → "Box 1kg"; plain measures keep their name. */
@@ -133,6 +135,14 @@ final class ProductService
 
     /** The type sent for a unit whose name was typed by hand before the list existed: it is left exactly as it is. */
     public const KEEP_TYPE = '__keep';
+
+    /** F1 (2026-10-12): what a product is. Only a finished product is sold; a mix is made and used; a material is bought and consumed. */
+    public const KINDS = ['finished' => 'Finished product', 'intermediate' => 'Mix', 'material' => 'Raw material or packaging'];
+
+    public static function kindLabel(string $kind): string
+    {
+        return self::KINDS[$kind] ?? $kind;
+    }
 
     /** Only what is weighed or poured is sold in parts: 2.5 kg, 0.75 L. Half a piece or half a box is not a sale. */
     public static function soldInFractions(string $type): bool
@@ -467,6 +477,10 @@ final class ProductService
     public function setPrices(int $unitId, string $retail, string $wholesale): void
     {
         $unit = $this->units->find($unitId) ?? throw new \DomainException('Unit not found.');
+        if (($this->products->find((int) $unit['product_id'])['kind'] ?? 'finished') !== 'finished') {
+            $retail = '';   // a raw material or a mix is never sold: no price is kept, whatever the form sends
+            $wholesale = '';
+        }
         // 0 means "not sold at this level", the same as empty (owner decision 2026-09-24).
         $newRetail = Pricing::parse($retail, true);
         $newWholesale = Pricing::parse($wholesale, true);
@@ -614,6 +628,10 @@ final class ProductService
         if (!in_array($baseUnit, self::BASE_UNITS, true)) {
             throw new \DomainException('Choose a base unit: piece, g or ml.');
         }
+        $kind = (string) ($in['kind'] ?? 'finished');
+        if (!isset(self::KINDS[$kind])) {
+            throw new \DomainException('Choose what it is: a finished product, a mix, or a raw material.');
+        }
 
         $categoryId = null;
         $rawCategory = trim((string) ($in['category_id'] ?? ''));
@@ -644,9 +662,10 @@ final class ProductService
             'description'          => $description === '' ? null : $description,
             'internal_code'        => $code,
             'base_unit'            => $baseUnit,
-            'allow_price_override' => (bool) ($in['allow_price_override'] ?? false),
-            'price_floats'         => (bool) ($in['price_floats'] ?? false),
-            'show_on_pos_grid'     => (bool) ($in['show_on_pos_grid'] ?? true),
+            'kind'                 => $kind,
+            'allow_price_override' => $kind === 'finished' && (bool) ($in['allow_price_override'] ?? false),
+            'price_floats'         => $kind === 'finished' && (bool) ($in['price_floats'] ?? false),
+            'show_on_pos_grid'     => $kind === 'finished' && (bool) ($in['show_on_pos_grid'] ?? true),
             'target_margin_pct'    => $target,
         ];
     }

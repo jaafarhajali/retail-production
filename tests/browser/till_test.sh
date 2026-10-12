@@ -2,7 +2,7 @@
 # Usage: bash tests/browser/till_test.sh <out dir> <scenario.txt>   [MAXPCT=10] [PREFIX=x]
 #   <out dir>      where the screenshots (<PREFIX>*.png), cookie jars and the Chrome profile go (e.g. the session scratchpad)
 #   <scenario.txt> a piece of JavaScript from tests/browser/scenarios/, spliced into till_drive.mjs (helpers: ev, waitFor, shot, type, click, shown, log, send, sleep)
-# Needs: XAMPP MySQL running, Google Chrome, node 18+. Uses the test database only (retail_pos_test).
+# Needs: XAMPP MySQL running, Google Chrome, node 18+. Uses the test database only (retail_production_test).
 S="$1"; SCENARIO="$2"; HERE="$(cd "$(dirname "$0")" && pwd)"; cd "$HERE/../.." || exit 1
 [ -n "$S" ] && [ -f "$SCENARIO" ] || { echo "usage: till_test.sh <out dir> <scenario.txt>"; exit 2; }
 mkdir -p "$S"

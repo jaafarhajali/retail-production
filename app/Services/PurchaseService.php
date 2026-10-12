@@ -41,6 +41,9 @@ final class PurchaseService
                 throw new \DomainException('Choose a product and one of its units on every line.');
             }
             $product = $products->find((int) $l['product_id']) ?? throw new \DomainException('Product not found.');
+            if (($product['kind'] ?? 'finished') !== 'material') {
+                throw new \DomainException("{$product['name']} is not bought from a supplier: it is " . ($product['kind'] === 'intermediate' ? 'a mix made by production' : 'a finished product made by production') . '. A purchase takes raw materials and packaging only.');
+            }
             $qty = Quantity::parse((string) $l['qty'], (int) $unit['allows_fraction'] === 1);
             if ((float) $qty <= 0) {
                 throw new \DomainException("Enter a quantity for {$product['name']}.");

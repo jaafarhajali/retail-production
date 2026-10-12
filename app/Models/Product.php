@@ -81,14 +81,15 @@ final class Product extends Model
     {
         $this->execute(
             'INSERT INTO products (category_id, name, description, internal_code, base_unit,
-                                   allow_price_override, price_floats, show_on_pos_grid, target_margin_pct)
-             VALUES (:cat, :n, :d, :code, :bu, :apo, :pf, :grid, :tm)',
+                                   kind, allow_price_override, price_floats, show_on_pos_grid, target_margin_pct)
+             VALUES (:cat, :n, :d, :code, :bu, :kind, :apo, :pf, :grid, :tm)',
             [
                 'cat'  => $f['category_id'],
                 'n'    => $f['name'],
                 'd'    => $f['description'],
                 'code' => $f['internal_code'],
                 'bu'   => $f['base_unit'],
+                'kind' => $f['kind'] ?? 'finished',
                 'apo'  => (int) $f['allow_price_override'],
                 'pf'   => (int) ($f['price_floats'] ?? 0),
                 'grid' => (int) $f['show_on_pos_grid'],
@@ -102,7 +103,7 @@ final class Product extends Model
     public function update(int $id, array $f): void
     {
         $this->execute(
-            'UPDATE products SET category_id = :cat, name = :n, description = :d, internal_code = :code, base_unit = :bu,
+            'UPDATE products SET category_id = :cat, name = :n, description = :d, internal_code = :code, base_unit = :bu, kind = :kind,
                                  allow_price_override = :apo, price_floats = :pf, show_on_pos_grid = :grid, target_margin_pct = :tm, is_active = :a
              WHERE id = :id',
             [
@@ -111,6 +112,7 @@ final class Product extends Model
                 'd'    => $f['description'],
                 'code' => $f['internal_code'],
                 'bu'   => $f['base_unit'],
+                'kind' => $f['kind'] ?? 'finished',
                 'apo'  => (int) $f['allow_price_override'],
                 'pf'   => (int) ($f['price_floats'] ?? 0),
                 'grid' => (int) $f['show_on_pos_grid'],
@@ -158,10 +160,21 @@ final class Product extends Model
         );
     }
 
-    /** Every active product for the printable table, grouped by category order. */
-    public function forPrint(): array
+    /** Every active product for the printable table, grouped by category order; one kind only when asked (F1). */
+    public function forPrint(?string $kind = null): array
     {
-        return $this->fetchAll(self::LIST_SELECT . ' WHERE p.is_active = 1 ORDER BY c.sort_order, c.name, p.name');
+        return $this->fetchAll(self::LIST_SELECT . ' WHERE p.is_active = 1' . ($kind === null ? '' : ' AND p.kind = :k') . ' ORDER BY c.sort_order, c.name, p.name', $kind === null ? [] : ['k' => $kind]);
+    }
+
+    /** How many active products of each kind, for the tabs. @return array<string, int> */
+    public function kindCounts(): array
+    {
+        $counts = ['finished' => 0, 'intermediate' => 0, 'material' => 0];
+        foreach ($this->fetchAll('SELECT kind, COUNT(*) AS n FROM products WHERE is_active = 1 GROUP BY kind') as $r) {
+            $counts[$r['kind']] = (int) $r['n'];
+        }
+
+        return $counts;
     }
 
     /** What the list shows with these filters, all of it, for the printable table. */
@@ -191,6 +204,10 @@ final class Product extends Model
         if ($filters['category_id'] > 0) {
             $where[] = 'p.category_id = :cat';
             $params['cat'] = $filters['category_id'];
+        }
+        if (($filters['kind'] ?? '') !== '') {
+            $where[] = 'p.kind = :kind';
+            $params['kind'] = $filters['kind'];
         }
         $where[] = match ($filters['stock']) {
             'in'    => 'p.stock_base > 0',

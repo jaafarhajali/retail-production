@@ -54,10 +54,16 @@ return [
     'opening stock shows as 10 Box and moving-average purchase gives $12.50 per box' => function () use ($setup): void {
         $s = $setup();
         assert_same(200000, (int) (new Product())->find($s['charcoal'])['stock_base']);
-        // cost was $200/Box; buy 200,000 g (10 Box) at $50/Box: (200000×0.01 + 200000×0.0025) / 400000 = 0.00625
-        (new PurchaseService())->create(null, '', date('Y-m-d'), [['product_id' => $s['charcoal'], 'unit_id' => $s['box'], 'qty' => '10', 'unit_cost' => '50']], '', 'outside', '', TEST_ADMIN_ID);
-        assert_same('0.006250', (new Product())->find($s['charcoal'])['cost_per_base']);
-        assert_same(400000, (int) (new Product())->find($s['charcoal'])['stock_base']);
+        // F1: only a raw material is bought. Raw coconut shell: cost $200/Box of 20 kg, 10 Box in stock; buy 10 Box at $50:
+        // (200000×0.01 + 200000×0.0025) / 400000 = 0.00625
+        $svc = new ProductService();
+        $raw = make_product('Raw coconut shell', 'g', null, 'material');
+        $rawBox = $svc->addUnit($raw, 'Box', '20000', false, true);
+        $svc->setCost($raw, '200', 20000);
+        (new StockService())->adjust($raw, $rawBox, '10', 'opening', '', null, TEST_ADMIN_ID);
+        (new PurchaseService())->create(null, '', date('Y-m-d'), [['product_id' => $raw, 'unit_id' => $rawBox, 'qty' => '10', 'unit_cost' => '50']], '', 'outside', '', TEST_ADMIN_ID);
+        assert_same('0.006250', (new Product())->find($raw)['cost_per_base']);
+        assert_same(400000, (int) (new Product())->find($raw)['stock_base']);
     },
 
     'sale of $23 paid $20 USD + 270,000 LBP is fully paid with exact cash movements (§7.1)' => function () use ($setup, $sale): void {

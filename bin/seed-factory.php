@@ -1,0 +1,163 @@
+<?php
+/**
+ * php bin/seed-factory.php [--yes] [--force]
+ *
+ * Seeds the factory edition (Malika Marshmallow, 2026-10-12): the company settings, the categories, the nine finished
+ * products with the owner's wholesale / retail price list and barcodes, the "Customized" product, the raw materials and
+ * packaging with purchase units and costs, and one "Marshmallow mix" (its recipe comes with Phase F2).
+ * Everything goes through the normal services, so stock movements and the audit log are what real use would produce.
+ *
+ *   --yes    skip the confirmation prompt
+ *   --force  seed even when products already exist (adds what is missing by name)
+ */
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/app/bootstrap.php';
+
+use App\Core\Auth;
+use App\Core\Database;
+use App\Core\Settings;
+use App\Models\Category;
+use App\Models\ExchangeRate;
+use App\Models\Setting;
+use App\Services\ProductService;
+use App\Services\StockService;
+
+$opts = getopt('', ['yes', 'force']);
+$out = static fn (string $line) => print($line . "\n");
+
+if (APP_ENV === 'production') {
+    fwrite(STDERR, "Refusing to seed into a production installation (app.env = production in config/app.ini).\n");
+    exit(1);
+}
+$existing = (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn();
+if ($existing > 0 && !isset($opts['force'])) {
+    fwrite(STDERR, "Database " . DB_NAME . " already has {$existing} products. Run with --force to add what is missing.\n");
+    exit(1);
+}
+if (!isset($opts['yes'])) {
+    echo 'Seed the Malika factory catalogue into database "' . DB_NAME . '"? [y/N] ';
+    if (strtolower(trim((string) fgets(STDIN))) !== 'y') {
+        $out('Cancelled.');
+        exit(0);
+    }
+}
+
+$_SESSION = [];
+Auth::login(1);
+$admin = 1;
+
+// ---------------------------------------------------------------- the company
+(new Setting())->setMany([
+    'shop_name' => 'Malika For Trading', 'shop_address' => 'Lebanon / Arab Salim / main road', 'shop_phone' => '+961 70 316 708 · +961 76 564 645',
+    'receipt_header' => 'Malika Marshmallow · Premium quality', 'receipt_footer' => 'Thank you for your purchase!',
+    'company_email' => 'malikamarshmallow@gmail.com', 'company_mof' => '3900717', 'company_phone2' => '+961 76 564 645',
+]);
+Settings::flush();
+$out('Company: Malika For Trading (MOF 3900717)');
+
+try {
+    (new ExchangeRate())->current();
+} catch (\RuntimeException) {
+    (new ExchangeRate())->add(89500, $admin);
+    $out('Exchange rate set: 1 USD = 89,500 LBP');
+}
+
+// ---------------------------------------------------------------- categories
+$categories = new Category();
+$cat = [];
+foreach ([['Marshmallow', '#c084a8'], ['Ingredients', '#d8a200'], ['Packaging', '#3fa39a']] as $i => [$name, $color]) {
+    $cat[$name] = $categories->nameExists($name)
+        ? (int) Database::pdo()->query('SELECT id FROM categories WHERE name = ' . Database::pdo()->quote($name))->fetchColumn()
+        : $categories->create($name, $color, $i + 1);
+}
+
+// ---------------------------------------------------------------- products
+$products = new ProductService();
+$stock = new StockService();
+$exists = static fn (string $name): bool => (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE name = ' . Database::pdo()->quote($name))->fetchColumn() > 0;
+
+/** Finished products: [name, units => [type, size, fraction, retail, wholesale, barcode], cost per piece, opening pieces, min pieces, override] — prices from the owner's list of 2026-10-10. */
+$finished = [
+    ['Marshmallow Stick 25g',  [['Piece', 1, false, '0.80', '0.65', '850009611772'], ['Box', 100, false, '', '']], '0.30', '200', '50', false],
+    ['Marshmallow Bags',       [['Piece', 1, false, '0.80', '0.65', ''], ['Box', 100, false, '', '']], '0.30', '100', '50', false],
+    ['Joy 100g',               [['Piece', 1, false, '3.00', '2.50', '850009611789'], ['Box', 27, false, '', '']], '1.20', '60', '20', false],
+    ['Joy 200g',               [['Piece', 1, false, '6.00', '5.00', ''], ['Box', 12, false, '', '']], '2.40', '30', '10', false],
+    ['Mini Joy 100g',          [['Piece', 1, false, '4.00', '3.20', '850009611819'], ['Box', 22, false, '', '']], '1.30', '40', '20', false],
+    ['Excellence 100g',        [['Piece', 1, false, '3.80', '3.00', ''], ['Box', 24, false, '', '']], '1.30', '40', '20', false],
+    ['Pistachio 100g',         [['Piece', 1, false, '4.00', '3.25', ''], ['Box', 24, false, '', '']], '1.50', '40', '20', false],
+    ['Choco Dream 100g',       [['Piece', 1, false, '4.00', '3.25', ''], ['Box', 24, false, '', '']], '1.50', '40', '20', false],
+    ['Gold 100g',              [['Piece', 1, false, '4.00', '3.50', ''], ['Box', 24, false, '', '']], '1.60', '40', '20', false],
+    ['Customized Box',         [['Piece', 1, false, '10.00', '8.00', '']], '', '0', '', true],
+];
+$made = 0;
+foreach ($finished as [$name, $unitDefs, $cost, $opening, $min, $override]) {
+    if ($exists($name)) {
+        continue;
+    }
+    $id = $products->create(['name' => $name, 'category_id' => (string) $cat['Marshmallow'], 'base_unit' => 'piece', 'internal_code' => '', 'description' => $override ? 'Weight, flavours and price typed at the sale' : '',
+        'target_margin_pct' => '', 'show_on_pos_grid' => true, 'allow_price_override' => $override, 'kind' => 'finished']);
+    $unitIds = [];
+    foreach ($unitDefs as $u) {
+        [$type, $size, $fraction, $retail, $wholesale] = $u;
+        $unitId = $products->addUnit($id, $type, (string) $size, $fraction, false);
+        $products->setPrices($unitId, $retail, $wholesale);
+        if (($u[5] ?? '') !== '') {
+            $products->addBarcode($unitId, $u[5]);
+        }
+        $unitIds[] = $unitId;
+    }
+    if ($cost !== '') {
+        $products->setCost($id, $cost, 1);
+    }
+    if ((int) $opening > 0) {
+        $stock->adjust($id, $unitIds[0], $opening, 'opening', 'Seed opening stock', null, $admin);
+    }
+    if ($min !== '') {
+        $products->setMinStock($id, $min, $unitIds[0]);
+    }
+    $made++;
+}
+$out("Finished products: {$made} (Marshmallow Stick, Joy, Mini Joy, Excellence, Pistachio, Choco Dream, Gold, Customized Box)");
+
+/** Raw materials and packaging: [name, category, base, units => [type, size, fraction], cost of the first unit, opening (qty of first unit), min (qty of first unit)]. */
+$materials = [
+    ['Honey', 'Ingredients', 'g', [['Bucket', 5000, false], ['kg', 1000, true]], '45.00', '4', '1'],
+    ['Sugar', 'Ingredients', 'g', [['Bag', 25000, false], ['kg', 1000, true]], '22.00', '2', '1'],
+    ['Glucose syrup', 'Ingredients', 'g', [['Bucket', 5000, false], ['kg', 1000, true]], '12.00', '3', '1'],
+    ['Gelatin', 'Ingredients', 'g', [['Bag', 1000, false], ['kg', 1000, true]], '18.00', '5', '2'],
+    ['Food colouring', 'Ingredients', 'g', [['Bottle', 100, false], ['kg', 1000, true]], '3.00', '10', '3'],
+    ['Raspberry flavour', 'Ingredients', 'ml', [['Bottle', 250, false], ['L', 1000, true]], '6.00', '6', '2'],
+    ['Pistachio paste', 'Ingredients', 'g', [['Jar', 1000, false], ['kg', 1000, true]], '28.00', '3', '1'],
+    ['Cocoa powder', 'Ingredients', 'g', [['Bag', 1000, false], ['kg', 1000, true]], '9.00', '4', '1'],
+    ['Box 100g', 'Packaging', 'piece', [['Pack', 100, false], ['Piece', 1, false]], '12.00', '10', '3'],
+    ['Box 200g', 'Packaging', 'piece', [['Pack', 100, false], ['Piece', 1, false]], '16.00', '5', '2'],
+    ['Stick bag', 'Packaging', 'piece', [['Pack', 1000, false], ['Piece', 1, false]], '15.00', '3', '1'],
+    ['Label', 'Packaging', 'piece', [['Roll', 500, false], ['Piece', 1, false]], '8.00', '4', '1'],
+];
+$made = 0;
+foreach ($materials as [$name, $category, $base, $unitDefs, $cost, $opening, $min]) {
+    if ($exists($name)) {
+        continue;
+    }
+    $id = $products->create(['name' => $name, 'category_id' => (string) $cat[$category], 'base_unit' => $base, 'internal_code' => '', 'description' => '',
+        'target_margin_pct' => '', 'show_on_pos_grid' => false, 'allow_price_override' => false, 'kind' => 'material']);
+    $unitIds = [];
+    foreach ($unitDefs as [$type, $size, $fraction]) {
+        $unitIds[] = $products->addUnit($id, $type, (string) $size, $fraction, false);
+    }
+    $products->setCost($id, $cost, (int) $unitDefs[0][1]);
+    $stock->adjust($id, $unitIds[0], $opening, 'opening', 'Seed opening stock', null, $admin);
+    $products->setMinStock($id, $min, $unitIds[0]);
+    $made++;
+}
+$out("Raw materials and packaging: {$made}");
+
+if (!$exists('Marshmallow mix')) {
+    $id = $products->create(['name' => 'Marshmallow mix', 'category_id' => (string) $cat['Marshmallow'], 'base_unit' => 'g', 'internal_code' => '', 'description' => 'Made by production from the ingredients; used by every finished product',
+        'target_margin_pct' => '', 'show_on_pos_grid' => false, 'allow_price_override' => false, 'kind' => 'intermediate']);
+    $products->addUnit($id, 'kg', '1000', true, false);
+    $out('Mix: Marshmallow mix (recipe in Phase F2)');
+}
+
+$out('Done. Sign in as admin.');

@@ -30,7 +30,7 @@ return [
 
     'Carton, Case, Can and Set are not in the list any more (2026-10-07): five containers are left' => function (): void {
         $containers = array_keys(array_filter(ProductService::UNIT_TYPES, static fn (array $def): bool => $def['factor'] === null));
-        assert_same(['Pack', 'Box', 'Bag', 'Roll', 'Bottle'], $containers);
+        assert_same(['Pack', 'Box', 'Bag', 'Roll', 'Bottle', 'Jar', 'Bucket'], $containers);
         $svc = new ProductService();
         $pepsi = make_product('Pepsi 330ml', 'piece');
         foreach (['Carton', 'Case', 'Can', 'Set'] as $gone) {
@@ -45,7 +45,7 @@ return [
     'a type must come from the list, fit the base unit, and a size is one unit only once' => function (): void {
         $svc = new ProductService();
         $coal = make_product('Charcoal', 'piece');
-        assert_throws(DomainException::class, fn () => $svc->addUnit($coal, 'Bucket', '5', false, false));
+        assert_throws(DomainException::class, fn () => $svc->addUnit($coal, 'Crate', '5', false, false));
         assert_throws(DomainException::class, fn () => $svc->addUnit($coal, 'kg', '1000', false, false));
         assert_throws(DomainException::class, fn () => $svc->addUnit($coal, 'Box', '', false, false));
         $svc->addUnit($coal, 'Box', '6', false, false);

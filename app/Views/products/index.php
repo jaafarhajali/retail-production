@@ -4,11 +4,17 @@ use App\Services\ProductImageService;
 use App\Services\Quantity;
 
 $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]];
-$printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['category_id'] ?: null, 'stock' => $filters['stock'], 'inactive' => $filters['inactive'] ? '1' : null],
+$printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['category_id'] ?: null, 'stock' => $filters['stock'], 'inactive' => $filters['inactive'] ? '1' : null, 'kind' => $filters['kind'] !== 'finished' ? $filters['kind'] : null],
     static fn ($v): bool => $v !== null && $v !== '');
 ?>
+<ul class="nav nav-pills kind-tabs mb-3">
+  <?php foreach (['finished' => 'Finished products', 'intermediate' => 'Mixes', 'material' => 'Raw materials'] as $k => $label): ?>
+    <li class="nav-item"><a class="nav-link <?= $filters['kind'] === $k ? 'active' : '' ?>" href="<?= url('products', $k === 'finished' ? [] : ['kind' => $k]) ?>"><?= $label ?> <span class="badge rounded-pill text-bg-light"><?= (int) $kindCounts[$k] ?></span></a></li>
+  <?php endforeach; ?>
+</ul>
 <form class="card card-body mb-3 product-filter" method="get" id="product-filter">
   <input type="hidden" name="r" value="products">
+  <input type="hidden" name="kind" value="<?= e($filters['kind']) ?>">
   <div class="row g-2 align-items-end">
     <div class="col-md-5">
       <label class="form-label" for="q">Find a product</label>
@@ -57,7 +63,7 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
 <div class="card"><div class="table-responsive">
   <table class="table table-hover align-middle m-0 product-list">
     <thead><tr>
-      <th></th><th>Product</th><th>Category</th><th>Stock</th><th>Price</th>
+      <th></th><th>Product</th><th>Category</th><th>Stock</th><?php if ($filters['kind'] === 'finished'): ?><th>Price</th><?php endif; ?>
       <?php if ($showCost): ?><th data-col="cost">Cost</th><th data-col="cost" class="text-end">Stock value</th><?php endif; ?>
       <?php if ($canManage): ?><th></th><?php endif; ?>
     </tr></thead>
@@ -80,10 +86,12 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
           <?php if ($stock <= 0): ?><span class="badge text-bg-danger">out</span>
           <?php elseif ($p['min_stock_base'] !== null && $stock <= (int) $p['min_stock_base']): ?><span class="badge text-bg-warning">low</span><?php endif; ?>
         </td>
+        <?php if ($filters['kind'] === 'finished'): ?>
         <td>
           <?php $prices = []; foreach ($units as $u) { if ($u['retail_price'] !== null) { $prices[] = '<span class="text-nowrap">' . usd($u['retail_price']) . ' <span class="text-muted">' . e($u['name']) . '</span></span>'; } } ?>
           <?= $prices === [] ? '<span class="badge text-bg-warning">no price</span>' : implode('<br>', $prices) ?>
         </td>
+        <?php endif; ?>
         <?php if ($showCost): ?>
           <td data-col="cost" class="text-nowrap"><?= (float) $p['cost_per_base'] > 0 ? usd(Pricing::unitCost($p['cost_per_base'], $natural[$p['base_unit']][1])) . ' <span class="text-muted">per ' . e($natural[$p['base_unit']][0]) . '</span>' : '<span class="text-muted">—</span>' ?></td>
           <td data-col="cost" class="text-end"><?= usd(Pricing::stockValue($stock, $p['cost_per_base'])) ?></td>
@@ -94,7 +102,7 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
       </tr>
     <?php endforeach; ?>
     <?php if ($pg['rows'] === []): ?>
-      <tr><td colspan="<?= ($showCost ? 7 : 5) + ($canManage ? 1 : 0) ?>" class="empty"><?= $printWith === [] ? 'No products yet. Press Add product to enter the first one.' : 'Nothing matches. Clear the search to see everything.' ?></td></tr>
+      <tr><td colspan="<?= ($showCost ? 7 : 5) + ($canManage ? 1 : 0) - ($filters['kind'] === 'finished' ? 0 : 1) ?>" class="empty"><?= $printWith === [] ? 'No products yet. Press Add product to enter the first one.' : ($filters['kind'] === 'material' && $filters['q'] === '' ? 'No raw materials yet. Add product, then choose "Raw material or packaging".' : ($filters['kind'] === 'intermediate' && $filters['q'] === '' ? 'No mixes yet. Add product, then choose "Mix".' : 'Nothing matches. Clear the search to see everything.')) ?></td></tr>
     <?php endif; ?>
     </tbody>
   </table>

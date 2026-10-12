@@ -7,8 +7,11 @@
       <dl class="dash-meta">
         <div><dt>Invoices</dt><dd><?= (int) $today['invoices'] ?></dd></div>
         <div><dt>Open sessions</dt><dd><?= (int) $today['open_sessions'] ?></dd></div>
-        <div class="<?= $today['low_stock'] > 0 ? 'is-warn' : '' ?>"><dt>Low stock</dt>
-          <dd><?php if ($today['low_stock'] > 0 && \App\Core\Gate::allows('product.view')): ?><a href="<?= url('products', ['stock' => 'low']) ?>"><?= (int) $today['low_stock'] ?> products</a><?php else: ?><?= (int) $today['low_stock'] ?><?php endif; ?></dd></div>
+        <?php $lk = $today['low_kind'] ?? ['finished' => $today['low_stock'], 'material' => 0]; $canSee = \App\Core\Gate::allows('product.view'); ?>
+        <div class="<?= $lk['finished'] > 0 ? 'is-warn' : '' ?>"><dt>Low stock</dt>
+          <dd><?php if ($lk['finished'] > 0 && $canSee): ?><a href="<?= url('products', ['stock' => 'low']) ?>"><?= (int) $lk['finished'] ?> finished product<?= $lk['finished'] === 1 ? '' : 's' ?></a><?php else: ?><?= (int) $lk['finished'] ?> finished<?php endif; ?></dd></div>
+        <div class="<?= $lk['material'] > 0 ? 'is-warn' : '' ?>"><dt>Low materials</dt>
+          <dd><?php if ($lk['material'] > 0 && $canSee): ?><a href="<?= url('products', ['stock' => 'low', 'kind' => 'material']) ?>"><?= (int) $lk['material'] ?> raw material<?= $lk['material'] === 1 ? '' : 's' ?></a><?php else: ?><?= (int) $lk['material'] ?> raw materials<?php endif; ?></dd></div>
       </dl>
     </section>
   <?php endif; ?>

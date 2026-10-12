@@ -21,15 +21,16 @@ return [
         $typo = $svc->saveSupplier(0, 'Al Fakher Lebanun', '', '', true);
         $real = $svc->saveSupplier(0, 'Al Fakher Lebanon', '', '', true);
         $fresh = make_product('New Flavour', 'g');
-        $sold = make_product('Old Flavour', 'g');
+        $sold = make_product('Old Flavour', 'g', null, 'material');   // bought, so it has history
         $pack = (new ProductService())->addUnit($sold, 'Pack', '250', false, false);
         (new PurchaseService())->create($real, 'INV-1', date('Y-m-d'), [['product_id' => $sold, 'unit_id' => $pack, 'qty' => '10', 'unit_cost' => '6']], '', 'outside', '', TEST_ADMIN_ID);
 
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $body = $client->get('products')->body;
         assert_contains('name="product_id" value="' . $fresh . '"', $body, 'live bin for the unused product');
-        assert_not_contains('name="product_id" value="' . $sold . '"', $body, 'no form for the used product');
-        assert_contains('Has sales, purchases or stock history', $body, 'the greyed bin says why');
+        $materials = $client->get('products', ['kind' => 'material'])->body;   // F1: the bought one is a raw material, on its own tab
+        assert_not_contains('name="product_id" value="' . $sold . '"', $materials, 'no form for the used product');
+        assert_contains('Has sales, purchases or stock history', $materials, 'the greyed bin says why');
         assert_same(302, $client->post('products/delete', ['product_id' => $fresh])->status);
         assert_same(null, (new Product())->find($fresh));
         assert_true((new Product())->find($sold) !== null);

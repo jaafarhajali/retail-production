@@ -89,7 +89,7 @@ $renderRow = static function (string $key, array $row, ?array $unit) use ($typeO
     $isUsed = $unit !== null && ($usedUnits[(int) $unit['id']] ?? false);
     ob_start(); ?>
     <tr data-row data-key="<?= e($key) ?>" data-locked="<?= $isLocked ? '1' : '0' ?>" data-factor="<?= $unit === null ? '' : (int) $unit['factor'] ?>" data-name="<?= e($unit['name'] ?? '') ?>" data-existing="<?= $unit === null ? '0' : '1' ?>">
-      <td class="pf-main"><input class="form-check-input" type="radio" name="main_unit" value="<?= e($key) ?>" <?= $key === $main ? 'checked' : '' ?> <?= $dis ?> aria-label="The till shows this one" title="The till shows this one"></td>
+      <td class="pf-main" data-finished-only><input class="form-check-input" type="radio" name="main_unit" value="<?= e($key) ?>" <?= $key === $main ? 'checked' : '' ?> <?= $dis ?> aria-label="The till shows this one" title="The till shows this one"></td>
       <td class="pf-type">
         <input type="hidden" name="<?= $name ?>[id]" value="<?= (int) $row['id'] ?>">
         <select class="form-select" name="<?= $name ?>[type]" data-type aria-label="Sold as" <?= $dis ?>><?= $typeOptions($row['type'], $unit) ?></select>
@@ -103,9 +103,9 @@ $renderRow = static function (string $key, array $row, ?array $unit) use ($typeO
           <span class="pf-pieces" data-size-piece>pieces</span>
         </div>
       </td>
-      <td class="pf-price"><div class="input-group"><span class="input-group-text">$</span><input class="form-control" name="<?= $name ?>[retail]" inputmode="decimal" value="<?= e($row['retail']) ?>" data-retail aria-label="Retail price" placeholder="not sold" <?= $canPrice && !$readonly ? '' : 'disabled' ?>></div>
+      <td class="pf-price" data-finished-only><div class="input-group"><span class="input-group-text">$</span><input class="form-control" name="<?= $name ?>[retail]" inputmode="decimal" value="<?= e($row['retail']) ?>" data-retail aria-label="Retail price" placeholder="not sold" <?= $canPrice && !$readonly ? '' : 'disabled' ?>></div>
         <?php if ($showCost): ?><div class="pf-profit" data-profit></div><?php endif; ?></td>
-      <td class="pf-price"><div class="input-group"><span class="input-group-text">$</span><input class="form-control" name="<?= $name ?>[wholesale]" inputmode="decimal" value="<?= e($row['wholesale']) ?>" aria-label="Wholesale price" placeholder="not sold" <?= $canPrice && !$readonly ? '' : 'disabled' ?>></div></td>
+      <td class="pf-price" data-finished-only><div class="input-group"><span class="input-group-text">$</span><input class="form-control" name="<?= $name ?>[wholesale]" inputmode="decimal" value="<?= e($row['wholesale']) ?>" aria-label="Wholesale price" placeholder="not sold" <?= $canPrice && !$readonly ? '' : 'disabled' ?>></div></td>
       <td class="pf-codes"><input class="form-control" name="<?= $name ?>[barcodes]" value="<?= e($row['barcodes']) ?>" data-barcodes autocomplete="off" spellcheck="false" aria-label="Barcodes" placeholder="scan or type" <?= $dis ?>></td>
       <td class="pf-remove">
         <?php if (!$readonly): ?>
@@ -135,6 +135,17 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
   <div class="row g-3">
     <div class="col-xxl-9">
       <div class="card mb-3"><div class="card-body">
+        <?php $kind = $isEdit ? (string) $product['kind'] : ($stash['kind'] ?? ($_GET['kind'] ?? 'finished')); $kind = isset(ProductService::KINDS[$kind]) ? $kind : 'finished'; ?>
+        <div class="pf-kind mb-3" data-kind-choice>
+          <span class="form-label d-block">What is it?</span>
+          <div class="btn-group" role="group">
+            <?php foreach (ProductService::KINDS as $k => $label): ?>
+              <input type="radio" class="btn-check" name="kind" id="kind-<?= $k ?>" value="<?= $k ?>" <?= $kind === $k ? 'checked' : '' ?> <?= $dis ?>>
+              <label class="btn btn-outline-primary" for="kind-<?= $k ?>"><?= e($label) ?></label>
+            <?php endforeach; ?>
+          </div>
+          <div class="form-text" data-kind-hint data-finished="Sold on the till, with retail and wholesale prices." data-intermediate="Made from raw materials by a production run; used by finished products. Never sold." data-material="Bought from suppliers and consumed by production: honey, sugar, colouring, boxes, labels. Never sold."></div>
+        </div>
         <div class="row g-3">
           <div class="col-md-8">
             <label class="form-label" for="name">Name</label>
@@ -153,7 +164,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
       </div></div>
 
       <div class="card mb-3"><div class="card-body">
-        <h2 class="h5 mb-1">How is it sold?</h2>
+        <h2 class="h5 mb-1"><span data-finished-only>How is it sold?</span><span data-not-finished>How is it counted?</span></h2>
         <?php if ($isEdit && $units !== []): ?>
           <input type="hidden" name="base_unit" value="<?= e($base) ?>">
           <p class="pf-how"><strong><?= e(ucfirst(ProductService::HOW_SOLD[$base])) ?></strong><span class="text-muted">: stock is counted in <?= e($base === 'piece' ? 'pieces' : ($base === 'g' ? 'grams' : 'millilitres')) ?>. This cannot change once the product exists.</span></p>
@@ -169,7 +180,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
         <div class="table-responsive">
           <table class="table align-middle pf-table">
             <thead><tr>
-              <th class="pf-main" title="The till shows this price on the product's button and offers this way first">Till button</th><th>Sold as</th><th>Holds</th><th>Retail</th><th>Wholesale</th><th>Barcodes</th><th></th>
+              <th class="pf-main" data-finished-only title="The till shows this price on the product's button and offers this way first">Till button</th><th><span data-finished-only>Sold as</span><span data-not-finished>Unit</span></th><th>Holds</th><th data-finished-only>Retail</th><th data-finished-only>Wholesale</th><th>Barcodes</th><th></th>
             </tr></thead>
             <tbody data-rows>
               <?php foreach ($rows as $key => $row): ?><?= $renderRow((string) $key, $row, $unitsById[$row['id']] ?? null) ?><?php endforeach; ?>
@@ -178,7 +189,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
         </div>
         <?php if (!$readonly): ?>
           <div class="pf-add">
-            <button class="btn btn-outline-primary" type="button" data-add-row><i class="bi bi-plus-lg"></i> Add another way to sell it</button>
+            <button class="btn btn-outline-primary" type="button" data-add-row><i class="bi bi-plus-lg"></i> <span data-finished-only>Add another way to sell it</span><span data-not-finished>Add another unit</span></button>
             <span class="form-text">For example a Box of 6. Selling one box takes 6 pieces from the stock.</span>
           </div>
         <?php endif; ?>
@@ -250,15 +261,15 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
       <div class="card"><div class="card-body">
         <h2 class="h5">Options</h2>
         <div class="pf-switches">
-        <div class="form-check form-switch">
+        <div class="form-check form-switch" data-finished-only>
           <input class="form-check-input" type="checkbox" role="switch" id="show_on_pos_grid" name="show_on_pos_grid" value="1" <?= (isset($stash['name']) ? isset($stash['show_on_pos_grid']) : ($isEdit ? (int) $product['show_on_pos_grid'] : 1)) ? 'checked' : '' ?> <?= $dis ?>>
           <label class="form-check-label" for="show_on_pos_grid">Button on the till<small>Off: found only by scanning or searching.</small></label>
         </div>
-        <div class="form-check form-switch">
+        <div class="form-check form-switch" data-finished-only>
           <input class="form-check-input" type="checkbox" role="switch" id="allow_price_override" name="allow_price_override" value="1" <?= (isset($stash['name']) ? isset($stash['allow_price_override']) : ($isEdit && (int) $product['allow_price_override'])) ? 'checked' : '' ?> <?= $dis ?>>
           <label class="form-check-label" for="allow_price_override">The price can be changed at the till<small>A cashier still needs the administrator's PIN.</small></label>
         </div>
-        <div class="form-check form-switch">
+        <div class="form-check form-switch" data-finished-only>
           <input class="form-check-input" type="checkbox" role="switch" id="price_floats" name="price_floats" value="1" <?= (isset($stash['name']) ? isset($stash['price_floats']) : ($isEdit && (int) $product['price_floats'])) ? 'checked' : '' ?> <?= $dis ?>>
           <label class="form-check-label" for="price_floats">Price floats (black market)<small>Listed on Today's prices. Returns refund the lower of paid and today's price; a debt is re-priced when paid.</small></label>
         </div>

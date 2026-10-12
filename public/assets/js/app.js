@@ -88,6 +88,15 @@
   (function () {
     var form = document.getElementById('product-form');
     if (!form) { return; }
+    // F1: a raw material or a mix has units but no prices and no till button; the page hides what does not apply.
+    function applyKind() {
+      var picked = form.querySelector('input[name="kind"]:checked'), kind = picked ? picked.value : 'finished', finished = kind === 'finished';
+      form.querySelectorAll('[data-finished-only]').forEach(function (el) { el.hidden = !finished; });
+      form.querySelectorAll('[data-not-finished]').forEach(function (el) { el.hidden = finished; });
+      var hint = form.querySelector('[data-kind-hint]'); if (hint) { hint.textContent = hint.dataset[kind] || ''; }
+    }
+    form.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', applyKind); });
+    applyKind();
     var body = form.querySelector('[data-rows]'), template = document.getElementById('unit-row-template');
     var costBase = parseFloat(form.dataset.costBase || '0') || 0, showCost = form.dataset.showCost === '1';
     var BIG = { g: 'kg', ml: 'L' }, counter = 0, dirty = false, leaving = false;

@@ -53,6 +53,10 @@ final class StockMovement extends Model
             $where[] = 'm.type = :t';
             $params['t'] = $filters['type'];
         }
+        if (($filters['kind'] ?? '') !== '') {
+            $where[] = 'm.product_id IN (SELECT pk.id FROM products pk WHERE pk.kind = :kind)';
+            $params['kind'] = $filters['kind'];
+        }
         if ($filters['from'] !== '') {
             $where[] = 'm.created_at >= :f';
             $params['f'] = $filters['from'] . ' 00:00:00';

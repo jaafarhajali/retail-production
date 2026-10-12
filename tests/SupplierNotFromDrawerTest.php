@@ -24,7 +24,7 @@ return [
     'a purchase paid now leaves the open drawer untouched, even when "drawer" is sent' => function (): void {
         $session = (new CashService())->open((new Register())->create('Register 01'), TEST_ADMIN_ID, '100', '0');
         $supplier = (new PartyService())->saveSupplier(0, 'Al Fakher Lebanon', '', '', true);
-        $p = make_product('Tobacco', 'g');
+        $p = make_product('Tobacco', 'g', null, 'material');
         $pack = (new ProductService())->addUnit($p, 'Pack', '250', false, false);
         $id = (new PurchaseService())->create($supplier, 'INV-1', date('Y-m-d'), [['product_id' => $p, 'unit_id' => $pack, 'qty' => '10', 'unit_cost' => '6']], '60', 'drawer', '', TEST_ADMIN_ID);
         assert_same(null, Database::pdo()->query("SELECT session_id FROM purchases WHERE id = {$id}")->fetchColumn());

@@ -30,6 +30,7 @@ final class ProductController extends Controller
             'showCost'   => Gate::allows('product.view_cost'),
             'canManage'  => Gate::allows('product.manage'),
             'usedIds'    => (new Product())->usedIds(array_column($pg['rows'], 'id')),
+            'kindCounts' => (new Product())->kindCounts(),
         ], 'Products');
     }
 
@@ -318,6 +319,7 @@ final class ProductController extends Controller
             'show_on_pos_grid'     => isset($_POST['show_on_pos_grid']),
             'allow_price_override' => isset($_POST['allow_price_override']),
             'price_floats'         => isset($_POST['price_floats']),
+            'kind'                 => $this->input('kind') ?: 'finished',
         ];
     }
 
@@ -375,6 +377,7 @@ final class ProductController extends Controller
             'price_min'   => $this->moneyQuery('price_min'),
             'price_max'   => $this->moneyQuery('price_max'),
             'inactive'    => $this->query('inactive') === '1',
+            'kind'        => isset(\App\Services\ProductService::KINDS[$this->query('kind')]) ? $this->query('kind') : 'finished',
         ];
     }
 

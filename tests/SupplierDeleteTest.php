@@ -26,7 +26,7 @@ return [
         assert_same(1, (int) Database::pdo()->query("SELECT COUNT(*) FROM audit_log WHERE action = 'supplier.deleted'")->fetchColumn());
 
         $real = $svc->saveSupplier(0, 'Al Fakher Lebanon', '01 234 567', '', true);
-        $p = make_product('Tobacco', 'g');
+        $p = make_product('Tobacco', 'g', null, 'material');
         $pack = (new ProductService())->addUnit($p, 'Pack', '250', false, false);
         (new PurchaseService())->create($real, 'INV-1', date('Y-m-d'), [['product_id' => $p, 'unit_id' => $pack, 'qty' => '10', 'unit_cost' => '6']], '', 'outside', '', TEST_ADMIN_ID);
         assert_true((new Supplier())->isUsed($real));

@@ -75,7 +75,7 @@ return [
         assert_same(500, (int) $units['Bottle 500ml']['factor']);
         assert_same(1, (int) $units['L']['allows_fraction']);
 
-        foreach ([['Box', ''], ['Box', '0'], ['Box', 'abc'], ['Box', '-3'], ['Bucket', '5'], ['kg', '']] as [$type, $size]) {
+        foreach ([['Box', ''], ['Box', '0'], ['Box', 'abc'], ['Box', '-3'], ['Crate', '5'], ['kg', '']] as [$type, $size]) {
             assert_throws(DomainException::class, fn () => $svc->save(0, $product(['name' => "Bad {$type} {$size}", 'base_unit' => 'piece', 'units' => ['n1' => $row($type, ['size' => $size])]]), TEST_ADMIN_ID));
         }
         assert_throws(DomainException::class, fn () => $svc->save(0, $product(['name' => 'No units', 'units' => []]), TEST_ADMIN_ID));

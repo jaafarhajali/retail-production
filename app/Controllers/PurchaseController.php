@@ -25,7 +25,7 @@ final class PurchaseController extends Controller
 
     public function create(): void
     {
-        $products = (new Product())->forPrint();
+        $products = (new Product())->forPrint('material');   // F1: only raw materials and packaging are bought
         $units = (new ProductUnit())->forProducts(array_map('intval', array_column($products, 'id')));
         $this->render('purchases/create', ['suppliers' => (new Supplier())->all(true), 'products' => $products, 'unitsById' => $units], 'New purchase');
     }

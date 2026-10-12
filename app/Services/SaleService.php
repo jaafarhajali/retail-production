@@ -261,6 +261,9 @@ final class SaleService
             if ($product === null || (int) $product['is_active'] !== 1) {
                 throw new \DomainException('Product ' . ($product['name'] ?? '') . ' is not active.');
             }
+            if (($product['kind'] ?? 'finished') !== 'finished') {
+                throw new \DomainException($product['name'] . ' is a ' . ($product['kind'] === 'material' ? 'raw material' : 'mix') . ', it is not sold.');
+            }
             $listPrice = $level === 'wholesale' ? $unit['wholesale_price'] : $unit['retail_price'];
             if ($listPrice === null || (float) $listPrice <= 0) {
                 throw new \DomainException("{$product['name']} ({$unit['name']}) is not sold at the {$level} price.");
