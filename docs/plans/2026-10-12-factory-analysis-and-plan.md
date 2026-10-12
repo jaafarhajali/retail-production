@@ -217,7 +217,27 @@ scale); BEP monthly; every item's sold quantity and total per month.
   a due date (default 45 days, changeable), and the customer record gets **TVA number** and **shipping address**.
 - Company settings gain MOF number, email, a second phone, and the official-invoice header lines.
 
-## 11. Decide before F1 (the owner answers, the answers go in the decisions log)
+## 12. Phase F1 plan: product kinds and the two stocks (owner's answers of 2026-10-12 applied)
+
+Goal: after F1 the catalogue knows three kinds of product, every screen shows the right kind, and the factory's own
+products are seeded. No production yet, no held invoices yet.
+
+| # | Task | Tests first |
+|---|---|---|
+| 1 | Migration `011_product_kinds.sql`: `products.kind ENUM('finished','intermediate','material') NOT NULL DEFAULT 'finished'`; index on kind | `MigrationTest` lists 011 |
+| 2 | `Product` / `ProductService`: kind saved and validated; a material or a mix is never on the till grid and needs no selling prices; `kindOf()`; `Product::search()` and `forPrint()` filter by kind | `ProductKindTest`: save each kind; a material with a retail price is refused; the till catalogue (`pos/data`) returns finished products only |
+| 3 | Product form: a "What is it?" choice at the top: **Finished product** (sold), **Mix** (made from materials, used in finished products), **Raw material or packaging** (bought); the price and till sections hide for the last two; cost per unit and low-stock stay for all | `HttpProductPageTest` additions |
+| 4 | Products list and Stock page: tabs **Finished · Mixes · Raw materials**, counts in the tab labels, the default tab is Finished; low-stock split by kind on the dashboard panel | HTTP tests on the filters |
+| 5 | Purchases accept materials only (a finished product or a mix in a purchase line is refused with a clear message); the purchase form lists materials only | `PurchaseService` test |
+| 6 | The till and `SaleService` refuse a non-finished line ("Honey is a raw material, it is not sold"); returns without invoice list finished products only | `SaleService` test, `HttpTillReturnTest` addition |
+| 7 | Stocktaking: the scope gains the kind (count the raw materials, or the finished products, or one category) | `CountService` test |
+| 8 | `bin/seed-factory.php`: the company (Malika For Trading, address, phones, email, MOF in settings), categories Marshmallow / Packaging / Ingredients, the nine finished products with the price list and barcodes, "Customized" (price override allowed), materials (honey, sugar, glucose, colouring, flavours, boxes, labels, bags) with units and costs, one mix "Marshmallow mix" (recipes come in F2). `bin/seed-demo.php` stays for tests | `SeedFactoryTest`: runs on an empty database, counts, prices |
+| 9 | CLAUDE.md and ROADMAP: F1 marked Implemented, decisions logged | — |
+
+Out of F1: recipes and production (F2), held invoices on the till (F3), official and delivery-note prints (F4),
+dashboard and break-even (F5), customized box details (F6).
+
+## 11. Decided 2026-10-12 (kept for the record; answers are in the decisions log)
 
 1. **Finished products: counted in pieces or in grams?** Joy 100g is a piece (a box) made from 100 g of marshmallow.
    Proposal: the recipe produces grams of marshmallow *mix*, and the finished products are pieces whose recipe line is
