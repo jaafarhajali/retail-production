@@ -10,7 +10,7 @@ PHP=/c/xampp/php/php.exe; B="http://127.0.0.1:8191/index.php"; OUT="$S/till"; mk
 export RETAIL_POS_ENV=test
 
 $PHP -r 'require "tests/bootstrap.php"; test_db_reset();' || exit 1
-$PHP bin/seed-demo.php --yes | tail -1
+$PHP bin/seed-factory.php --yes | tail -1
 $PHP -r 'require "app/bootstrap.php"; (new App\Models\User())->setPin(1, "2468"); echo "admin PIN set\n";'
 $PHP "$HERE/set_max.php"
 

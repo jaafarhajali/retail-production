@@ -48,13 +48,15 @@ Auth::login(1);
 $admin = 1;
 
 // ---------------------------------------------------------------- the company
-(new Setting())->setMany([
-    'shop_name' => 'Malika For Trading', 'shop_address' => 'Lebanon / Arab Salim / main road', 'shop_phone' => '+961 70 316 708 · +961 76 564 645',
+$company = ['shop_name' => 'Malika For Trading', 'shop_address' => 'Lebanon / Arab Salim / main road', 'shop_phone' => '+961 70 316 708 · +961 76 564 645',
     'receipt_header' => 'Malika Marshmallow · Premium quality', 'receipt_footer' => 'Thank you for your purchase!',
     'company_email' => 'malikamarshmallow@gmail.com', 'company_mof' => '3900717', 'company_phone2' => '+961 76 564 645',
-]);
-Settings::flush();
-$out('Company: Malika For Trading (MOF 3900717)');
+];
+if (in_array(Settings::get('shop_name', ''), ['', 'Retail POS'], true)) {   // a shop that renamed itself keeps its name
+    (new Setting())->setMany($company);
+    Settings::flush();
+    $out('Company: Malika For Trading (MOF 3900717)');
+}
 
 try {
     (new ExchangeRate())->current();
@@ -62,6 +64,28 @@ try {
     (new ExchangeRate())->add(89500, $admin);
     $out('Exchange rate set: 1 USD = 89,500 LBP');
 }
+
+// ---------------------------------------------------------------- people and registers (for the till and the browser checks)
+$users = new App\Models\User();
+foreach ([['sara', 'Sara Haddad'], ['ali', 'Ali Khoury']] as [$username, $fullName]) {
+    if ((int) Database::pdo()->query('SELECT COUNT(*) FROM users WHERE username = ' . Database::pdo()->quote($username))->fetchColumn() === 0) {
+        $users->create($username, 'password123', $fullName, App\Models\Role::CASHIER_ID, false);
+    }
+}
+$registers = new App\Models\Register();
+foreach (['Register 01', 'Register 02'] as $name) {
+    if (array_filter($registers->all(), static fn (array $r): bool => $r['name'] === $name) === []) {
+        $registers->create($name);
+    }
+}
+$out('Sellers: sara / ali (password123); registers: Register 01, Register 02');
+$parties = new App\Services\PartyService();
+foreach ([['شركة متاجر العاملية ش.م.ل', '07/225999', '2941978-601', 'صيدا - الغازية', 'wholesale'], ['Hawraa Issa', '76 357 563', '', 'الرملة البيضا، Picasso Building', 'retail']] as [$name, $phone, $tva, $address, $level]) {
+    if ((int) Database::pdo()->query('SELECT COUNT(*) FROM customers WHERE name = ' . Database::pdo()->quote($name))->fetchColumn() === 0) {
+        $parties->saveCustomer(0, ['name' => $name, 'phone' => $phone, 'tva_number' => $tva, 'address' => $address, 'notes' => '', 'default_price_level' => $level, 'credit_limit_usd' => '', 'is_active' => true]);
+    }
+}
+$out('Customers: 2');
 
 // ---------------------------------------------------------------- categories
 $categories = new Category();

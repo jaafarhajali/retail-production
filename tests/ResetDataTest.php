@@ -19,7 +19,7 @@ return [
     '__before' => 'test_db_reset',
 
     'the old data goes to a backup, the shop is emptied and seeded again, people and registers stay' => function () use ($run, $count): void {
-        exec(sprintf('"%s" "%s" --yes 2>&1', PHP_BINARY, dirname(__DIR__) . '/bin/seed-demo.php'), $ignored, $rc);
+        exec(sprintf('"%s" "%s" --yes 2>&1', PHP_BINARY, dirname(__DIR__) . '/bin/seed-factory.php'), $ignored, $rc);
         Database::disconnect();
         assert_same(0, $rc, 'seeding first');
         make_user('omar');   // the seed makes sara and ali itself
@@ -27,6 +27,12 @@ return [
         (new \App\Models\Setting())->setMany(['shop_name' => 'Mr.Shisha']);
         $registers = new \App\Models\Register();
         $registers->bind(1, hash('sha256', 'device'));
+        // the factory seed makes no sales: open a session and sell one piece so there is something to empty
+        $session = (new \App\Services\CashService())->open(1, TEST_ADMIN_ID, '100', '0');
+        $joy = Database::pdo()->query("SELECT u.product_id, u.id FROM product_units u JOIN products p ON p.id = u.product_id WHERE p.name = 'Joy 100g' AND u.factor = 1")->fetch(PDO::FETCH_ASSOC);
+        (new \App\Services\SaleService())->complete(['register_id' => 1, 'session_id' => $session, 'user_id' => TEST_ADMIN_ID, 'customer_id' => null, 'price_level' => 'retail',
+            'lines' => [['product_id' => (int) $joy['product_id'], 'unit_id' => (int) $joy['id'], 'qty' => '1']], 'invoice_discount' => '', 'payments' => [['method' => 'cash', 'currency' => 'USD', 'amount' => '3']],
+            'change_currency' => 'USD', 'notes' => '', 'pin' => '']);
         $before = ['sales' => $count('sales'), 'products' => $count('products'), 'sessions' => $count('cash_sessions')];
         assert_true($before['sales'] > 0 && $before['products'] > 0 && $before['sessions'] > 0, 'there was something to empty');
         $backupsBefore = glob(\App\Services\BackupService::dir() . '/*.zip') ?: [];
@@ -39,8 +45,8 @@ return [
 
         // Seeded again: the same demo shop, numbered from 1.
         assert_same($before['products'], $count('products'));
-        assert_same('INV-000001', Database::pdo()->query('SELECT MIN(invoice_no) FROM sales')->fetchColumn());
-        assert_same('S-000001', Database::pdo()->query('SELECT session_no FROM cash_sessions ORDER BY id LIMIT 1')->fetchColumn());
+        // the factory seed makes no sale and opens no session: the numbering itself is back at 1
+        assert_same([1, 1], array_map('intval', Database::pdo()->query("SELECT next_value FROM counters WHERE name IN ('invoice', 'session') ORDER BY name")->fetchAll(PDO::FETCH_COLUMN)));
         assert_same('P-000001', Database::pdo()->query('SELECT MIN(internal_code) FROM products')->fetchColumn());
 
         // Kept: people, PIN, registers and their device links, settings.
@@ -52,7 +58,7 @@ return [
     },
 
     '--no-seed leaves it empty; --keep-products keeps the catalogue with zero stock' => function () use ($run, $count): void {
-        exec(sprintf('"%s" "%s" --yes 2>&1', PHP_BINARY, dirname(__DIR__) . '/bin/seed-demo.php'), $ignored, $rc);
+        exec(sprintf('"%s" "%s" --yes 2>&1', PHP_BINARY, dirname(__DIR__) . '/bin/seed-factory.php'), $ignored, $rc);
         Database::disconnect();
         $products = $count('products');
         [$rc, $log] = $run('--yes --keep-products --no-seed');

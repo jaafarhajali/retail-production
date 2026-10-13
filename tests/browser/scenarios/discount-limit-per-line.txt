@@ -1,4 +1,4 @@
-// Note 9: limit 10 %. A $95 hookah plus an $8.50 pack; 20 % on the pack is 1.6 % of the cart and used to pass without the PIN.
+// Note 9: limit 10 %. A $6 Joy 200g plus a $0.80 stick; 20 % on the stick is 2.4 % of the cart and used to pass without the PIN.
 const xText = `[...document.querySelectorAll('#cart .x')].map(e => e.textContent).join(',')`;
 const tileNamed = async (re) => { const i = await ev(`[...document.querySelectorAll('.tile')].findIndex(t => ${re}.test(t.textContent))`); await ev(`document.querySelectorAll('.tile')[${i}].click()`); await sleep(500); if (await ev(shown('m-unit'))) { await ev(`document.querySelector('#unit-list button').click()`); await sleep(500); } };
 const lineDiscount = async (pct) => {
@@ -6,7 +6,7 @@ const lineDiscount = async (pct) => {
   await type('line-discount', String(pct)); await click('#line-ok'); await sleep(1200);
 };
 const closePin = async () => { if (await ev(shown('m-pin'))) { await sleep(500); await click('#m-pin .btn-close'); await waitFor(`!${shown('m-pin')}`, 'PIN dialog to close'); await sleep(500); } };
-await tileNamed('/Khalil Mamoon/'); await tileNamed('/Adalya/');
+await tileNamed('/Joy 200g/'); await tileNamed('/Marshmallow Stick/');
 log('cart:', await ev(`[...document.querySelectorAll('#cart .cart-line .n')].map(e => e.textContent).join(' | ')`) + ' · ' + await ev(`document.getElementById('t-usd').textContent`));
 await lineDiscount(20);
 log('20 % on the pack (1.6 % of the cart): PIN asked?', await ev(shown('m-pin')) + ' · cart discounts ' + JSON.stringify(await ev(xText)));

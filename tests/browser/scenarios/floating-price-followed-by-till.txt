@@ -3,15 +3,15 @@ const { execSync } = await import('node:child_process');
 const path = await import('node:path');
 const S = path.dirname(jarPath); const HERE = path.join(process.cwd(), 'tests', 'browser');
 const php = (args) => execSync(`"C:/xampp/php/php.exe" "${S}/float_price.php" ${args}`, { encoding: 'utf8', env: { ...process.env, RETAIL_POS_ENV: 'test' } }).trim();
-log('setup:', php('mark Adalya'));
+log('setup:', php('mark Joy 100g'));
 await send('Page.reload'); await waitFor(`document.querySelector('.tile')`, 'tiles after the reload'); await sleep(3500);   // the first price poll runs 3 s after load
-const tilePrice = `(() => { const t = [...document.querySelectorAll('.tile')].find(t => /Adalya/.test(t.textContent)); return t.querySelector('.tile-price, b, strong')?.textContent || t.textContent.replace(/\\s+/g, ' ').trim(); })()`;
+const tilePrice = `(() => { const t = [...document.querySelectorAll('.tile')].find(t => /Joy 100g/.test(t.textContent)); return t.querySelector('.tile-price, b, strong')?.textContent || t.textContent.replace(/\\s+/g, ' ').trim(); })()`;
 log('tile before:', await ev(tilePrice));
-await ev(`[...document.querySelectorAll('.tile')].find(t => /Adalya/.test(t.textContent)).click()`); await sleep(500);
+await ev(`[...document.querySelectorAll('.tile')].find(t => /Joy 100g/.test(t.textContent)).click()`); await sleep(500);
 if (await ev(shown('m-unit'))) { await ev(`document.querySelector('#unit-list button').click()`); await sleep(500); }
 const cartLine = `document.querySelector('#cart .cart-line .d').textContent + ' = ' + document.querySelector('#cart .cart-line .t').textContent`;
 log('cart before:', await ev(cartLine));
-log('admin changes the price:', php('set Adalya 9.75'));
+log('admin changes the price:', php('set Joy 100g 3.75'));
 await sleep(62000);   // the till polls every 60 s
 log('message:', await ev(`document.getElementById('msg').textContent`));
 log('tile after:', await ev(tilePrice));

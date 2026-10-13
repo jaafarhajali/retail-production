@@ -54,7 +54,7 @@ scanner and a receipt printer with a cash drawer.
 - No Composer, npm or CDN. Vendor assets are local in `public/assets/vendor/`.
 - `C:\xampp\php\php.ini` needs `extension=gd` (product images, logo) and `extension=zip` (backups).
   Apache reads it only when it starts.
-- `php bin/seed-factory.php` fills an empty database with the **Malika factory catalogue** (company, price list, materials, mix); the dev database holds it since 2026-10-13. `php bin/seed-demo.php` is the hookah demo kept for the test suite. `php bin/reset-data.php` backs up,
+- `php bin/seed-factory.php` fills an empty database with the **Malika factory catalogue** (company, price list, materials, mix); the dev database holds it since 2026-10-13. `php bin/reset-data.php` backs up,
   then empties the shop (keeps users, registers, settings, rate) and seeds again. `php bin/restore-drill.php`
   proves a backup restores; it only reads the live database. Test-suite backups go to `storage/backups/test`.
   `php bin/install-backup-tasks.php` creates the hourly and daily Windows tasks once; `bin/backup.php --kind=hourly|daily` is what they run.

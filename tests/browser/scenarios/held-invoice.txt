@@ -1,6 +1,6 @@
 // F3: a customer, two lines, Hold as invoice; then Finish it with one item back and a part payment.
 const pick = async (re) => { const i = await ev(`[...document.querySelectorAll('.tile')].findIndex(t => ${re}.test(t.textContent))`); await ev(`document.querySelectorAll('.tile')[${i}].click()`); await sleep(500); if (await ev(shown('m-unit'))) { await ev(`document.querySelector('#unit-list button').click()`); await sleep(500); } };
-await pick('/Adalya/'); await pick('/Mazaya/');
+await pick('/Joy 100g/'); await pick('/Gold 100g/');
 await click('#btn-qty'); await waitFor(shown('m-line'), 'line dialog'); await sleep(300); await type('line-qty', '4'); await click('#line-ok'); await sleep(800);
 if (await ev(shown('m-pin'))) { await click('#m-pin .btn-close'); await sleep(400); }
 // choose a customer

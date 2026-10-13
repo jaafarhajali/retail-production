@@ -1,4 +1,4 @@
-// Allowed cashier discount is 50 %. Adalya Love 66 sells at $8.50 and costs $5.60.
+// Allowed cashier discount is 50 %. Needs a first tile whose cost is above 60 % of its price (written for the hookah demo: Adalya $8.50, cost $5.60); the Malika seed has none, so this scenario is kept for the record.
 const xText = `[...document.querySelectorAll('#cart .x')].map(e => e.textContent).join(',')`;
 
 // A. 10 % is inside the allowance and above cost: applied at once, no PIN

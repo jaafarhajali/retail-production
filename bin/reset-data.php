@@ -11,7 +11,7 @@
  * permissions, registers and their device links, settings, the shop logo and the exchange rate.
  *
  *   --yes            skip the confirmation prompt
- *   --no-seed        leave the database empty instead of seeding the demo data
+ *   --no-seed        leave the database empty instead of seeding the Malika catalogue
  *   --keep-products  keep products, categories and their images (stock goes back to zero)
  *
  * Refuses to run on a production installation.
@@ -53,7 +53,7 @@ foreach ($wipe as $t) {
 $out('Database: ' . DB_NAME);
 $out('Will empty: ' . ($counts === [] ? 'nothing (already empty)' : implode(', ', array_map(static fn (string $t, int $n): string => "{$t} ({$n})", array_keys($counts), $counts))));
 $out('Will keep: ' . implode(', ', $keep));
-$out(isset($opts['no-seed']) ? 'Then: leave it empty.' : 'Then: seed the demo data.');
+$out(isset($opts['no-seed']) ? 'Then: leave it empty.' : 'Then: seed the Malika catalogue.');
 if (!isset($opts['yes'])) {
     echo 'A backup is taken first. Go ahead? [y/N] ';
     $answer = trim((string) fgets(STDIN));
@@ -112,7 +112,7 @@ if (isset($opts['no-seed'])) {
 }
 
 $out('3. Seed');
-$cmd = sprintf('"%s" "%s" --yes%s', PHP_BINARY, __DIR__ . DIRECTORY_SEPARATOR . 'seed-demo.php', $keepProducts ? ' --force' : '');
+$cmd = sprintf('"%s" "%s" --yes%s', PHP_BINARY, __DIR__ . DIRECTORY_SEPARATOR . 'seed-factory.php', $keepProducts ? ' --force' : '');
 passthru($cmd, $rc);
 if ($rc !== 0) {
     fwrite(STDERR, "The seed did not finish (exit code {$rc}). The backup from step 1 is untouched.\n");
