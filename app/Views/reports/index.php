@@ -1,10 +1,16 @@
-<?php $labels = ['sales' => 'Sales', 'payments' => 'Payments', 'profit' => 'Profit', 'credit' => 'Credit', 'stock' => 'Stock', 'purchases' => 'Purchases', 'returns' => 'Returns', 'waste' => 'Waste', 'sessions' => 'Sessions', 'production' => 'Production']; ?>
+<?php $labels = ['sales' => 'Sales', 'payments' => 'Payments', 'profit' => 'Profit', 'credit' => 'Credit', 'stock' => 'Stock', 'purchases' => 'Purchases', 'returns' => 'Returns', 'waste' => 'Waste', 'sessions' => 'Sessions', 'production' => 'Production', 'products' => 'Products by month']; ?>
 <ul class="nav nav-pills mb-3 gap-1">
   <?php foreach ($available as $t): ?><li class="nav-item"><a class="nav-link <?= $t === $type ? 'active' : '' ?>" href="<?= url('reports', ['type' => $t, 'from' => $from, 'to' => $to]) ?>"><?= $labels[$t] ?></a></li><?php endforeach; ?>
 </ul>
 <form class="filters mb-3" method="get">
   <input type="hidden" name="r" value="reports"><input type="hidden" name="type" value="<?= e($type) ?>">
-  <?php if (!in_array($type, ['credit', 'stock'], true)): ?>
+  <?php if ($type === 'products'): ?>
+    <div><label class="form-label">Month</label><input class="form-control" type="month" name="month" value="<?= e($month) ?>"></div>
+    <div><label class="form-label">Level</label><select class="form-select" name="level"><option value="">Both</option><?php foreach (['retail' => 'Retail', 'wholesale' => 'Wholesale'] as $v => $l): ?><option value="<?= $v ?>" <?= $filters['level'] === $v ? 'selected' : '' ?>><?= $l ?></option><?php endforeach; ?></select></div>
+    <div><label class="form-label">Product</label><select class="form-select" name="product_id" style="max-width: 14rem"><option value="0">All</option><?php foreach ($productList as $pl): ?><option value="<?= (int) $pl['id'] ?>" <?= (int) $pl['id'] === $filters['product_id'] ? 'selected' : '' ?> dir="auto"><?= e($pl['name']) ?></option><?php endforeach; ?></select></div>
+    <div><label class="form-label">Customer</label><select class="form-select" name="customer_id" style="max-width: 14rem"><option value="0">All</option><?php foreach ($customerList as $cl): ?><option value="<?= (int) $cl['id'] ?>" <?= (int) $cl['id'] === $filters['customer_id'] ? 'selected' : '' ?> dir="auto"><?= e($cl['name']) ?></option><?php endforeach; ?></select></div>
+    <div><label class="form-label">Seller</label><select class="form-select" name="user_id"><option value="0">All</option><?php foreach ($userList as $ul): ?><option value="<?= (int) $ul['id'] ?>" <?= (int) $ul['id'] === $filters['user_id'] ? 'selected' : '' ?>><?= e($ul['username']) ?></option><?php endforeach; ?></select></div>
+  <?php elseif (!in_array($type, ['credit', 'stock'], true)): ?>
     <div><label class="form-label">From</label><input class="form-control" type="date" name="from" value="<?= e($from) ?>"></div>
     <div><label class="form-label">To</label><input class="form-control" type="date" name="to" value="<?= e($to) ?>"></div>
   <?php endif; ?>
@@ -12,6 +18,6 @@
     <div><label class="form-label">Group by</label><select class="form-select" name="by"><?php foreach (['day' => 'Day', 'cashier' => 'Cashier', 'product' => 'Product', 'level' => 'Retail / wholesale'] as $k => $v): ?><option value="<?= $k ?>" <?= $by === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?></select></div>
   <?php endif; ?>
   <button class="btn btn-outline-primary" type="submit">Show</button>
-  <a class="btn btn-outline-secondary" href="<?= url('reports', ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'print' => 1]) ?>" target="_blank"><i class="bi bi-printer"></i> Print</a>
+  <a class="btn btn-outline-secondary" href="<?= url('reports', ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'print' => 1] + ($type === 'products' ? array_filter($filters) : [])) ?>" target="_blank"><i class="bi bi-printer"></i> Print</a>
 </form>
 <?php $printing = false; require APP_PATH . '/Views/reports/' . $type . '.php'; ?>

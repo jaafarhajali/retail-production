@@ -84,6 +84,29 @@ final class ReportService
         ];
     }
 
+    /**
+     * F5: every product sold in a period, quantity and money net of returns (settlement returns are already off the
+     * lines; classic returns are deducted here), filtered by level, product, customer or salesperson.
+     */
+    public function productSales(string $from, string $to, array $filters): array
+    {
+        $p = $this->range($from, $to);
+        $where = [];
+        if (($filters['level'] ?? '') !== '') { $where[] = 's.price_level = :lv'; $p['lv'] = $filters['level']; }
+        if (($filters['product_id'] ?? 0) > 0) { $where[] = 'i.product_id = :pid'; $p['pid'] = $filters['product_id']; }
+        if (($filters['customer_id'] ?? 0) > 0) { $where[] = 's.customer_id = :cid'; $p['cid'] = $filters['customer_id']; }
+        if (($filters['user_id'] ?? 0) > 0) { $where[] = 's.user_id = :uid'; $p['uid'] = $filters['user_id']; }
+        $w = $where === [] ? '' : ' AND ' . implode(' AND ', $where);
+
+        return $this->rows("SELECT i.product_id, i.product_name, pr.base_unit,
+                                   SUM(i.base_qty) - COALESCE(SUM((SELECT SUM(ri.base_qty) FROM return_items ri WHERE ri.sale_item_id = i.id)), 0) AS qty_base,
+                                   COALESCE(SUM((SELECT SUM(ri.base_qty) FROM return_items ri WHERE ri.sale_item_id = i.id)), 0) AS returned_base,
+                                   SUM(i.line_total_usd) - COALESCE(SUM((SELECT SUM(ri.refund_usd) FROM return_items ri WHERE ri.sale_item_id = i.id)), 0) AS total,
+                                   SUM(i.line_cost_usd) - COALESCE(SUM((SELECT SUM(ri.cost_usd) FROM return_items ri WHERE ri.sale_item_id = i.id)), 0) AS cost
+                            FROM sale_items i JOIN sales s ON s.id = i.sale_id JOIN products pr ON pr.id = i.product_id
+                            WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t{$w} GROUP BY i.product_id, i.product_name, pr.base_unit ORDER BY total DESC", $p);
+    }
+
     public function credit(): array
     {
         $debts = new \App\Services\DebtService();

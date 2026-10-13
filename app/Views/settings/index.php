@@ -20,6 +20,15 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
         <label class="form-label" for="shop_address">Address</label>
         <input class="form-control" id="shop_address" name="shop_address" dir="auto" maxlength="255" value="<?= $field('shop_address') ?>">
       </div>
+      <div class="col-md-6">
+        <label class="form-label" for="company_mof">MOF number</label>
+        <input class="form-control" id="company_mof" name="company_mof" maxlength="30" value="<?= $field('company_mof') ?>">
+        <div class="form-text">Printed on the official invoice and the delivery note.</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="company_email">Email</label>
+        <input class="form-control" id="company_email" name="company_email" maxlength="120" value="<?= $field('company_email') ?>">
+      </div>
     </div>
 
     <h2 class="h5">Receipt</h2>
@@ -31,6 +40,16 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
       <div class="col-12">
         <label class="form-label" for="receipt_footer">Text at the bottom</label>
         <input class="form-control" id="receipt_footer" name="receipt_footer" dir="auto" maxlength="255" value="<?= $field('receipt_footer') ?>">
+      </div>
+    </div>
+
+    <h2 class="h5">Fixed costs</h2>
+    <?php $fixedNow = array_filter(array_map('trim', explode(',', \App\Core\Settings::get('fixed_expense_categories', '')))); $cats = array_filter((new \App\Models\Expense())->categories(), static fn (string $c): bool => $c !== \App\Services\ExpenseService::SUPPLIER_PAYMENT); ?>
+    <div class="mb-4">
+      <div class="form-text mb-2">Tick the expense categories that come every month whatever you sell (rent, salaries, electricity). The dashboard divides their total by the margin per piece to say how many pieces cover the month.</div>
+      <?php if ($cats === []): ?><p class="text-muted mb-0">No expense categories yet. They appear here once an expense is recorded.</p><?php endif; ?>
+      <div class="d-flex flex-wrap gap-3">
+        <?php foreach ($cats as $c): ?><div class="form-check"><input class="form-check-input" type="checkbox" id="fixed-<?= md5($c) ?>" name="fixed_cats[]" value="<?= e($c) ?>" <?= in_array($c, $fixedNow, true) ? 'checked' : '' ?>><label class="form-check-label" for="fixed-<?= md5($c) ?>" dir="auto"><?= e($c) ?></label></div><?php endforeach; ?>
       </div>
     </div>
 

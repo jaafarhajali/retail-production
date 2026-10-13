@@ -19,6 +19,8 @@ final class SettingService
         'shop_phone'     => ['Phone', 30, false],
         'receipt_header' => ['Receipt header', 255, false],
         'receipt_footer' => ['Receipt footer', 255, false],
+        'company_mof'    => ['MOF number', 30, false],     // F4: the official invoice
+        'company_email'  => ['Email', 120, false],
     ];
 
     public function save(array $input): void
@@ -47,6 +49,9 @@ final class SettingService
         }
         $values['max_cashier_discount_pct'] = (string) (int) $discount;
 
+        // F5: the expense categories that are fixed costs, for break-even
+        $fixed = array_values(array_unique(array_filter(array_map(static fn ($c): string => trim((string) $c), is_array($input['fixed_cats'] ?? null) ? $input['fixed_cats'] : []))));
+        $values['fixed_expense_categories'] = implode(',', $fixed);
         $values['usd_denominations'] = $this->denominations($input['usd_denominations'] ?? '', 'USD');
         $values['lbp_denominations'] = $this->denominations($input['lbp_denominations'] ?? '', 'LBP');
 
