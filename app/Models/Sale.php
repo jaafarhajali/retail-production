@@ -117,13 +117,13 @@ final class Sale extends Model
     {
         $this->execute(
             'INSERT INTO sales (invoice_no, register_id, session_id, user_id, customer_id, price_level, subtotal_usd, discount_usd, total_usd, rounding_usd,
-                                cost_total_usd, exchange_rate, change_usd, change_lbp, notes, status, held_at)
-             VALUES (:no, :r, :s, :u, :c, :pl, :sub, :d, :t, :ro, :ct, :x, :cu, :cl, :n, :st, :ha)',
+                                cost_total_usd, exchange_rate, change_usd, change_lbp, notes, status, held_at, invoice_type)
+             VALUES (:no, :r, :s, :u, :c, :pl, :sub, :d, :t, :ro, :ct, :x, :cu, :cl, :n, :st, :ha, :it)',
             [
                 'no' => $f['invoice_no'], 'r' => $f['register_id'], 's' => $f['session_id'], 'u' => $f['user_id'], 'c' => $f['customer_id'],
                 'pl' => $f['price_level'], 'sub' => $f['subtotal_usd'], 'd' => $f['discount_usd'], 't' => $f['total_usd'], 'ro' => $f['rounding_usd'],
                 'ct' => $f['cost_total_usd'], 'x' => $f['exchange_rate'], 'cu' => $f['change_usd'], 'cl' => $f['change_lbp'], 'n' => $f['notes'],
-                'st' => $f['status'] ?? 'completed', 'ha' => $f['held_at'] ?? null,
+                'st' => $f['status'] ?? 'completed', 'ha' => $f['held_at'] ?? null, 'it' => $f['invoice_type'] ?? 'normal',
             ]
         );
 
@@ -133,11 +133,11 @@ final class Sale extends Model
     public function addItem(int $saleId, array $l): int
     {
         $this->execute(
-            'INSERT INTO sale_items (sale_id, product_id, product_unit_id, product_name, unit_name, qty, base_qty, unit_price_usd, line_discount_usd,
+            'INSERT INTO sale_items (sale_id, product_id, product_unit_id, product_name, unit_name, note, qty, base_qty, unit_price_usd, line_discount_usd,
                                      line_total_usd, cost_per_base, line_cost_usd, entry_mode, price_overridden)
-             VALUES (:s, :p, :u, :pn, :un, :q, :b, :pr, :ld, :lt, :cb, :lc, :em, :po)',
+             VALUES (:s, :p, :u, :pn, :un, :nt, :q, :b, :pr, :ld, :lt, :cb, :lc, :em, :po)',
             [
-                's' => $saleId, 'p' => $l['product_id'], 'u' => $l['product_unit_id'], 'pn' => $l['product_name'], 'un' => $l['unit_name'],
+                's' => $saleId, 'p' => $l['product_id'], 'u' => $l['product_unit_id'], 'pn' => $l['product_name'], 'un' => $l['unit_name'], 'nt' => $l['note'] ?? null,
                 'q' => $l['qty'], 'b' => $l['base_qty'], 'pr' => $l['unit_price_usd'], 'ld' => $l['line_discount_usd'], 'lt' => $l['line_total_usd'],
                 'cb' => $l['cost_per_base'], 'lc' => $l['line_cost_usd'], 'em' => $l['entry_mode'], 'po' => (int) $l['price_overridden'],
             ]

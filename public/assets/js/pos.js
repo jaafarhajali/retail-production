@@ -165,7 +165,7 @@
       d.querySelector('.q small').textContent = t.u.name;
       d.querySelector('.n').textContent = t.p.name;
       d.querySelector('.t').textContent = money(t.total);
-      d.querySelector('.d').textContent = '× ' + money(t.price) + (l.mode === 'amount' ? ', sold by amount' : '') + (l.price !== null ? ', price changed' : '') + (under ? ' · BELOW COST' : '');
+      d.querySelector('.d').textContent = '× ' + money(t.price) + (l.mode === 'amount' ? ', sold by amount' : '') + (l.price !== null ? ', price changed' : '') + (l.note ? ' · ' + l.note : '') + (under ? ' · BELOW COST' : '');
       d.querySelector('.x').textContent = l.discount ? '-' + money(l.discount) : '';
       d.addEventListener('click', function () { selected = i; renderCart(); });
       d.querySelector('.line-del').addEventListener('click', function (ev) { ev.stopPropagation(); removeLine(i); });
@@ -184,7 +184,7 @@
 
   // ---- below cost: the server says which lines are under their cost; the till never learns the cost itself
   function cartLines() {
-    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '' }; });
+    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '' }; });
   }
   function probeCost() {   // the cart as it is right now
     if (!cart.length) return Promise.resolve([]);
@@ -211,6 +211,7 @@
     $('m-line-title').textContent = t.p.name;
     $('line-qty').value = l.mode === 'qty' ? l.qty : ''; $('line-amount').value = l.mode === 'amount' ? l.amount : ''; $('line-amount-lbp').value = '';
     $('line-price').value = l.price !== null ? l.price : ''; $('line-price').placeholder = money(unitPrice(t.u)); $('line-price').disabled = !t.p.override;
+    $('line-note').value = l.note || '';
     amountBoxes(t.u);
     discMode.line = l.dmode || discMode.line; syncModes();
     $('line-discount').value = l.discount ? (discMode.line === 'pct' ? trimNum(t.gross > 0 ? l.discount / t.gross * 100 : 0) : l.discount) : '';
@@ -235,6 +236,7 @@
     if (amount > 0) { l.mode = 'amount'; l.amount = amount; if (!u.fraction) { msg('Selling by amount needs a unit sold in fractions (kg, not Box)', true); return; } }
     else { if (qty <= 0) { msg('Enter a quantity', true); return; } if (!u.fraction && qty % 1 !== 0) { msg(u.name + ' is sold in whole numbers', true); return; } l.mode = 'qty'; l.qty = qty; }
     var pr = $('line-price').value.trim(); l.price = pr === '' || !p.override ? null : num(pr);
+    l.note = $('line-note').value.trim();
     var before = l.discount || 0; l.discount = 0;
     var d = discountUsd('line', lineTotals(l).gross);
     l.discount = d; var over = needsApproval(), cutNow = lineCut(l).cut; l.discount = before;   // the line as it would be
@@ -592,7 +594,7 @@
       j.invoices.forEach(function (s) {
         var row = document.createElement('div'); row.className = 'list-group-item hold-inv';
         row.innerHTML = '<span class="li-main"><b></b><small dir="auto"></small></span><span class="li-meta"></span><span class="hold-inv-actions"><a class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-printer"></i></a><button type="button" class="btn btn-sm btn-primary">Finish</button></span>';
-        row.querySelector('b').textContent = s.invoice_no + ' · ' + (s.customer || 'Walk-in'); row.querySelector('small').textContent = 'held ' + s.held_at + ' by ' + s.by;
+        row.querySelector('b').textContent = s.invoice_no + ' · ' + (s.customer || 'Walk-in'); row.querySelector('small').textContent = (s.type === 'official' ? 'official invoice · ' : '') + 'held ' + s.held_at + ' by ' + s.by;
         row.querySelector('.li-meta').textContent = money(s.total); row.querySelector('a').href = s.receipt + '&auto=1';
         row.querySelector('button').addEventListener('click', function () { modals['m-hold'].hide(); settleOpen(s.id); });
         list.appendChild(row);
@@ -603,7 +605,7 @@
   $('hold-invoice-ok').addEventListener('click', function () {
     var btn = this; if (!customer) { msg('Choose the customer first', true); return; }
     btn.disabled = true;
-    api(P.urls.holdInvoice, { customer_id: customer.id, price_level: level, lines: cartLines(), invoice_discount: $('pay-discount').value, notes: $('pay-note').value, pin: approvedPin || $('pay-pin').value })
+    api(P.urls.holdInvoice, { customer_id: customer.id, price_level: level, lines: cartLines(), invoice_discount: $('pay-discount').value, notes: $('pay-note').value, pin: approvedPin || $('pay-pin').value, invoice_type: (document.querySelector('input[name="hold_type"]:checked') || {}).value || 'normal' })
       .then(function (j) {
         modals['m-hold'].hide(); cart = []; selected = -1; clearPayment(); renderCart();
         $('done-no').textContent = j.invoice_no; $('done-label').textContent = 'On hold · out with the seller'; $('done-change').textContent = money(j.total_usd);

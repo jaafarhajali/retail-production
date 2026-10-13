@@ -19,7 +19,7 @@
   <div class="rule"></div>
   <table>
     <?php foreach ($items as $i): ?>
-      <tr><td colspan="2" dir="auto"><?= e($i['product_name']) ?></td></tr>
+      <tr><td colspan="2" dir="auto"><?= e($i['product_name']) ?><?= !empty($i['note']) ? ' — ' . e($i['note']) : '' ?></td></tr>
       <tr><td>&nbsp;&nbsp;<?= e(rtrim(rtrim($i['qty'], '0'), '.')) ?> <?= e($i['unit_name']) ?> × <?= usd($i['unit_price_usd']) ?><?= (float) $i['line_discount_usd'] > 0 ? ' −' . usd($i['line_discount_usd']) : '' ?></td><td class="r"><?= usd($i['line_total_usd']) ?></td></tr>
     <?php endforeach; ?>
   </table>

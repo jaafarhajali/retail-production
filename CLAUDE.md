@@ -4,7 +4,7 @@
 a separate folder and repository, `https://github.com/jaafarhajali/retail-production`). It starts as an exact copy
 of Retail POS at commit 1ba80d0 and will grow the factory logic: raw materials, recipes, production runs, locations,
 and the factory's own rules for returns, expenses and costing. Fixes made in Retail POS have to be brought here by hand
-(the owner chose two repositories over one with editions). The spec and the plan are in `docs/plans/2026-10-12-factory-analysis-and-plan.md` (owner's documents in `docs/specs/factory/`); phases F1–F6 are built one at a time with the owner's go. **F1 (product kinds, two stocks), F2 (recipes, production) and F3 (held delivery invoices on the till) are built**, 2026-10-13.
+(the owner chose two repositories over one with editions). The spec and the plan are in `docs/plans/2026-10-12-factory-analysis-and-plan.md` (owner's documents in `docs/specs/factory/`); phases F1–F6 are built one at a time with the owner's go. **F1 (product kinds, two stocks), F2 (recipes, production) F3 (held delivery invoices on the till) F4 (official invoice and delivery note prints) F5 (dashboard, products by month, break-even) and F6 (Customized Box, line notes) are built**, 2026-10-13. The factory plan's six phases are done; what remains is the owner's browser check and the fixes from the logic study.
 
 Retail POS is a point-of-sale and stock system for an Argile / Hookah shop in Lebanon.
 Prices are in USD; customers pay in USD and/or LBP. It runs on XAMPP on a local
@@ -88,6 +88,6 @@ scanner and a receipt printer with a cash drawer.
 ## Current status
 
 See the phase table and the **Open items** in `docs/ROADMAP.md`. As of 2026-09-28: all ten phases
-are built (347 tests); Phase 1 is Done, Phases 2–9 are Implemented and wait for the owner's
+are built (358 tests); Phase 1 is Done, Phases 2–9 are Implemented and wait for the owner's
 browser check; backups work and a restore drill passed. What remains is mostly the owner's:
 hardware, LAN, the nightly backup task, the administrator's PIN and production mode.

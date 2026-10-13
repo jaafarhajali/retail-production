@@ -101,12 +101,12 @@ final class PosController extends Controller
                 'register_id' => (int) $register['id'], 'session_id' => (int) $session['id'], 'user_id' => Auth::id(),
                 'customer_id' => (int) ($in['customer_id'] ?? 0) ?: null, 'price_level' => (string) ($in['price_level'] ?? 'retail'),
                 'lines' => is_array($in['lines'] ?? null) ? $in['lines'] : [], 'invoice_discount' => (string) ($in['invoice_discount'] ?? ''),
-                'notes' => (string) ($in['notes'] ?? ''), 'pin' => (string) ($in['pin'] ?? ''),
+                'notes' => (string) ($in['notes'] ?? ''), 'pin' => (string) ($in['pin'] ?? ''), 'invoice_type' => (string) ($in['invoice_type'] ?? 'normal'),
             ]);
         } catch (\DomainException $e) {
             $this->json(['error' => $e->getMessage(), 'needs_pin' => str_starts_with($e->getMessage(), 'Needs an Admin PIN')], 422);
         }
-        $this->json($r + ['receipt' => url('sales/receipt', ['id' => $r['id']])]);
+        $this->json($r + ['receipt' => url('sales/print', ['id' => $r['id']])]);
     }
 
     public function heldInvoices(): void
@@ -114,7 +114,7 @@ final class PosController extends Controller
         $this->requireSession();
         $this->json(['invoices' => array_map(static fn (array $s): array => [
             'id' => (int) $s['id'], 'invoice_no' => $s['invoice_no'], 'customer' => $s['customer_name'], 'total' => $s['total_usd'], 'by' => $s['username'],
-            'held_at' => date('d/m H:i', strtotime((string) ($s['held_at'] ?? $s['created_at']))), 'receipt' => url('sales/receipt', ['id' => $s['id']]),
+            'held_at' => date('d/m H:i', strtotime((string) ($s['held_at'] ?? $s['created_at']))), 'receipt' => url('sales/print', ['id' => $s['id']]), 'type' => $s['invoice_type'],
         ], (new \App\Models\Sale())->onHold())]);
     }
 
@@ -191,7 +191,7 @@ final class PosController extends Controller
                 'customer_id' => (int) ($in['customer_id'] ?? 0) ?: null, 'price_level' => (string) ($in['price_level'] ?? 'retail'),
                 'lines' => is_array($in['lines'] ?? null) ? $in['lines'] : [], 'invoice_discount' => (string) ($in['invoice_discount'] ?? ''),
                 'payments' => is_array($in['payments'] ?? null) ? $in['payments'] : [], 'change_currency' => (string) ($in['change_currency'] ?? 'LBP'),
-                'notes' => (string) ($in['notes'] ?? ''), 'pin' => (string) ($in['pin'] ?? ''),
+                'notes' => (string) ($in['notes'] ?? ''), 'pin' => (string) ($in['pin'] ?? ''), 'invoice_type' => (string) ($in['invoice_type'] ?? 'normal'),
                 'allow_short_drawer' => ($in['allow_short_drawer'] ?? false) === true,
             ]);
         } catch (\DomainException $e) {

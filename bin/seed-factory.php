@@ -96,11 +96,16 @@ foreach ($finished as [$name, $unitDefs, $cost, $opening, $min, $override]) {
         continue;
     }
     $id = $products->create(['name' => $name, 'category_id' => (string) $cat['Marshmallow'], 'base_unit' => 'piece', 'internal_code' => '', 'description' => $override ? 'Weight, flavours and price typed at the sale' : '',
-        'target_margin_pct' => '', 'show_on_pos_grid' => true, 'allow_price_override' => $override, 'kind' => 'finished']);
+        'target_margin_pct' => '', 'show_on_pos_grid' => true, 'allow_price_override' => $override, 'kind' => 'finished', 'track_stock' => !$override]);
     $unitIds = [];
+    $piece = $unitDefs[0];
     foreach ($unitDefs as $u) {
         [$type, $size, $fraction, $retail, $wholesale] = $u;
         $unitId = $products->addUnit($id, $type, (string) $size, $fraction, false);
+        if ($retail === '' && $size > 1 && $piece[3] !== '') {   // a box is sold at the piece price × its pieces (the supermarkets buy boxes)
+            $retail = number_format((float) $piece[3] * $size, 2, '.', '');
+            $wholesale = $piece[4] === '' ? '' : number_format((float) $piece[4] * $size, 2, '.', '');
+        }
         $products->setPrices($unitId, $retail, $wholesale);
         if (($u[5] ?? '') !== '') {
             $products->addBarcode($unitId, $u[5]);

@@ -51,7 +51,7 @@ final class SaleService
             $saleId = $sales->create($this->saleFields($no, $in, $p, $pay, 'completed'));
             foreach ($p['lines'] as $l) {
                 $sales->addItem($saleId, $l);
-                if ($l['stock_base'] - $l['base_qty'] < 0) {
+                if ($l['track_stock'] && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
             }
@@ -138,6 +138,7 @@ final class SaleService
                 'item_id' => (int) $i['id'], 'product_id' => (int) $i['product_id'], 'product_name' => $i['product_name'], 'base_qty' => $netBase,
                 'qty' => Quantity::unitQty($netBase, (int) $i['factor']), 'line_total_usd' => $lineTotal, 'line_discount_usd' => Money::fmt((float) $i['line_discount_usd'] * $ratio),
                 'cost_per_base' => $i['cost_per_base'], 'line_cost_usd' => Money::fmt($netBase * (float) $i['cost_per_base']), 'stock_base' => (int) ($product['stock_base'] ?? 0),
+                'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
             ];
             if ($retBase > 0) {
                 $back[] = ['sale_item_id' => (int) $i['id'], 'qty' => Quantity::unitQty($retBase, (int) $i['factor']), 'base_qty' => $retBase, 'value_usd' => $value, 'product_name' => $i['product_name']];
@@ -165,7 +166,7 @@ final class SaleService
         $result = Database::transaction(function () use ($sales, $sale, $saleId, $lines, $back, $pay, $customer, $rate, $userId, $sessionId, $registerId, $netSubtotal, $netDiscount, $netTotal, $returnedValue, $approver, $needsPin, &$warnings): array {
             foreach ($lines as $l) {
                 $sales->settleItem($l['item_id'], $l);
-                if ($l['base_qty'] > 0 && $l['stock_base'] - $l['base_qty'] < 0) {
+                if ($l['track_stock'] && $l['base_qty'] > 0 && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
             }
@@ -345,6 +346,7 @@ final class SaleService
             'discount_usd' => $p['invoiceDiscount'], 'total_usd' => $p['total'], 'rounding_usd' => Money::fmt($pay['rounding']),
             'cost_total_usd' => Money::fmt(array_sum(array_map(static fn (array $l): float => (float) $l['line_cost_usd'], $p['lines']))),
             'exchange_rate' => $p['rate'], 'change_usd' => $pay['change_usd'], 'change_lbp' => $pay['change_lbp'], 'notes' => trim((string) ($in['notes'] ?? '')) ?: null, 'status' => $status,
+            'invoice_type' => ($in['invoice_type'] ?? 'normal') === 'official' ? 'official' : 'normal',
         ];
     }
 
@@ -353,6 +355,9 @@ final class SaleService
     {
         $stock = new StockService();
         foreach ($lines as $l) {
+            if (!($l['track_stock'] ?? true)) {
+                continue;   // F6: assembled on the spot (the Customized Box), no stock of its own
+            }
             $stock->move($l['product_id'], -$l['base_qty'], 'sale', null, $l['cost_per_base'], 'sale', $saleId, $userId, $sessionId);
         }
         $sales = new Sale();
@@ -487,6 +492,7 @@ final class SaleService
                 'qty' => $qty, 'base_qty' => $base, 'unit_price_usd' => $price, 'line_discount_usd' => $discount, 'line_total_usd' => $lineTotal,
                 'cost_per_base' => $product['cost_per_base'], 'line_cost_usd' => Money::fmt($base * (float) $product['cost_per_base']),
                 'entry_mode' => $mode, 'price_overridden' => $overridden, 'stock_base' => (int) $product['stock_base'],
+                'note' => mb_substr(trim((string) ($l['note'] ?? '')), 0, 255) ?: null, 'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
             ];
         }
         if ($lines === []) {

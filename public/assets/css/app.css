@@ -298,6 +298,50 @@ td.empty { background: var(--surface) !important; }
 .dash-meta .is-warn dd, .dash-meta .is-warn dd a { color: var(--amber); }
 .dash-device { display: flex; flex-direction: column; }
 .dash-device .dash-name { font-family: var(--font-display); font-size: 1.55rem; font-weight: 600; letter-spacing: -.01em; line-height: 1.2; }
+/* F5: the factory dashboard. The flow strip is the one bold element; the rest stays quiet. */
+.dash-flow { grid-column: 1 / -1; padding: 0; overflow: hidden; }
+.flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.flow li { position: relative; border-right: 1px solid var(--line-2); }
+.flow li:last-child { border-right: 0; }
+.flow li::after { content: ""; position: absolute; right: -9px; top: 50%; width: 16px; height: 16px; margin-top: -8px; background: var(--surface); border-top: 1px solid var(--line-2); border-right: 1px solid var(--line-2); transform: rotate(45deg); z-index: 1; }
+.flow li:last-child::after { display: none; }
+.flow a { display: flex; flex-direction: column; gap: .15rem; padding: 1rem 1.1rem 1rem 1.4rem; height: 100%; color: inherit; text-decoration: none; }
+.flow a:hover { background: var(--surface-2); }
+.flow .flow-step { font-size: .88rem; color: var(--ink-2); }
+.flow .flow-figure { font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; }
+.flow .flow-figure.is-owed { color: var(--amber); }
+.flow .flow-note { font-size: .82rem; color: var(--ink-3); }
+.flow .flow-note .is-warn { color: var(--amber); font-weight: 600; }
+.flow .flow-end a { background: var(--enamel-soft); }
+.dash-sales .dash-figure { font-family: var(--font-display); font-size: 3rem; font-weight: 700; line-height: 1; letter-spacing: -.02em; margin: .2rem 0 .6rem; }
+.split { margin-top: .9rem; }
+.split-row { display: flex; justify-content: space-between; font-size: .85rem; color: var(--ink-2); margin-bottom: .3rem; }
+.split-bar { height: 8px; border-radius: 4px; background: var(--line-2); overflow: hidden; }
+.split-bar span { display: block; height: 100%; background: var(--enamel); }
+.split-bar.is-money span { background: var(--green); }
+.bep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem .9rem; }
+.bep-grid > div { display: flex; flex-direction: column; gap: .1rem; }
+.bep-grid > div span { font-size: .85rem; color: var(--ink-2); }
+.bep-grid > div b { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; line-height: 1.15; }
+.bep-grid > div small { color: var(--ink-3); }
+.bep-grid .bep-wide { grid-column: 1 / -1; }
+.bep-bar { height: 10px; border-radius: 5px; background: var(--line-2); overflow: hidden; margin-top: .9rem; }
+.bep-bar span { display: block; height: 100%; background: var(--brass); }
+.bep-foot { display: flex; justify-content: space-between; margin-top: .4rem; font-size: .9rem; font-weight: 600; }
+.bep-foot .is-good { color: var(--green); }
+.bep-foot .is-warn { color: var(--amber); }
+.dash-fine { margin: .8rem 0 0; font-size: .8rem; color: var(--ink-3); }
+.dash-empty { color: var(--ink-3); margin: 0; }
+.dash-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.dash-more { font-size: .85rem; white-space: nowrap; }
+.dash-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dash-table th { font-size: .8rem; font-weight: 600; color: var(--ink-2); text-align: left; padding: .2rem 0 .4rem; border-bottom: 1px solid var(--line-2); }
+.dash-table td { padding: .42rem 0; border-bottom: 1px solid var(--line-2); }
+.dash-table tr:last-child td { border-bottom: 0; }
+.dash-table .r { text-align: right; white-space: nowrap; }
+.dash-table .is-owed { color: var(--amber); font-weight: 600; }
+.dash-table .is-warn { color: var(--amber); }
+@media (max-width: 900px) { .flow { grid-template-columns: 1fr 1fr; } .flow li::after { display: none; } .flow li { border-right: 0; border-bottom: 1px solid var(--line-2); } }
 .dash-status { display: flex; align-items: center; gap: .5rem; margin: .45rem 0 1.1rem; color: var(--ink-2); }
 .dash-status .dot { width: .6rem; height: .6rem; border-radius: 50%; background: #A9B5BC; flex-shrink: 0; }
 .dash-status.is-open .dot { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
@@ -386,6 +430,45 @@ body > .error-wrap .blocked { width: 100%; }
 
 /* ───────────── Print (A4 tables) ───────────── */
 .print-page { background: #fff; font-size: .95rem; }
+/* F4: the A4 invoice and the delivery note, after the company's own papers */
+.inv { max-width: 190mm; margin: 0 auto; color: #14222C; font-size: 10.5pt; }
+.inv .inv-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 2px solid #14222C; padding-bottom: .6rem; }
+.inv .inv-logo { display: block; height: 26mm; width: auto; max-width: 70mm; object-fit: contain; }
+.inv .inv-mof { font-size: .8rem; color: #53636F; margin-top: .2rem; }
+.inv .inv-company { text-align: right; line-height: 1.35; }
+.inv .inv-company-name { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: #2fa89b; }
+.inv .inv-title { text-align: center; margin: .8rem 0; }
+.inv .inv-title span { display: inline-block; padding: .25rem 1.6rem; background: #2fa89b; color: #fff; font-size: 1.3rem; font-weight: 700; letter-spacing: .02em; }
+.inv .inv-flag { text-align: center; font-weight: 700; color: #b3261e; margin-bottom: .5rem; }
+.inv .inv-parties { display: flex; justify-content: space-between; gap: 1.5rem; margin-bottom: .8rem; }
+.inv .inv-billto th { text-align: left; text-decoration: underline; padding-bottom: .2rem; }
+.inv .inv-billto td, .inv .inv-numbers td { padding: .12rem .6rem .12rem 0; vertical-align: top; }
+.inv .inv-billto td:last-child, .inv .inv-numbers td:last-child { min-width: 9rem; border-bottom: 1px solid #14222C; }
+.inv .inv-numbers td:first-child { font-weight: 600; }
+.inv .inv-lines { width: 100%; border-collapse: collapse; font-size: 10pt; }
+.inv .inv-lines th { background: #2fa89b; color: #fff; padding: .3rem .4rem; border: 1px solid #14222C; text-align: center; }
+.inv .inv-lines th.l, .inv .inv-lines td.l { text-align: left; }
+.inv .inv-lines td { padding: .3rem .4rem; border-bottom: 1px solid #14222C; text-align: center; }
+.inv .inv-lines td.amount { font-weight: 700; text-align: right; }
+.inv .inv-lines td.code { font-size: 8pt; }
+.inv .inv-lines tr.blank td { height: 1.6rem; }
+.inv .inv-totals { display: flex; justify-content: flex-end; margin-top: .6rem; }
+.inv .inv-totals td { padding: .2rem 1rem; text-align: right; }
+.inv .inv-totals tr.total td { font-weight: 700; font-size: 1.1rem; }
+.inv .inv-totals tr.total td:last-child { background: #d9f1ee; }
+.inv .inv-sign { display: flex; justify-content: space-between; margin: 2.2rem 1rem 0; font-weight: 700; text-decoration: underline; }
+.inv .inv-foot { margin-top: 3rem; background: #2fa89b; color: #fff; text-align: center; padding: .5rem; font-weight: 700; }
+.inv .inv-no { font-size: 1.3rem; color: #b3261e; align-self: center; }
+.inv .inv-note-title { text-align: right; font-size: 1.6rem; font-weight: 800; line-height: 1.05; color: #2fa89b; }
+.inv .inv-note-title small { font-size: .95rem; font-weight: 600; }
+.inv .inv-ship { flex: 0 0 45%; border: 1px solid #2fa89b; border-radius: 6px; min-height: 5rem; }
+.inv .inv-ship-title { background: #2fa89b; color: #fff; padding: .25rem .6rem; font-weight: 600; }
+.inv .inv-ship > div:last-child { padding: .5rem .6rem; }
+.inv .inv-contact { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; margin-top: 1.5rem; padding-top: .5rem; border-top: 1px solid #14222C; font-size: .85rem; color: #53636F; }
+.inv .inv-contact .thanks { margin-left: auto; font-style: italic; }
+@media print { .inv { max-width: none; } .inv .inv-lines th { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+#m-hold .inv-type { display: flex; gap: .4rem; }
+#m-hold .inv-type .btn { flex: 1; }
 .print-page main { max-width: 900px; }
 .print-bar { position: sticky; top: 0; z-index: 5; }
 /* What a printed report says at the top: whose shop, which report, when it was printed. */

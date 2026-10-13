@@ -107,7 +107,8 @@ return [
         assert_not_contains('Joy 100g', $materials);
         assert_contains('Raw materials', $list);
         $dash = $client->get('dashboard')->body;
-        assert_contains('1 raw material', $dash);
+        assert_contains('Low stock', $dash);
+        assert_contains('Honey', $dash);   // F5: the dashboard lists the low products by name
     },
 
     'stocktaking counts one kind' => function () use ($make): void {

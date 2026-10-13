@@ -319,6 +319,7 @@ final class ProductController extends Controller
             'show_on_pos_grid'     => isset($_POST['show_on_pos_grid']),
             'allow_price_override' => isset($_POST['allow_price_override']),
             'price_floats'         => isset($_POST['price_floats']),
+            'track_stock'          => !isset($_POST['no_stock']),
             'kind'                 => $this->input('kind') ?: 'finished',
         ];
     }

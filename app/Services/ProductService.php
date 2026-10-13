@@ -665,6 +665,7 @@ final class ProductService
             'kind'                 => $kind,
             'allow_price_override' => $kind === 'finished' && (bool) ($in['allow_price_override'] ?? false),
             'price_floats'         => $kind === 'finished' && (bool) ($in['price_floats'] ?? false),
+            'track_stock'          => $kind !== 'finished' || (bool) ($in['track_stock'] ?? true),   // F6: only a finished product can be sold without counting stock
             'show_on_pos_grid'     => $kind === 'finished' && (bool) ($in['show_on_pos_grid'] ?? true),
             'target_margin_pct'    => $target,
         ];
