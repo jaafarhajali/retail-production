@@ -38,6 +38,39 @@ final class SaleController extends Controller
         ], $sale['invoice_no']);
     }
 
+    /**
+     * F4 (2026-10-13): the A4 print. ?type=official forces the company invoice, ?type=normal the delivery note;
+     * without it the sale's own type decides. The official one needs the customer's TVA number and address.
+     */
+    public function print(): void
+    {
+        $sale = $this->load($this->queryInt('id'));
+        $sales = new Sale();
+        $type = in_array($this->query('type'), ['official', 'normal'], true) ? $this->query('type') : $sale['invoice_type'];
+        $items = $sales->items((int) $sale['id']);
+        // The Code column: the barcode of the unit sold, else any barcode of the product (a box line shows the piece's code, as on the owner's sample).
+        $barcodes = [];
+        $productIds = array_map('intval', array_column($items, 'product_id'));
+        if ($productIds !== []) {
+            $byProduct = [];
+            foreach (\App\Core\Database::pdo()->query('SELECT u.product_id, b.product_unit_id, b.barcode FROM barcodes b JOIN product_units u ON u.id = b.product_unit_id WHERE u.product_id IN (' . implode(',', $productIds) . ') ORDER BY b.id') as $b) {
+                $barcodes[(int) $b['product_unit_id']] ??= $b['barcode'];
+                $byProduct[(int) $b['product_id']] ??= $b['barcode'];
+            }
+            foreach ($items as $i) {
+                $barcodes[(int) $i['product_unit_id']] ??= $byProduct[(int) $i['product_id']] ?? '';
+            }
+        }
+        $onCredit = $sales->paidByMethod((int) $sale['id'])['credit'];
+        $credit = (float) $onCredit > 0 && $sale['customer_id'] !== null && $sale['status'] === 'completed'
+            ? ['usd' => $onCredit, 'balance' => (new \App\Models\Customer())->balanceAfterSale((int) $sale['customer_id'], (int) $sale['id'])]
+            : null;
+        View::render($type === 'official' ? 'sales/invoice' : 'sales/delivery-note', [
+            'pageTitle' => ($type === 'official' ? 'Invoice ' : 'Delivery note ') . $sale['invoice_no'], 'sale' => $sale, 'items' => $items, 'barcodes' => $barcodes, 'credit' => $credit,
+            'customer' => $sale['customer_id'] === null ? null : (new \App\Models\Customer())->find((int) $sale['customer_id']), 'dueDays' => 45, 'auto' => $this->query('auto') === '1',
+        ], 'layouts/print');
+    }
+
     public function receipt(): void
     {
         $sale = $this->load($this->queryInt('id'));

@@ -103,6 +103,8 @@ final class PartyService
         $limit = Pricing::parse((string) ($in['credit_limit_usd'] ?? ''), true);
         $f = [
             'name' => $name, 'phone' => trim((string) ($in['phone'] ?? '')) === '' ? null : mb_substr(trim((string) $in['phone']), 0, 30),
+            'tva_number' => trim((string) ($in['tva_number'] ?? '')) === '' ? null : mb_substr(trim((string) $in['tva_number']), 0, 30),
+            'address' => trim((string) ($in['address'] ?? '')) === '' ? null : mb_substr(trim((string) $in['address']), 0, 255),
             'notes' => trim((string) ($in['notes'] ?? '')) === '' ? null : mb_substr(trim((string) $in['notes']), 0, 1000),
             'default_price_level' => $level, 'credit_limit_usd' => $limit, 'is_active' => (bool) ($in['is_active'] ?? true),
         ];

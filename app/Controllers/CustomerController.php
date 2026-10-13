@@ -31,7 +31,7 @@ final class CustomerController extends Controller
         $id = $this->inputInt('id');
         try {
             $id = (new PartyService())->saveCustomer($id, [
-                'name' => $this->input('name'), 'phone' => $this->input('phone'), 'notes' => $this->input('notes'),
+                'name' => $this->input('name'), 'phone' => $this->input('phone'), 'notes' => $this->input('notes'), 'tva_number' => $this->input('tva_number'), 'address' => $this->input('address'),
                 'default_price_level' => $this->input('default_price_level'), 'credit_limit_usd' => $this->input('credit_limit_usd'),
                 'is_active' => $id === 0 || isset($_POST['is_active']), 'allow_same_name' => isset($_POST['allow_same_name']),
             ]);

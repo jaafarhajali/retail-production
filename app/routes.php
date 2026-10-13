@@ -152,6 +152,7 @@ return [
     ['GET',  'sales',            [SaleController::class, 'index'],   Router::AUTH],
     ['GET',  'sales/view',       [SaleController::class, 'view'],    Router::AUTH],
     ['GET',  'sales/receipt',    [SaleController::class, 'receipt'], Router::AUTH],
+    ['GET',  'sales/print',      [SaleController::class, 'print'],   Router::AUTH],   // F4: the A4 invoice or delivery note
     // Phase 6 — returns
     ['GET',  'returns',          [ReturnController::class, 'index'],   'return.create'],
     ['POST', 'returns/store',    [ReturnController::class, 'store'],   'return.create'],

@@ -26,6 +26,7 @@
   <?php endif; ?>
   <?= $content ?>
 </main>
+<?php if (!empty($auto)): ?><script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 200); });</script><?php endif; ?>
 </body>
 </html>
 <?php clear_form_stash(); ?>

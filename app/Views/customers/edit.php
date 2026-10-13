@@ -6,6 +6,10 @@
         <input type="hidden" name="id" value="<?= (int) ($customer['id'] ?? 0) ?>">
         <div class="mb-3"><label class="form-label" for="name">Name</label><input class="form-control" id="name" name="name" dir="auto" required maxlength="120" value="<?= old('name', $customer['name'] ?? '') ?>"></div>
         <div class="mb-3"><label class="form-label" for="phone">Phone</label><input class="form-control" id="phone" name="phone" maxlength="30" value="<?= old('phone', $customer['phone'] ?? '') ?>"></div>
+        <div class="row g-2 mb-3">
+          <div class="col-5"><label class="form-label" for="tva_number">TVA number</label><input class="form-control" id="tva_number" name="tva_number" maxlength="30" placeholder="for the official invoice" value="<?= old('tva_number', $customer['tva_number'] ?? '') ?>"></div>
+          <div class="col-7"><label class="form-label" for="address">Address</label><input class="form-control" id="address" name="address" dir="auto" maxlength="255" placeholder="printed on both invoices" value="<?= old('address', $customer['address'] ?? '') ?>"></div>
+        </div>
         <?php if (isset($_SESSION['_errors']['same_name'])): ?>
           <div class="form-check mb-3 same-name"><input class="form-check-input" type="checkbox" id="allow_same_name" name="allow_same_name" value="1"><label class="form-check-label" for="allow_same_name">Different person with the same name: save anyway</label></div>
         <?php endif; ?>
