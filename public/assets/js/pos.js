@@ -525,7 +525,7 @@
   // its note and the administrator's approval it was given.
   function clearPayment() {
     payments = []; allowShort = false; approvedPin = ''; approvedPct = 0;
-    $('pay-discount').value = ''; $('pay-discount-hint').textContent = ''; $('pay-pin').value = ''; $('pay-note').value = '';
+    $('pay-discount').value = ''; $('pay-discount-hint').textContent = ''; $('pay-pin').value = ''; $('pay-note').value = ''; var pt = $('pay-type-normal'); if (pt) { pt.checked = true; }
   }
   // Take payment and Discount open the same dialog, always drawn for the sale as it is now: never the amounts of the
   // sale before (2026-10-07: Discount opened it with the last sale's $5.00 still showing).
@@ -545,6 +545,7 @@
     api(P.urls.complete, {
       customer_id: customer ? customer.id : 0, price_level: level, invoice_discount: totals().disc.toFixed(2), change_currency: $('pay-change').value,
       notes: $('pay-note').value, pin: approvedPin || $('pay-pin').value, allow_short_drawer: allowShort,
+      invoice_type: (document.querySelector('input[name="pay_type"]:checked') || {}).value || 'normal',
       lines: cartLines(),
       payments: payments
     }).then(function (j) {
@@ -552,7 +553,9 @@
       $('done-no').textContent = j.invoice_no;
       showDone(j);
       $('done-warn').textContent = (j.warnings || []).join(' ');
-      $('done-print').href = j.receipt + '&auto=1';
+      // an official invoice prints on A4; a normal sale prints the receipt, and a customer with a delivery gets the A4 note from the sale page
+      $('done-print').href = (j.invoice_type === 'official' ? j.print : j.receipt) + '&auto=1';
+      if (j.invoice_type === 'official') { window.open(j.print + '&auto=1', '_blank'); }
       modals['m-done'].show();
       cart = []; selected = -1; clearPayment(); setCustomer(null); renderCart(); renderPay(); loadData();
     }).catch(function (e) {

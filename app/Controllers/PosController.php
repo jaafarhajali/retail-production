@@ -204,6 +204,8 @@ final class PosController extends Controller
         $c = $customerId > 0 ? (new Customer())->find($customerId) : null;
         $this->json($result + [
             'receipt'    => url('sales/receipt', ['id' => $result['id']]),
+            'print'      => url('sales/print', ['id' => $result['id']]),
+            'invoice_type' => ($in['invoice_type'] ?? 'normal') === 'official' ? 'official' : 'normal',
             'cash_usd'   => $paid['cash'],
             'card_usd'   => $paid['card'],
             'credit_usd' => $paid['credit'],

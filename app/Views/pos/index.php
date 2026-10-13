@@ -116,6 +116,11 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
           <div class="disc-field"><input class="form-control" id="pay-discount" inputmode="decimal" placeholder="0"><div class="disc-mode" role="group" aria-label="Discount type"><button type="button" data-kind="pay" data-mode="pct" class="active">%</button><button type="button" data-kind="pay" data-mode="usd">$</button></div></div>
           <div class="disc-hint" id="pay-discount-hint"></div><input type="hidden" id="pay-pin"></div>
         <div><label class="form-label" for="pay-note">Note</label><input class="form-control" id="pay-note" dir="auto"></div>
+        <div class="mt-2"><span class="form-label d-block">Invoice</span>
+          <div class="inv-type" role="group" aria-label="Invoice type">
+            <input type="radio" class="btn-check" name="pay_type" id="pay-type-normal" value="normal" checked><label class="btn btn-outline-light" for="pay-type-normal">Receipt / delivery note</label>
+            <input type="radio" class="btn-check" name="pay_type" id="pay-type-official" value="official"><label class="btn btn-outline-light" for="pay-type-official">Official invoice</label>
+          </div></div>
       </div>
     </div>
     <?php require APP_PATH . '/Views/pos/_keypad.php'; ?>

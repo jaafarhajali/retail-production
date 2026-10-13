@@ -18,12 +18,13 @@
         <td class="text-nowrap"><code><?= e($s['invoice_no']) ?></code></td><td class="text-nowrap"><?= e(date('d/m/Y H:i', strtotime($s['created_at']))) ?></td><td><?= e($s['username']) ?></td>
         <td dir="auto" class="<?= $s['customer_name'] === null ? 'is-walkin' : '' ?>"><?= e($s['customer_name'] ?? 'Walk-in') ?></td><td><?= $s['price_level'] === 'wholesale' ? '<span class="badge text-bg-info">Wholesale</span>' : '<span class="badge text-bg-success">Retail</span>' ?></td><td class="text-end"><?= usd($s['total_usd']) ?></td>
         <td><?php $back = (float) $s['returned_usd']; ?>
+          <?php if (($s['invoice_type'] ?? 'normal') === 'official'): ?><span class="badge text-bg-dark">official</span><?php endif; ?>
           <?php if ($s['status'] === 'on_hold'): ?><span class="badge text-bg-warning">on hold</span><?php endif; ?>
           <?php if ($s['status'] === 'voided'): ?><span class="badge text-bg-danger">voided</span>
           <?php elseif ($back > 0.004 && $back >= (float) $s['total_usd'] - 0.004): ?><span class="badge text-bg-warning" title="<?= usd($back) ?> refunded">returned</span>
           <?php elseif ($back > 0.004): ?><span class="badge text-bg-warning" title="<?= usd($back) ?> of <?= usd($s['total_usd']) ?> refunded">part returned</span>
           <?php endif; ?></td>
-        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= url('sales/view', ['id' => $s['id']]) ?>">Open</a></td>
+        <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="<?= url('sales/print', ['id' => $s['id']]) ?>" target="_blank" title="<?= ($s['invoice_type'] ?? 'normal') === 'official' ? 'Print the official invoice' : 'Print the delivery note' ?>"><i class="bi bi-printer"></i></a> <a class="btn btn-sm btn-outline-primary" href="<?= url('sales/view', ['id' => $s['id']]) ?>">Open</a></td>
       </tr>
     <?php endforeach; ?>
     <?php if ($pg['rows'] === []): ?><tr><td colspan="8" class="empty">No sales match these filters.</td></tr><?php endif; ?>

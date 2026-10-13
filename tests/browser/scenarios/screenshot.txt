@@ -1,0 +1,5 @@
+// a picture of the till in both themes
+await shot('t1-till-dark');
+await click('.pos-theme'); await sleep(400);
+await shot('t2-till-light');
+log('theme:', await ev(`document.body.dataset.theme || 'dark'`));

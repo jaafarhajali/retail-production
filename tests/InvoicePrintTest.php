@@ -108,5 +108,14 @@ return [
         $j = json_decode($r->body, true);
         assert_contains('r=sales/print', $j['receipt']);
         assert_same('official', json_decode($client->get('pos/held-invoices')->body, true)['invoices'][0]['type']);
+        // a sale paid at once can be an official invoice too: the payment dialog has the same choice
+        $r = $client->postJson('pos/complete', ['customer_id' => $s['customer'], 'price_level' => 'wholesale', 'lines' => [['product_id' => $s['stick'], 'unit_id' => $s['box'], 'qty' => '1']], 'invoice_discount' => '',
+            'payments' => [['method' => 'cash', 'currency' => 'USD', 'amount' => '65']], 'change_currency' => 'USD', 'notes' => '', 'pin' => '', 'invoice_type' => 'official']);
+        assert_same(200, $r->status, $r->body);
+        $j = json_decode($r->body, true);
+        assert_same('official', $j['invoice_type']);
+        assert_contains('r=sales/print', $j['print']);
+        assert_contains('official', $client->get('sales')->body);
+        assert_contains('id="pay-type-official"', $client->get('pos')->body);
     },
 ];
