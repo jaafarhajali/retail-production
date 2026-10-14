@@ -1,0 +1,180 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Services;
+
+use App\Core\Audit;
+use App\Core\Database;
+use App\Models\Counter;
+use App\Models\Packing;
+use App\Models\Product;
+use App\Models\ProductUnit;
+
+/**
+ * Packing (2026-10-14): a batch of mix becomes finished products, and the split is decided at that moment.
+ * "5 kg of mix + 50 boxes → 30 Joy 100g + 20 Gold 100g" today, "→ 10 Joy + 40 Gold" tomorrow, from the same mix.
+ * Nothing is predefined: the user types what was used and what came out. The mix and the packaging go out of stock
+ * at their cost of the moment; the products come in, and the cost of what was used is shared between them in
+ * proportion to their selling value (a $6 Joy 200g takes twice the cost of a $3 Joy 100g), by quantity when no
+ * product has a price. Each product's cost per piece becomes the moving average of its packings, like a purchase.
+ */
+final class PackingService
+{
+    public function __construct(
+        private readonly Product $products = new Product(),
+        private readonly ProductUnit $units = new ProductUnit(),
+        private readonly Packing $packings = new Packing(),
+    ) {
+    }
+
+    /**
+     * What a packing would do, before it is confirmed.
+     *
+     * @param list<array{product_id?: mixed, qty?: mixed, unit_id?: mixed}> $used the mix first, then boxes, labels, extras
+     * @param list<array{product_id?: mixed, qty?: mixed, unit_id?: mixed}> $made the finished products and how many
+     * @return array{used: list<array>, made: list<array>, short: list<string>, cost: string, by_value: bool}
+     */
+    public function preview(array $used, array $made): array
+    {
+        $usedLines = [];
+        $short = [];
+        $total = 0.0;
+        $hasMix = false;
+        foreach ($used as $l) {
+            if (!is_array($l) || (int) ($l['product_id'] ?? 0) === 0 && trim((string) ($l['qty'] ?? '')) === '') {
+                continue;   // an empty row on the form
+            }
+            $p = $this->products->find((int) ($l['product_id'] ?? 0)) ?? throw new \DomainException('Choose what was used on every line.');
+            if ($p['kind'] === 'finished') {
+                throw new \DomainException($p['name'] . ' is a finished product: it is made here, not used. Packing uses the mix and the packaging.');
+            }
+            if (isset($usedLines[(int) $p['id']])) {
+                throw new \DomainException($p['name'] . ' is used twice. Add the quantities on one line.');
+            }
+            $hasMix = $hasMix || $p['kind'] === 'intermediate';
+            [$qtyBase, $unit] = $this->toBase($p, (string) ($l['qty'] ?? ''), (int) ($l['unit_id'] ?? 0));
+            $cost = $qtyBase * (float) $p['cost_per_base'];
+            $total += $cost;
+            $isShort = $qtyBase > (int) $p['stock_base'];
+            if ($isShort) {
+                $short[] = $p['name'] . ': needs ' . ProductionService::baseText($qtyBase, $p['base_unit']) . ', in stock ' . ProductionService::baseText((int) $p['stock_base'], $p['base_unit']);
+            }
+            $usedLines[(int) $p['id']] = ['product_id' => (int) $p['id'], 'name' => $p['name'], 'kind' => $p['kind'], 'base_unit' => $p['base_unit'], 'qty_base' => $qtyBase,
+                'qty_text' => ProductionService::baseText($qtyBase, $p['base_unit']), 'stock_base' => (int) $p['stock_base'], 'stock_text' => ProductionService::baseText((int) $p['stock_base'], $p['base_unit']),
+                'short' => $isShort, 'cost_per_base' => $p['cost_per_base'], 'cost_usd' => Money::fmt($cost)];
+        }
+        if ($usedLines === []) {
+            throw new \DomainException('Start with the mix: which one was packed, and how much of it.');
+        }
+        if (!$hasMix) {
+            throw new \DomainException('Packing starts from a mix. Add the mix that was packed on the first line.');
+        }
+        $madeLines = [];
+        $weights = [];
+        foreach ($made as $l) {
+            if (!is_array($l) || (int) ($l['product_id'] ?? 0) === 0 && trim((string) ($l['qty'] ?? '')) === '') {
+                continue;
+            }
+            $p = $this->products->find((int) ($l['product_id'] ?? 0)) ?? throw new \DomainException('Choose the product on every line of what was made.');
+            if ($p['kind'] !== 'finished') {
+                throw new \DomainException($p['name'] . ' is not a finished product. Packing makes the products that are sold.');
+            }
+            if ((int) $p['track_stock'] !== 1) {
+                throw new \DomainException($p['name'] . ' keeps no stock, so it cannot be made here.');
+            }
+            if (isset($madeLines[(int) $p['id']])) {
+                throw new \DomainException($p['name'] . ' is made twice. Add the quantities on one line.');
+            }
+            [$qtyBase, $unit] = $this->toBase($p, (string) ($l['qty'] ?? ''), (int) ($l['unit_id'] ?? 0));
+            $weights[(int) $p['id']] = $qtyBase * $this->pricePerBase((int) $p['id']);
+            $madeLines[(int) $p['id']] = ['product_id' => (int) $p['id'], 'name' => $p['name'], 'base_unit' => $p['base_unit'], 'qty_base' => $qtyBase,
+                'qty_text' => ProductionService::baseText($qtyBase, $p['base_unit']), 'unit_name' => $unit['name'], 'factor' => (int) $unit['factor']];
+        }
+        if ($madeLines === []) {
+            throw new \DomainException('Type what came out: at least one product and how many.');
+        }
+        // the share of the cost: by selling value, or by quantity when nothing has a price
+        $byValue = $weights !== [] && min($weights) > 0;   // every product priced, else per piece for all
+        if (!$byValue) {
+            foreach ($madeLines as $id => $l) {
+                $weights[$id] = $l['qty_base'];
+            }
+        }
+        $sumWeights = array_sum($weights);
+        $given = 0.0;
+        $ids = array_keys($madeLines);
+        foreach ($ids as $i => $id) {
+            $share = $i === count($ids) - 1 ? $total - $given : round($total * $weights[$id] / $sumWeights, 2);
+            $given += $share;
+            $madeLines[$id]['cost_usd'] = Money::fmt($share);
+            $madeLines[$id]['cost_per_base'] = number_format($share / $madeLines[$id]['qty_base'], 6, '.', '');
+            $madeLines[$id]['cost_per_unit'] = Money::fmt($share / $madeLines[$id]['qty_base'] * $madeLines[$id]['factor']);
+            $madeLines[$id]['share_pct'] = (int) round($weights[$id] / $sumWeights * 100);
+        }
+
+        return ['used' => array_values($usedLines), 'made' => array_values($madeLines), 'short' => $short, 'cost' => Money::fmt($total), 'by_value' => $byValue];
+    }
+
+    /** @return array{id: int, pack_no: string, made_text: string, cost: string} */
+    public function pack(array $used, array $made, string $notes, int $userId): array
+    {
+        $p = $this->preview($used, $made);
+        if ($p['short'] !== []) {
+            throw new \DomainException('Not enough in stock. ' . implode('; ', $p['short']) . '. Make or buy the missing part first.');
+        }
+        $notes = mb_substr(trim($notes), 0, 255);
+
+        return Database::transaction(function () use ($p, $notes, $userId): array {
+            $no = Counter::format('PCK-', Counter::next('packing'));
+            $id = $this->packings->create(['pack_no' => $no, 'cost_usd' => $p['cost'], 'user_id' => $userId, 'notes' => $notes === '' ? null : $notes]);
+            $stock = new StockService();
+            foreach ($p['used'] as $l) {
+                $this->packings->addLine($id, 'used', $l);
+                $stock->move($l['product_id'], -$l['qty_base'], 'production_out', $no, $l['cost_per_base'], 'packing', $id, $userId, null);
+            }
+            $madeText = [];
+            foreach ($p['made'] as $l) {
+                $this->packings->addLine($id, 'made', $l);
+                $stock->produce($l['product_id'], $l['qty_base'], $l['cost_per_base'], $id, $userId, 'packing');
+                $madeText[] = $l['name'] . ' ×' . number_format($l['qty_base']);
+            }
+            Audit::log('packing.done', 'packing', $id, ['no' => $no, 'used' => count($p['used']), 'made' => implode(', ', $madeText)], (float) $p['cost'], 'USD');
+
+            return ['id' => $id, 'pack_no' => $no, 'made_text' => implode(', ', $madeText), 'cost' => $p['cost']];
+        });
+    }
+
+    /** The retail price of the product's default sale unit, per base unit; 0 when it has none. */
+    private function pricePerBase(int $productId): float
+    {
+        $units = $this->units->forProduct($productId);
+        $sale = array_values(array_filter($units, static fn (array $u): bool => (int) $u['is_default_sale'] === 1))[0] ?? ($units[0] ?? null);
+        if ($sale === null || $sale['retail_price'] === null || (float) $sale['retail_price'] <= 0) {
+            return 0.0;
+        }
+
+        return (float) $sale['retail_price'] / max(1, (int) $sale['factor']);
+    }
+
+    /** @return array{0: int, 1: array} the base quantity and the unit */
+    private function toBase(array $product, string $qty, int $unitId): array
+    {
+        $unit = $this->units->find($unitId);
+        if ($unit === null || (int) $unit['product_id'] !== (int) $product['id']) {
+            throw new \DomainException('Choose the unit for ' . $product['name'] . '.');
+        }
+        $text = str_replace(',', '', trim($qty));
+        if ($text === '' || !is_numeric($text) || (float) $text <= 0) {
+            throw new \DomainException('Enter the quantity for ' . $product['name'] . '.');
+        }
+        if ($product['base_unit'] === 'piece' && (int) $unit['allows_fraction'] !== 1 && abs((float) $text - round((float) $text)) > 0.0001) {
+            throw new \DomainException($product['name'] . ': ' . $unit['name'] . ' is counted in whole numbers.');
+        }
+        $base = (int) round((float) $text * (int) $unit['factor']);
+        if ($base <= 0) {
+            throw new \DomainException('The quantity for ' . $product['name'] . ' is too small for one ' . $product['base_unit'] . '.');
+        }
+
+        return [$base, $unit];
+    }
+}

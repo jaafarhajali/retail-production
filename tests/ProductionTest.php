@@ -14,7 +14,8 @@ use App\Services\StockService;
 
 /**
  * Phase F2 (2026-10-13): a recipe says what one batch is made of; a run scales it, takes the materials out, puts the
- * product in at their cost. Two steps in the kitchen: materials → mix, then mix + packaging → finished product.
+ * product in at their cost. Since 2026-10-14 a recipe makes a mix only; the mix becomes products on the Packing page
+ * (PackingTest), with the quantities typed each time.
  */
 $kitchen = static function (): array {
     $svc = new ProductService();
@@ -112,27 +113,23 @@ return [
         assert_same('4.8000', $p['batches']);
     },
 
-    'second step: 50 Joy 100g from 5 kg of mix and 50 boxes; the finished product carries the mix cost + the box' => function () use ($kitchen, $stockOf, $costOf): void {
+    'a recipe for a finished product is refused (products are packed from the mix); the Make screen counts in batches' => function () use ($kitchen, $stockOf): void {
         $k = $kitchen();
         $rs = new RecipeService();
         $line = static fn (array $mat, string $qty): array => ['material_id' => $mat['id'], 'qty' => $qty, 'unit_id' => $mat['units'][0]];
+        $e = assert_throws(DomainException::class, fn () => $rs->save(0, ['product_id' => $k['joy']['id'], 'name' => 'Standard', 'output_qty' => '10', 'output_unit_id' => $k['joy']['units'][0],
+            'lines' => [$line($k['mix'], '1'), $line($k['m']['box'], '10')]], TEST_ADMIN_ID));
+        assert_contains('Packing page', $e->getMessage());
+        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM recipes')->fetchColumn());
+        // unit 0 = one batch of the recipe: 2 batches of the 1 kg recipe make 2 kg
         $mixRecipe = $rs->save(0, ['product_id' => $k['mix']['id'], 'name' => 'Standard', 'output_qty' => '1', 'output_unit_id' => $k['mix']['units'][0],
             'lines' => [$line($k['m']['honey'], '0.2'), $line($k['m']['colour'], '0.01'), $line($k['m']['b'], '0.3'), $line($k['m']['c'], '0.49')]], TEST_ADMIN_ID);
-        $joyRecipe = $rs->save(0, ['product_id' => $k['joy']['id'], 'name' => 'Standard', 'output_qty' => '10', 'output_unit_id' => $k['joy']['units'][0],
-            'lines' => [$line($k['mix'], '1'), $line($k['m']['box'], '10')]], TEST_ADMIN_ID);   // 10 pieces take 1 kg of mix and 10 boxes
         $svc = new ProductionService();
-        $svc->run($mixRecipe, '5', $k['mix']['units'][0], '', TEST_ADMIN_ID);
-        $p = $svc->preview($joyRecipe, '50', $k['joy']['units'][0]);
-        assert_same([5000, 50], array_column($p['lines'], 'need_base'));
-        assert_same('29.40', $p['material_cost'], '5 kg of mix at $4.68 + 50 boxes at $0.12');
-        assert_same('0.59', $p['cost_per_unit']);
-        $svc->run($joyRecipe, '50', $k['joy']['units'][0], '', TEST_ADMIN_ID);
-        assert_same([50, 0, 50], [$stockOf($k['joy']['id']), $stockOf($k['mix']['id']), $stockOf($k['m']['box']['id'])]);
-        assert_same('0.588000', $costOf($k['joy']['id']));
-        // the recipe with runs is switched off, not deleted
-        $rs->delete($joyRecipe);
-        assert_same(0, (int) (new Recipe())->find($joyRecipe)['is_active']);
-        assert_same(2, (int) Database::pdo()->query('SELECT COUNT(*) FROM production_runs')->fetchColumn());
+        $p = $svc->preview($mixRecipe, '2', 0);
+        assert_same([2000, '2.0000', 'batch', '4.68'], [$p['qty_base'], $p['batches'], $p['unit_name'], $p['cost_per_unit']]);
+        $r = $svc->run($mixRecipe, '2', 0, '', TEST_ADMIN_ID);
+        assert_same('2 kg', $r['qty_text']);
+        assert_same(2000, $stockOf($k['mix']['id']));
     },
 
     'the pages: recipes list and form, Make with its preview, the run, the report; a cashier may not' => function () use ($kitchen): void {
@@ -147,10 +144,11 @@ return [
         $page = $client->get('recipes/edit', ['id' => $recipe])->body;
         assert_contains('name="lines[', $page);
         assert_contains('Honey', $page);
-        // save through the form: a second recipe for Joy
+        // the form refuses a recipe for a finished product, and offers only mixes
+        assert_not_contains('Joy 100g', $client->get('recipes/edit')->body);
         $client->post('recipes/save', ['id' => '0', 'product_id' => (string) $k['joy']['id'], 'name' => 'Packing', 'output_qty' => '10', 'output_unit_id' => (string) $k['joy']['units'][0], 'notes' => '',
             'lines' => [['material_id' => (string) $k['mix']['id'], 'qty' => '1', 'unit_id' => (string) $k['mix']['units'][0]], ['material_id' => (string) $k['m']['box']['id'], 'qty' => '10', 'unit_id' => (string) $k['m']['box']['units'][0]]]]);
-        assert_same(1, (int) Database::pdo()->query("SELECT COUNT(*) FROM recipes WHERE name = 'Packing'")->fetchColumn());
+        assert_same(0, (int) Database::pdo()->query("SELECT COUNT(*) FROM recipes WHERE name = 'Packing'")->fetchColumn());
         // Make: the preview and the run
         $page = $client->get('production/new', ['recipe_id' => $recipe])->body;
         assert_contains('What did you make?', $page);
@@ -158,7 +156,7 @@ return [
         assert_same(200, $r->status, $r->body);
         $j = json_decode($r->body, true);
         assert_same(['2 kg', '7.20', []], [$j['qty_text'], $j['material_cost'], $j['short']]);
-        assert_same(302, $client->post('production/store', ['recipe_id' => (string) $recipe, 'qty' => '2', 'unit_id' => (string) $k['mix']['units'][0], 'notes' => ''])->status);
+        assert_same(302, $client->post('production/store', ['recipe_id' => (string) $recipe, 'qty' => '2', 'unit_id' => '0', 'notes' => ''])->status);   // 2 batches
         $page = $client->get('production')->body;
         assert_contains('PRD-000001', $page);
         assert_contains('2 kg', $page);

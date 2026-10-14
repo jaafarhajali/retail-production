@@ -6,15 +6,16 @@ and supermarkets (Malika Marshmallow, Lebanon). USD prices, USD + LBP payments, 
 It is the factory edition of Retail POS: the same till, customers, cash and reports, plus what a factory needs.
 
 ```
-Suppliers → raw materials → Production (recipes) → finished products → the till, or a delivery invoice
+Suppliers → raw materials → Production (recipe → mix) → Packing (mix → products, the split typed each time) → the till, or a delivery invoice
 held on the till → the seller visits the customer → Finish: what came back, what was paid, the rest on
 the customer's account → dashboard, products by month, break-even
 ```
 
 - **Three kinds of product**: finished (sold), mix (made, used by finished products), raw material or packaging (bought).
   Two separate stocks, two tabs everywhere.
-- **Recipes and production**: a recipe says what one batch is made of; a run scales it, takes the materials out
-  and puts the product in at their cost. Two steps in the kitchen: ingredients → mix, mix + boxes → pieces.
+- **Recipes and production**: a recipe says what one batch of the mix is made of; a run makes it in batches, takes the
+  ingredients out and puts the mix in at their cost. **Packing** then takes the mix (and the boxes) out and puts the
+  finished products in: how many of each is typed each time, never fixed in a recipe; the cost is shared by selling price.
 - **Delivery invoices on the till**: Hold as invoice and print, goods go out with the seller, Finish when back.
 - **Two prints**: the official A4 invoice (TVA, due date, boxes, signatures) and the delivery note.
 - **Dashboard**: the business as a flow, the month's sales, who owes, production, the two stocks, break-even.
@@ -53,8 +54,8 @@ cd "/c/xampp/htdocs/Retail Production"
 
 `install.php` creates the database, applies the migrations and creates the `admin` user; run it again after every
 pull, it only applies what is new. The seed fills an empty database with the price list, the raw materials and
-packaging, the mix and one recipe per product; correct the recipe quantities on the Recipes page before the first
-real production run.
+packaging, the mix and its recipe; correct the recipe quantities on the Recipes page before the first real production
+run. The products are not in recipes: they are packed from the mix on the Packing page.
 
 Open **http://localhost/Retail%20Production/**, or from another PC on the network
 `http://<server-ip>/Retail%20Production/`. Check once that `http://localhost/Retail%20Production/.git/HEAD`
@@ -94,7 +95,7 @@ on port 8190. Your real data is never touched. `tests/browser/` drives the till 
 | `public/` | the only web-reachable folder (front controller + assets) |
 | `app/routes.php` | every URL, with the permission it requires |
 | `app/Core/` | router, auth, permissions (Gate), audit, database |
-| `app/Services/` | business rules: sales, production, recipes, returns, cash, dashboard… |
+| `app/Services/` | business rules: sales, production, recipes, packing, returns, cash, dashboard… |
 | `app/Models/` | SQL |
 | `app/Views/` | pages; `sales/invoice.php` and `sales/delivery-note.php` are the two prints |
 | `database/migrations/` | numbered schema changes; add new files, never edit old ones |

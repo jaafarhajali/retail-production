@@ -1,6 +1,6 @@
 <?php use App\Services\ProductionService; ?>
 <div class="toolbar">
-  <p class="toolbar-note"><i class="bi bi-journal-text"></i><?= count($recipes) ?> recipe(s). A recipe says what one batch of a mix or a finished product is made of; Production scales it to what you make.</p>
+  <p class="toolbar-note"><i class="bi bi-journal-text"></i><?= count($recipes) ?> recipe(s). A recipe says what one batch of a mix is made of; Production makes it in batches, and Packing turns the mix into products with the quantities you type each time.</p>
   <?php if ($canManage): ?><a class="btn btn-primary" href="<?= url('recipes/edit') ?>"><i class="bi bi-plus-lg"></i> New recipe</a><?php endif; ?>
 </div>
 <div class="card"><div class="table-responsive">
@@ -23,7 +23,7 @@
         </td>
       </tr>
     <?php endforeach; ?>
-    <?php if ($recipes === []): ?><tr><td colspan="<?= $showCost ? 8 : 6 ?>" class="empty">No recipes yet. Press New recipe: choose the mix or the product it makes, then list what goes into one batch.</td></tr><?php endif; ?>
+    <?php if ($recipes === []): ?><tr><td colspan="<?= $showCost ? 8 : 6 ?>" class="empty">No recipes yet. Press New recipe: choose the mix it makes, then list what goes into one batch.</td></tr><?php endif; ?>
     </tbody>
   </table>
 </div></div>

@@ -21,6 +21,7 @@ $navGroups = [
         ['categories', 'tags', 'Categories', 'category.manage'],
         ['stock', 'boxes', 'Stock', 'stock.view'],
         ['production', 'gear', 'Production', 'production.view'],
+        ['packing', 'box2', 'Packing', 'production.manage'],
         ['recipes', 'journal-text', 'Recipes', 'production.view'],
         ['purchases', 'truck', 'Purchases', 'purchase.manage'],
         ['suppliers', 'building', 'Suppliers', 'supplier.manage'],
@@ -64,7 +65,7 @@ $shopName = (string) setting('shop_name', APP_NAME);
       <?php elseif ($groupLabel !== ''): ?><div class="app-nav-label"><?= e($groupLabel) ?></div>
       <?php endif; ?>
       <?php foreach ($visible as [$navRoute, $navIcon, $navLabel]): ?>
-        <a class="app-nav<?= $currentSection === $navRoute ? ' active' : '' ?>" href="<?= url($navRoute) ?>"<?= $currentSection === $navRoute ? ' aria-current="page"' : '' ?>>
+        <a class="app-nav<?= $currentSection === $navRoute ? ' active' : '' ?>" href="<?= url($navRoute === 'packing' ? 'packing/new' : $navRoute) ?>"<?= $currentSection === $navRoute ? ' aria-current="page"' : '' ?>>
           <i class="bi bi-<?= e($navIcon) ?>"></i><span><?= e($navLabel) ?></span>
         </a>
       <?php endforeach; ?>

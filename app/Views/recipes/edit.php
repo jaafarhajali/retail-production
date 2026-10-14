@@ -55,11 +55,11 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
         <label class="form-label" for="product_id">What does it make?</label>
         <?php if ($isEdit): ?>
           <input type="hidden" name="product_id" value="<?= (int) $recipe['product_id'] ?>">
-          <div class="form-control-plaintext fw-semibold" dir="auto"><?= e($recipe['product_name']) ?> <span class="text-muted fw-normal">(<?= $recipe['product_kind'] === 'intermediate' ? 'mix' : 'finished product' ?>)</span></div>
+          <div class="form-control-plaintext fw-semibold" dir="auto"><?= e($recipe['product_name']) ?> <span class="text-muted fw-normal">(mix)</span></div>
         <?php else: ?>
           <select class="form-select" id="product_id" name="product_id" required>
             <option value="">— choose —</option>
-            <?php foreach ($made as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === (int) ($stash['product_id'] ?? $productId) ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?> (<?= $p['kind'] === 'intermediate' ? 'mix' : 'finished' ?>)</option><?php endforeach; ?>
+            <?php foreach ($made as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === (int) ($stash['product_id'] ?? $productId) ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?>
           </select>
         <?php endif; ?>
       </div>
@@ -73,7 +73,7 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
           <input class="form-control" id="output_qty" name="output_qty" inputmode="decimal" placeholder="1" value="<?= e($outputQty) ?>" required>
           <select class="form-select" id="output_unit_id" name="output_unit_id" data-selected="<?= $outputUnit ?>" aria-label="Unit"></select>
         </div>
-        <div class="form-text">For example 1 kg of mix, or 50 pieces of Joy 100g. Production scales the lines to what you really make.</div>
+        <div class="form-text">For example 5 kg of mix. Production counts in batches of this; the mix then becomes products on the Packing page, with the quantities typed each time.</div>
       </div>
     </div>
   </div></div>
@@ -82,7 +82,7 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
     <div class="table-responsive"><table class="table align-middle" id="lines">
       <thead><tr><th style="width:44%">Goes in, per batch</th><th style="width:18%">Quantity</th><th style="width:22%">Unit</th><th class="text-nowrap">In stock now</th><th></th></tr></thead>
       <tbody></tbody>
-      <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2">Raw materials, packaging (boxes, labels), or a mix.</span></td></tr></tfoot>
+      <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2">Raw materials, or another mix.</span></td></tr></tfoot>
     </table></div>
   </div>
 

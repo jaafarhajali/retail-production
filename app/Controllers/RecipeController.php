@@ -34,7 +34,7 @@ final class RecipeController extends Controller
         $recipes = new Recipe();
         $recipe = $id > 0 ? ($recipes->find($id) ?? throw new HttpException(404)) : null;
         $products = new Product();
-        $made = array_merge($products->forPrint('finished'), $products->forPrint('intermediate'));   // what a recipe can make
+        $made = $products->forPrint('intermediate');   // a recipe makes a mix; products are packed from it
         $materials = array_merge($products->forPrint('material'), $products->forPrint('intermediate'));   // what it can use
         $ids = array_map('intval', array_merge(array_column($made, 'id'), array_column($materials, 'id')));
         $this->render('recipes/edit', [

@@ -16,7 +16,9 @@ use App\Models\StockMovement;
  * Production runs (F2, 2026-10-13). "Make 5 kg of Marshmallow mix with the standard recipe": the recipe is scaled to
  * the quantity (batches = 5 kg ÷ 1 kg), every material goes out of stock at its cost of the moment, the product
  * comes in at the sum of those costs, and the product's cost per unit becomes the moving average of its runs,
- * exactly as a purchase does for a bought product. A run is refused when a material is short.
+ * exactly as a purchase does for a bought product. A run is refused when a material is short. Since 2026-10-14 a
+ * recipe makes a mix only, the quantity is counted in batches (unit 0) or in the mix's units, and the mix is turned
+ * into finished products on the Packing page.
  */
 final class ProductionService
 {
@@ -41,7 +43,9 @@ final class ProductionService
             throw new \DomainException('This recipe is switched off.');
         }
         $product = $this->products->find((int) $recipe['product_id']) ?? throw new \DomainException('Product not found.');
-        $unit = $this->units->find($unitId);
+        $unit = $unitId === 0
+            ? ['name' => 'batch', 'factor' => max(1, (int) $recipe['output_base']), 'allows_fraction' => $product['base_unit'] === 'piece' ? 0 : 1, 'product_id' => (int) $product['id']]
+            : $this->units->find($unitId);
         if ($unit === null || (int) $unit['product_id'] !== (int) $product['id']) {
             throw new \DomainException('Choose the unit of the quantity produced.');
         }

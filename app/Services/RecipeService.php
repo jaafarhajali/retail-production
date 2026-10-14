@@ -10,9 +10,10 @@ use App\Models\ProductUnit;
 use App\Models\Recipe;
 
 /**
- * Recipes (F2, 2026-10-13): "1 kg of Marshmallow mix = 200 g honey + 10 g colouring + 300 g B + 490 g C",
- * "50 Joy 100g = 5 kg of mix + 50 boxes + 50 labels". A recipe belongs to a mix or a finished product; its lines are
- * raw materials, packaging, or a mix. Quantities are typed in any unit and kept in base units.
+ * Recipes (F2, 2026-10-13): "1 kg of Marshmallow mix = 200 g honey + 10 g colouring + 300 g B + 490 g C". A recipe
+ * belongs to a mix; its lines are raw materials, packaging, or another mix. Quantities are typed in any unit and kept
+ * in base units. Since 2026-10-14 a recipe never makes a finished product: the mix is packed into products on the
+ * Packing page, with the quantities typed each time.
  */
 final class RecipeService
 {
@@ -29,8 +30,11 @@ final class RecipeService
         $current = $id > 0 ? ($this->recipes->find($id) ?? throw new \DomainException('Recipe not found.')) : null;
         $productId = $current === null ? (int) ($in['product_id'] ?? 0) : (int) $current['product_id'];   // a recipe never changes product
         $product = $this->products->find($productId) ?? throw new \DomainException('Choose the product this recipe makes.');
-        if (!in_array($product['kind'], ['finished', 'intermediate'], true)) {
-            throw new \DomainException($product['name'] . ' is a raw material: it is bought, not made. A recipe makes a mix or a finished product.');
+        if ($product['kind'] === 'material') {
+            throw new \DomainException($product['name'] . ' is a raw material: it is bought, not made. A recipe makes a mix.');
+        }
+        if ($product['kind'] === 'finished') {
+            throw new \DomainException($product['name'] . ' is a finished product: it is made on the Packing page, from the mix, with the quantities typed each time. A recipe makes a mix.');
         }
         $name = trim((string) ($in['name'] ?? ''));
         if ($name === '') {

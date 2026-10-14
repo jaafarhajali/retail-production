@@ -8,6 +8,7 @@ use App\Core\Controller;
 use App\Core\Flash;
 use App\Core\Gate;
 use App\Core\HttpException;
+use App\Models\Packing;
 use App\Models\ProductionRun;
 use App\Models\ProductUnit;
 use App\Models\Recipe;
@@ -18,7 +19,7 @@ final class ProductionController extends Controller
 {
     public function index(): void
     {
-        $this->render('production/index', ['runs' => (new ProductionRun())->recent(100), 'showCost' => Gate::allows('product.view_cost'), 'canManage' => Gate::allows('production.manage')], 'Production');
+        $this->render('production/index', ['runs' => (new ProductionRun())->recent(100), 'packings' => (new Packing())->recent(100), 'showCost' => Gate::allows('product.view_cost'), 'canManage' => Gate::allows('production.manage')], 'Production');
     }
 
     public function create(): void

@@ -16,7 +16,7 @@ foreach ($byProduct as $pid => $p) {
 ?>
 <?php if (form_error('form') !== ''): ?><div class="alert alert-danger"><?= form_error('form') ?></div><?php endif; ?>
 <?php if ($byProduct === []): ?>
-  <div class="card"><div class="card-body"><p class="mb-2">Nothing can be made yet: no recipe exists.</p><a class="btn btn-primary" href="<?= url('recipes/edit') ?>">Write the first recipe</a></div></div>
+  <div class="card"><div class="card-body"><p class="mb-2">Nothing can be made yet: no recipe exists. A recipe says what one batch of a mix is made of.</p><a class="btn btn-primary" href="<?= url('recipes/edit') ?>">Write the first recipe</a></div></div>
 <?php else: ?>
 <form method="post" action="<?= url('production/store') ?>" id="make-form" data-preview="<?= e(url('production/preview')) ?>">
   <?= csrf_field() ?>
@@ -26,16 +26,16 @@ foreach ($byProduct as $pid => $p) {
         <label class="form-label" for="product_id">What did you make?</label>
         <select class="form-select form-select-lg" id="product_id">
           <option value="">— choose —</option>
-          <?php foreach ($byProduct as $pid => $p): ?><option value="<?= (int) $pid ?>" <?= (int) $pid === $selectedProduct ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?> (<?= $p['kind'] === 'intermediate' ? 'mix' : 'finished' ?>)</option><?php endforeach; ?>
+          <?php foreach ($byProduct as $pid => $p): ?><option value="<?= (int) $pid ?>" <?= (int) $pid === $selectedProduct ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?>
         </select>
         <label class="form-label mt-3" for="recipe_id">Recipe</label>
         <select class="form-select" id="recipe_id" name="recipe_id" data-selected="<?= $selectedRecipe ?>"></select>
         <label class="form-label mt-3" for="qty">How much?</label>
         <div class="input-group input-group-lg">
           <input class="form-control" id="qty" name="qty" inputmode="decimal" placeholder="5" value="<?= old('qty') ?>" required autocomplete="off">
-          <select class="form-select" id="unit_id" name="unit_id" data-selected="<?= (int) ($stash['unit_id'] ?? 0) ?>" aria-label="Unit"></select>
+          <select class="form-select" id="unit_id" name="unit_id" data-selected="<?= isset($stash['unit_id']) ? (int) $stash['unit_id'] : -1 ?>" aria-label="Unit"></select>
         </div>
-        <div class="form-text">Type what really came out. If 5 kg of materials gave 4.8 kg, type 4.8: the cost per kg goes up and the loss is visible.</div>
+        <div class="form-text">Count in batches of the recipe, or switch to kg and type what really came out: if one batch gave 4.8 kg instead of 5, the cost per kg goes up and the loss is visible. The mix then becomes products on the Packing page.</div>
         <label class="form-label mt-3" for="notes">Notes</label>
         <input class="form-control" id="notes" name="notes" dir="auto" maxlength="255" value="<?= old('notes') ?>" placeholder="optional">
       </div></div>
@@ -67,7 +67,7 @@ foreach ($byProduct as $pid => $p) {
   function onProduct() {
     var pid = parseInt(product.value, 10), p = byProduct[pid];
     fill(recipe, p ? p.recipes : [], parseInt(recipe.dataset.selected || '0', 10), function (r) { return r.name; });
-    fill(unit, units[pid] || [], parseInt(unit.dataset.selected || '0', 10), function (u) { return u.name; });
+    fill(unit, [{ id: 0, name: 'batch(es)', default: true }].concat(units[pid] || []), parseInt(unit.dataset.selected || '-1', 10), function (u) { return u.name; });
     recipe.dataset.selected = '0'; unit.dataset.selected = '0';
     preview();
   }

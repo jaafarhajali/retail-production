@@ -50,10 +50,10 @@ final class StockService
         });
     }
 
-    /** Stock in from a production run (F2): the product's cost becomes the moving average of its runs, like purchases. */
-    public function produce(int $productId, int $baseQty, string $costPerBase, int $runId, ?int $userId): void
+    /** Stock in from a production run (F2) or a packing (2026-10-14): the product's cost becomes the moving average, like purchases. */
+    public function produce(int $productId, int $baseQty, string $costPerBase, int $runId, ?int $userId, string $refType = 'production'): void
     {
-        Database::transaction(function () use ($productId, $baseQty, $costPerBase, $runId, $userId): void {
+        Database::transaction(function () use ($productId, $baseQty, $costPerBase, $runId, $userId, $refType): void {
             $m = new StockMovement();
             $product = $m->lockProduct($productId);
             $stock = (int) $product['stock_base'];
@@ -61,7 +61,7 @@ final class StockService
                 ? number_format(($stock * (float) $product['cost_per_base'] + $baseQty * (float) $costPerBase) / ($stock + $baseQty), 6, '.', '')
                 : number_format((float) $costPerBase, 6, '.', '');
             $m->add(['product_id' => $productId, 'base_qty' => $baseQty, 'type' => 'production_in', 'cost_per_base' => $costPerBase,
-                     'ref_type' => 'production', 'ref_id' => $runId, 'user_id' => $userId]);
+                     'ref_type' => $refType, 'ref_id' => $runId, 'user_id' => $userId]);
             $m->setCost($productId, $newCost);
         });
     }

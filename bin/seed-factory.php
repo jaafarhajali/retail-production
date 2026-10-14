@@ -189,7 +189,7 @@ if (!$exists('Marshmallow mix')) {
     $out('Mix: Marshmallow mix (recipe in Phase F2)');
 }
 
-// ---------------------------------------------------------------- recipes (F2): the mix from ingredients, the products from the mix + packaging
+// ---------------------------------------------------------------- recipes (F2): the mix from the ingredients (2026-10-14: products are packed, not made by recipe)
 $recipes = new App\Services\RecipeService();
 $pid = static fn (string $name): int => (int) Database::pdo()->query('SELECT id FROM products WHERE name = ' . Database::pdo()->quote($name))->fetchColumn();
 $unitOf = static function (int $productId, string $type): int {
@@ -209,25 +209,6 @@ if ($mixId > 0 && !$hasRecipe($mixId)) {
         'lines' => [$line('Sugar', '0.45', 'kg'), $line('Glucose syrup', '0.25', 'kg'), $line('Honey', '0.2', 'kg'), $line('Gelatin', '0.03', 'kg'), $line('Food colouring', '0.005', 'kg'), $line('Raspberry flavour', '0.015', 'L')]], $admin);
     $made++;
 }
-foreach ([['Joy 100g', '10', '1', 'Box 100g', '10'], ['Joy 200g', '10', '2', 'Box 200g', '10'], ['Mini Joy 100g', '10', '1', 'Box 100g', '10'], ['Excellence 100g', '10', '1', 'Box 100g', '10'],
-          ['Pistachio 100g', '10', '1', 'Box 100g', '10'], ['Choco Dream 100g', '10', '1', 'Box 100g', '10'], ['Gold 100g', '10', '1', 'Box 100g', '10'], ['Marshmallow Stick 25g', '40', '1', 'Stick bag', '40']] as [$name, $pieces, $mixKg, $box, $boxes]) {
-    $id = $pid($name);
-    if ($id <= 0 || $mixId <= 0 || $hasRecipe($id)) {
-        continue;
-    }
-    $lines = [['material_id' => $mixId, 'qty' => $mixKg, 'unit_id' => $unitOf($mixId, 'kg')], $line($box, $boxes, 'Piece')];
-    if ($name !== 'Marshmallow Stick 25g') {
-        $lines[] = $line('Label', $pieces, 'Piece');
-    }
-    if ($name === 'Pistachio 100g') {
-        $lines[] = $line('Pistachio paste', '0.1', 'kg');
-    }
-    if ($name === 'Choco Dream 100g') {
-        $lines[] = $line('Cocoa powder', '0.05', 'kg');
-    }
-    $recipes->save(0, ['product_id' => $id, 'name' => 'Standard', 'output_qty' => $pieces, 'output_unit_id' => $unitOf($id, 'Piece'), 'notes' => '', 'lines' => $lines], $admin);
-    $made++;
-}
-$out("Recipes: {$made} (the mix, and one per product from the mix and its packaging)");
+$out("Recipes: {$made} (the mix; the products are packed from it on the Packing page, with the quantities typed each time)");
 
 $out('Done. Sign in as admin.');

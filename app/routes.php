@@ -17,6 +17,7 @@ use App\Controllers\ExchangeRateController;
 use App\Controllers\ExpenseController;
 use App\Controllers\PosController;
 use App\Controllers\PriceController;
+use App\Controllers\PackingController;
 use App\Controllers\ProductionController;
 use App\Controllers\RecipeController;
 use App\Controllers\ProductController;
@@ -113,6 +114,11 @@ return [
     ['POST', 'production/preview', [ProductionController::class, 'preview'], 'production.manage'],
     ['POST', 'production/store',   [ProductionController::class, 'store'],  'production.manage'],
     ['GET',  'production/view',    [ProductionController::class, 'view'],   'production.view'],
+    // Packing (2026-10-14) — the mix becomes finished products, the split typed each time
+    ['GET',  'packing/new',        [PackingController::class, 'create'],  'production.manage'],
+    ['POST', 'packing/preview',    [PackingController::class, 'preview'], 'production.manage'],
+    ['POST', 'packing/store',      [PackingController::class, 'store'],   'production.manage'],
+    ['GET',  'packing/view',       [PackingController::class, 'view'],    'production.view'],
     // Phase 4 — customers, cash sessions, the till
     ['GET',  'customers',        [CustomerController::class, 'index'],  'customer.manage'],
     ['GET',  'customers/edit',   [CustomerController::class, 'edit'],   'customer.manage'],
