@@ -10,8 +10,8 @@ final class Sale extends Model
 {
     private const SELECT = 'SELECT s.*, u.username, r.name AS register_name, c.name AS customer_name, cs.session_no,
                             (SELECT COALESCE(SUM(rt.total_usd), 0) FROM returns rt WHERE rt.sale_id = s.id) AS returned_usd FROM sales s
-                            JOIN users u ON u.id = s.user_id JOIN registers r ON r.id = s.register_id
-                            LEFT JOIN customers c ON c.id = s.customer_id JOIN cash_sessions cs ON cs.id = s.session_id';
+                            JOIN users u ON u.id = s.user_id LEFT JOIN registers r ON r.id = s.register_id
+                            LEFT JOIN customers c ON c.id = s.customer_id LEFT JOIN cash_sessions cs ON cs.id = s.session_id';   // no register or session: a desk invoice (2026-10-14)
 
     public function find(int $id): ?array
     {
@@ -75,10 +75,14 @@ final class Sale extends Model
         return array_map(static fn (float $v): string => number_format($v, 2, '.', ''), $sums);
     }
 
-    public function search(array $filters, int $page): array
+    public function search(array $filters, int $page, int $perPage = 25): array
     {
         $where = ['1=1'];
         $params = [];
+        if (!empty($filters['origin'])) {
+            $where[] = 's.origin = :o';
+            $params['o'] = $filters['origin'];
+        }
         if ($filters['q'] !== '') {
             $like = '%' . addcslashes($filters['q'], '%_\\') . '%';
             $where[] = '(s.invoice_no LIKE :q1 OR c.name LIKE :q2)';
@@ -109,7 +113,7 @@ final class Sale extends Model
         return $this->paginate(
             self::SELECT . " WHERE {$w} ORDER BY s.id DESC",
             "SELECT COUNT(*) FROM sales s LEFT JOIN customers c ON c.id = s.customer_id WHERE {$w}",
-            $params, $page, 25
+            $params, $page, $perPage
         );
     }
 
@@ -117,13 +121,14 @@ final class Sale extends Model
     {
         $this->execute(
             'INSERT INTO sales (invoice_no, register_id, session_id, user_id, customer_id, price_level, subtotal_usd, discount_usd, total_usd, rounding_usd,
-                                cost_total_usd, exchange_rate, change_usd, change_lbp, notes, status, held_at, invoice_type)
-             VALUES (:no, :r, :s, :u, :c, :pl, :sub, :d, :t, :ro, :ct, :x, :cu, :cl, :n, :st, :ha, :it)',
+                                cost_total_usd, exchange_rate, change_usd, change_lbp, notes, status, held_at, invoice_type, origin, due_date, ship_to)
+             VALUES (:no, :r, :s, :u, :c, :pl, :sub, :d, :t, :ro, :ct, :x, :cu, :cl, :n, :st, :ha, :it, :og, :dd, :sh)',
             [
                 'no' => $f['invoice_no'], 'r' => $f['register_id'], 's' => $f['session_id'], 'u' => $f['user_id'], 'c' => $f['customer_id'],
                 'pl' => $f['price_level'], 'sub' => $f['subtotal_usd'], 'd' => $f['discount_usd'], 't' => $f['total_usd'], 'ro' => $f['rounding_usd'],
                 'ct' => $f['cost_total_usd'], 'x' => $f['exchange_rate'], 'cu' => $f['change_usd'], 'cl' => $f['change_lbp'], 'n' => $f['notes'],
                 'st' => $f['status'] ?? 'completed', 'ha' => $f['held_at'] ?? null, 'it' => $f['invoice_type'] ?? 'normal',
+                'og' => $f['origin'] ?? 'till', 'dd' => $f['due_date'] ?? null, 'sh' => $f['ship_to'] ?? null,
             ]
         );
 

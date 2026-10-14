@@ -29,6 +29,11 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
         <label class="form-label" for="company_email">Email</label>
         <input class="form-control" id="company_email" name="company_email" maxlength="120" value="<?= $field('company_email') ?>">
       </div>
+      <div class="col-md-6">
+        <label class="form-label" for="invoice_terms_days">Payment terms (days)</label>
+        <input class="form-control" id="invoice_terms_days" name="invoice_terms_days" inputmode="numeric" maxlength="3" placeholder="45" value="<?= $field('invoice_terms_days') ?>">
+        <div class="form-text">A desk invoice is due this many days after its date, unless the customer has their own terms.</div>
+      </div>
     </div>
 
     <h2 class="h5">Receipt</h2>

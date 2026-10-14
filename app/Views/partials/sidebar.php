@@ -11,6 +11,7 @@ $navGroups = [
     ]],
     ['Selling', false, [
         ['sales', 'receipt', 'Sales', null],
+        ['invoices', 'file-earmark-text', 'Invoices', 'invoice.manage'],
         ['sessions', 'cash-stack', 'Cash sessions', null],
         ['returns', 'arrow-return-left', 'Returns', 'return.create'],
         ['customers', 'person-lines-fill', 'Customers', 'customer.manage'],

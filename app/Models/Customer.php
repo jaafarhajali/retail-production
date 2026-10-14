@@ -30,8 +30,8 @@ final class Customer extends Model
     public function create(array $f): int
     {
         $this->execute(
-            'INSERT INTO customers (name, phone, tva_number, address, notes, default_price_level, credit_limit_usd) VALUES (:n, :p, :tva, :ad, :o, :l, :c)',
-            ['n' => $f['name'], 'p' => $f['phone'], 'tva' => $f['tva_number'] ?? null, 'ad' => $f['address'] ?? null, 'o' => $f['notes'], 'l' => $f['default_price_level'], 'c' => $f['credit_limit_usd']]
+            'INSERT INTO customers (name, phone, tva_number, address, notes, default_price_level, credit_limit_usd, payment_terms_days) VALUES (:n, :p, :tva, :ad, :o, :l, :c, :pt)',
+            ['n' => $f['name'], 'p' => $f['phone'], 'tva' => $f['tva_number'] ?? null, 'ad' => $f['address'] ?? null, 'o' => $f['notes'], 'l' => $f['default_price_level'], 'c' => $f['credit_limit_usd'], 'pt' => $f['payment_terms_days'] ?? null]
         );
 
         return $this->lastId();
@@ -40,8 +40,8 @@ final class Customer extends Model
     public function update(int $id, array $f): void
     {
         $this->execute(
-            'UPDATE customers SET name = :n, phone = :p, tva_number = :tva, address = :ad, notes = :o, default_price_level = :l, credit_limit_usd = :c, is_active = :a WHERE id = :id',
-            ['n' => $f['name'], 'p' => $f['phone'], 'tva' => $f['tva_number'] ?? null, 'ad' => $f['address'] ?? null, 'o' => $f['notes'], 'l' => $f['default_price_level'], 'c' => $f['credit_limit_usd'], 'a' => (int) $f['is_active'], 'id' => $id]
+            'UPDATE customers SET name = :n, phone = :p, tva_number = :tva, address = :ad, notes = :o, default_price_level = :l, credit_limit_usd = :c, payment_terms_days = :pt, is_active = :a WHERE id = :id',
+            ['n' => $f['name'], 'p' => $f['phone'], 'tva' => $f['tva_number'] ?? null, 'ad' => $f['address'] ?? null, 'o' => $f['notes'], 'l' => $f['default_price_level'], 'c' => $f['credit_limit_usd'], 'pt' => $f['payment_terms_days'] ?? null, 'a' => (int) $f['is_active'], 'id' => $id]
         );
     }
 

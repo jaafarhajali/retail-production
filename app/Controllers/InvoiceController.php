@@ -1,0 +1,91 @@
+<?php
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Core\Auth;
+use App\Core\Controller;
+use App\Core\Flash;
+use App\Core\Settings;
+use App\Models\Customer;
+use App\Models\Product;
+use App\Models\ProductUnit;
+use App\Models\Sale;
+use App\Services\InvoiceService;
+use App\Services\SaleService;
+
+/** Desk invoices (2026-10-14): the list with what each one still owes, and the screen that writes one. */
+final class InvoiceController extends Controller
+{
+    public function index(): void
+    {
+        $status = in_array($this->query('status'), ['open', 'overdue', 'paid', 'all'], true) ? $this->query('status') : 'open';
+        $filters = ['q' => mb_substr($this->query('q'), 0, 60), 'session_id' => 0, 'user_id' => 0, 'customer_id' => $this->queryInt('customer_id'),
+                    'from' => $this->dateQuery('from'), 'to' => $this->dateQuery('to'), 'origin' => 'desk'];
+        $pg = (new Sale())->search($filters, max(1, $this->queryInt('page', 1)), 50);
+        $items = (new InvoiceService())->forSales(array_column($pg['rows'], 'customer_id'));
+        $rows = [];
+        $open = 0.0;
+        foreach ($pg['rows'] as $s) {
+            $it = $items[(int) $s['id']] ?? null;
+            $s['remaining'] = $it['remaining'] ?? '0.00';
+            $s['paid'] = $it['paid'] ?? $s['total_usd'];
+            $s['pay_status'] = $it['status'] ?? 'paid';
+            $open += (float) $s['remaining'];
+            if ($status === 'all' || ($status === 'paid' && $s['pay_status'] === 'paid') || ($status === 'overdue' && $s['pay_status'] === 'overdue') || ($status === 'open' && $s['pay_status'] !== 'paid')) {
+                $rows[] = $s;
+            }
+        }
+        $this->render('invoices/index', ['rows' => $rows, 'pg' => $pg, 'filters' => $filters, 'status' => $status, 'open' => $open, 'customers' => (new Customer())->all(true)], 'Invoices');
+    }
+
+    public function create(): void
+    {
+        $products = new Product();
+        $finished = array_values(array_filter($products->forPrint('finished'), static fn (array $p): bool => (int) $p['is_active'] === 1));
+        $units = (new ProductUnit())->forProducts(array_map('intval', array_column($finished, 'id')));
+        $catalogue = [];
+        foreach ($finished as $p) {
+            $list = [];
+            foreach ($units[(int) $p['id']] ?? [] as $u) {
+                $list[] = ['id' => (int) $u['id'], 'name' => $u['name'], 'factor' => (int) $u['factor'], 'fraction' => (int) $u['allows_fraction'] === 1,
+                           'retail' => $u['retail_price'], 'wholesale' => $u['wholesale_price'], 'main' => (int) $u['is_default_sale'] === 1];
+            }
+            if ($list !== []) {
+                $catalogue[] = ['id' => (int) $p['id'], 'name' => $p['name'], 'stock' => (int) $p['stock_base'], 'units' => $list];
+            }
+        }
+        $svc = new InvoiceService();
+        $customers = array_map(static fn (array $c): array => $c + ['terms_days' => $svc->termsDays($c)], (new Customer())->all(true));
+        $this->render('invoices/new', ['customers' => $customers, 'catalogue' => $catalogue, 'defaultTerms' => $svc->termsDays(null)], 'New invoice');
+    }
+
+    public function store(): void
+    {
+        $lines = [];
+        foreach (is_array($_POST['lines'] ?? null) ? $_POST['lines'] : [] as $l) {
+            if (!is_array($l) || (int) ($l['product_id'] ?? 0) === 0) {
+                continue;
+            }
+            $lines[] = ['product_id' => (int) $l['product_id'], 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'discount' => (string) ($l['discount'] ?? ''), 'note' => (string) ($l['note'] ?? '')];
+        }
+        try {
+            $r = (new SaleService())->issue([
+                'user_id' => Auth::id(), 'customer_id' => $this->inputInt('customer_id'), 'price_level' => $this->input('price_level'), 'lines' => $lines,
+                'invoice_discount' => $this->input('invoice_discount'), 'notes' => $this->input('notes'), 'invoice_type' => $this->input('invoice_type'),
+                'due_date' => $this->input('due_date'), 'ship_to' => $this->input('ship_to'),
+            ]);
+        } catch (\DomainException $e) {
+            $this->failBack('invoices/new', [], ['form' => $e->getMessage()]);
+        }
+        Flash::set('success', $r['invoice_no'] . ' issued: ' . usd($r['total_usd']) . ', due ' . date('d/m/Y', strtotime($r['due_date'])) . '.' . ($r['warnings'] !== [] ? ' ' . implode(' ', $r['warnings']) : ''));
+        redirect('sales/view', ['id' => $r['id']]);
+    }
+
+    private function dateQuery(string $key): string
+    {
+        $v = $this->query($key);
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : '';
+    }
+}

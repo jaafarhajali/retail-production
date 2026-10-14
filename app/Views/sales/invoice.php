@@ -31,7 +31,7 @@ $issued = strtotime($s['created_at']);
     <table class="inv-numbers">
       <tr><td>Invoice No.</td><td><b><?= e($s['invoice_no']) ?></b></td></tr>
       <tr><td>Date of Issue</td><td><?= e(date('Y-m-d', $issued)) ?></td></tr>
-      <tr><td>Due Date</td><td><?= e(date('Y-m-d', strtotime('+' . (int) $dueDays . ' days', $issued))) ?></td></tr>
+      <tr><td>Due Date</td><td><?= e($dueDate) ?></td></tr>
     </table>
   </section>
   <table class="inv-lines">
@@ -52,6 +52,7 @@ $issued = strtotime($s['created_at']);
     <?php for ($k = $n; $k < 12; $k++): ?><tr class="blank"><td colspan="8">&nbsp;</td></tr><?php endfor; ?>
     </tbody>
   </table>
+  <?php if (!empty($s['notes'])): ?><p class="inv-notes" dir="auto"><b>Notes:</b> <?= e($s['notes']) ?></p><?php endif; ?>
   <section class="inv-totals">
     <table>
       <tr><td>Subtotal</td><td><?= usd($s['subtotal_usd']) ?></td></tr>

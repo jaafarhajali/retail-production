@@ -17,6 +17,7 @@ use App\Controllers\ExchangeRateController;
 use App\Controllers\ExpenseController;
 use App\Controllers\PosController;
 use App\Controllers\PriceController;
+use App\Controllers\InvoiceController;
 use App\Controllers\PackingController;
 use App\Controllers\ProductionController;
 use App\Controllers\RecipeController;
@@ -159,6 +160,10 @@ return [
     ['GET',  'sales/view',       [SaleController::class, 'view'],    Router::AUTH],
     ['GET',  'sales/receipt',    [SaleController::class, 'receipt'], Router::AUTH],
     ['GET',  'sales/print',      [SaleController::class, 'print'],   Router::AUTH],   // F4: the A4 invoice or delivery note
+    // Desk invoices (2026-10-14) — B2B, written by the owner, no cash session
+    ['GET',  'invoices',         [InvoiceController::class, 'index'],  'invoice.manage'],
+    ['GET',  'invoices/new',     [InvoiceController::class, 'create'], 'invoice.manage'],
+    ['POST', 'invoices/store',   [InvoiceController::class, 'store'],  'invoice.manage'],
     // Phase 6 — returns
     ['GET',  'returns',          [ReturnController::class, 'index'],   'return.create'],
     ['POST', 'returns/store',    [ReturnController::class, 'store'],   'return.create'],

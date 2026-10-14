@@ -101,12 +101,16 @@ final class PartyService
             throw new \DomainException('Choose a price level.');
         }
         $limit = Pricing::parse((string) ($in['credit_limit_usd'] ?? ''), true);
+        $terms = trim((string) ($in['payment_terms_days'] ?? ''));
+        if ($terms !== '' && (!ctype_digit($terms) || (int) $terms > 365)) {
+            throw new \DomainException('Payment terms are a number of days (0 to 365), or empty for the shop\'s default.');
+        }
         $f = [
             'name' => $name, 'phone' => trim((string) ($in['phone'] ?? '')) === '' ? null : mb_substr(trim((string) $in['phone']), 0, 30),
             'tva_number' => trim((string) ($in['tva_number'] ?? '')) === '' ? null : mb_substr(trim((string) $in['tva_number']), 0, 30),
             'address' => trim((string) ($in['address'] ?? '')) === '' ? null : mb_substr(trim((string) $in['address']), 0, 255),
             'notes' => trim((string) ($in['notes'] ?? '')) === '' ? null : mb_substr(trim((string) $in['notes']), 0, 1000),
-            'default_price_level' => $level, 'credit_limit_usd' => $limit, 'is_active' => (bool) ($in['is_active'] ?? true),
+            'default_price_level' => $level, 'credit_limit_usd' => $limit, 'payment_terms_days' => $terms === '' ? null : (int) $terms, 'is_active' => (bool) ($in['is_active'] ?? true),
         ];
         $customers = new Customer();
         $existing = $id > 0 ? ($customers->find($id) ?? throw new \DomainException('Customer not found.')) : null;

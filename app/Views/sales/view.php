@@ -5,7 +5,12 @@
       <dl class="kv">
         <dt>Invoice</dt><dd><code><?= e($s['invoice_no']) ?></code><?= $voided ? ' <span class="badge text-bg-danger">voided</span>' : '' ?><?= $onHold ? ' <span class="badge text-bg-warning">on hold · out with the seller</span>' : '' ?><?= $settlement !== null ? ' <span class="badge text-bg-info">delivery</span>' : '' ?></dd>
         <dt>When</dt><dd><?= e(date('d/m/Y H:i', strtotime($s['created_at']))) ?></dd>
-        <dt>Cashier</dt><dd><?= e($s['username']) ?><span class="cell-sub"><span dir="auto"><?= e($s['register_name']) ?></span> · <?= e($s['session_no']) ?></span></dd>
+        <?php if (($s['origin'] ?? 'till') === 'desk'): ?>
+          <dt>Written by</dt><dd><?= e($s['username']) ?><span class="cell-sub">Desk invoice · no cash session</span></dd>
+          <dt>Due</dt><dd><?= $s['due_date'] ? e(date('d/m/Y', strtotime($s['due_date']))) : '' ?><?php if ($s['ship_to']): ?><span class="cell-sub" dir="auto">Deliver to: <?= e($s['ship_to']) ?></span><?php endif; ?></dd>
+        <?php else: ?>
+          <dt>Cashier</dt><dd><?= e($s['username']) ?><span class="cell-sub"><span dir="auto"><?= e($s['register_name']) ?></span> · <?= e($s['session_no']) ?></span></dd>
+        <?php endif; ?>
         <dt>Customer</dt><dd dir="auto"><?= e($s['customer_name'] ?? 'Walk-in') ?></dd>
         <dt>Prices</dt><dd><?= e(ucfirst($s['price_level'])) ?><span class="cell-sub">1 USD = <?= number_format((int) $s['exchange_rate']) ?> LBP</span></dd>
         <?php if ($voided): ?><dt>Voided</dt><dd><span dir="auto"><?= e($s['void_reason']) ?></span><span class="cell-sub"><?= e(date('d/m/Y H:i', strtotime($s['voided_at']))) ?></span></dd><?php endif; ?>

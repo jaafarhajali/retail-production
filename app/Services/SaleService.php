@@ -96,6 +96,49 @@ final class SaleService
     }
 
     /**
+     * A desk invoice (2026-10-14): written by the owner for a B2B customer, with no cash session. The lines follow the
+     * same rules as a sale; the goods leave the stock now and the whole amount goes on the customer's account, due on
+     * the date given or after the customer's payment terms. It is paid later: by transfer or cheque at the desk, or in
+     * cash at the till (Collect debt), oldest invoice first.
+     *
+     * @return array{id: int, invoice_no: string, total_usd: string, due_date: string, warnings: list<string>}
+     */
+    public function issue(array $in): array
+    {
+        $in += ['register_id' => null, 'session_id' => null];
+        $p = $this->prepare($in);
+        if ($p['customer'] === null) {
+            throw new \DomainException('An invoice needs its customer. Choose the customer first.');
+        }
+        $pay = $this->payments(['payments' => [['method' => 'credit', 'currency' => 'USD', 'amount' => $p['total']]], 'change_currency' => 'USD'], $p['total'], $p['rate'], $p['step'], $p['customer'], $p['needsPin']);
+        if ($p['needsPin'] !== []) {
+            throw new \DomainException('Only the administrator may do this: ' . implode(', ', $p['needsPin']) . '.');
+        }
+        $dueDate = (new InvoiceService())->dueDate($p['customer'], (string) ($in['due_date'] ?? ''));
+        $shipTo = mb_substr(trim((string) ($in['ship_to'] ?? '')), 0, 255) ?: null;
+        $warnings = $p['warnings'];
+
+        $result = Database::transaction(function () use ($in, $p, $pay, $dueDate, $shipTo, &$warnings): array {
+            $no = Counter::format('INV-', Counter::next('invoice'));
+            $sales = new Sale();
+            $saleId = $sales->create($this->saleFields($no, $in, $p, $pay, 'completed') + ['origin' => 'desk', 'due_date' => $dueDate, 'ship_to' => $shipTo]);
+            foreach ($p['lines'] as $l) {
+                $sales->addItem($saleId, $l);
+                if ($l['track_stock'] && $l['stock_base'] - $l['base_qty'] < 0) {
+                    $warnings[] = $l['product_name'] . ' is now below zero stock.';
+                }
+            }
+            $this->fulfil($saleId, $no, $p['lines'], $pay, $p['customer'], $p['rate'], null, (int) $in['user_id']);
+            Audit::log('invoice.issued', 'sale', $saleId, ['no' => $no, 'customer' => $p['customer']['name'], 'lines' => count($p['lines']), 'due' => $dueDate], (float) $p['total'], 'USD');
+
+            return ['id' => $saleId, 'invoice_no' => $no];
+        });
+        $this->auditAfter($result, $p, null);
+
+        return $result + ['total_usd' => $p['total'], 'due_date' => $dueDate, 'warnings' => $warnings];
+    }
+
+    /**
      * F3: the seller is back. What came back is taken off the lines at the invoice's own prices, the net quantities
      * leave the stock, the cash goes into the settler's drawer and the rest onto the customer's account. The invoice
      * as printed stays in sale_settlements.
@@ -351,7 +394,7 @@ final class SaleService
     }
 
     /** Stock out, payments and their cash movements, change, and the credit part on the customer's ledger. */
-    private function fulfil(int $saleId, string $no, array $lines, array $pay, ?array $customer, int $rate, int $sessionId, int $userId): void
+    private function fulfil(int $saleId, string $no, array $lines, array $pay, ?array $customer, int $rate, ?int $sessionId, int $userId): void
     {
         $stock = new StockService();
         foreach ($lines as $l) {

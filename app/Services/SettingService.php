@@ -21,6 +21,7 @@ final class SettingService
         'receipt_footer' => ['Receipt footer', 255, false],
         'company_mof'    => ['MOF number', 30, false],     // F4: the official invoice
         'company_email'  => ['Email', 120, false],
+        'invoice_terms_days' => ['Payment terms (days)', 3, false],   // desk invoices (2026-10-14)
     ];
 
     public function save(array $input): void

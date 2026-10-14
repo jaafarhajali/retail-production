@@ -38,6 +38,7 @@ $s = $sale;
     <?php for ($k = $n; $k < 8; $k++): ?><tr class="blank"><td colspan="5">&nbsp;</td></tr><?php endfor; ?>
     </tbody>
   </table>
+  <?php if (!empty($s['notes'])): ?><p class="inv-notes" dir="auto"><b>Notes:</b> <?= e($s['notes']) ?></p><?php endif; ?>
   <section class="inv-totals">
     <table>
       <tr><td>Sub Total</td><td><?= usd($s['subtotal_usd']) ?></td></tr>
