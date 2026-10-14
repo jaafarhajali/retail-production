@@ -12,11 +12,13 @@ use App\Models\ProductUnit;
 
 /**
  * Packing (2026-10-14): a batch of mix becomes finished products, and the split is decided at that moment.
- * "5 kg of mix + 50 boxes → 30 Joy 100g + 20 Gold 100g" today, "→ 10 Joy + 40 Gold" tomorrow, from the same mix.
- * Nothing is predefined: the user types what was used and what came out. The mix and the packaging go out of stock
- * at their cost of the moment; the products come in, and the cost of what was used is shared between them in
- * proportion to their selling value (a $6 Joy 200g takes twice the cost of a $3 Joy 100g), by quantity when no
- * product has a price. Each product's cost per piece becomes the moving average of its packings, like a purchase.
+ * "5 kg of mix → 30 Joy 100g + 20 Gold 100g" today, "→ 10 Joy + 40 Gold" tomorrow, from the same mix.
+ * Nothing is predefined: the user types what was used and what came out. Each product's packaging per piece
+ * (Product → Packaging per piece: a box, a label, 10 g of paste) is taken out by itself: 30 Joy take 30 boxes.
+ * The mix and the packaging go out of stock at their cost of the moment; the products come in, and the cost of what
+ * was used is shared between them in proportion to their selling value (a $6 Joy 200g takes twice the cost of a
+ * $3 Joy 100g), per piece when a product in the split has no price. Each product's cost per piece becomes the
+ * moving average of its packings, like a purchase.
  */
 final class PackingService
 {
@@ -30,16 +32,26 @@ final class PackingService
     /**
      * What a packing would do, before it is confirmed.
      *
-     * @param list<array{product_id?: mixed, qty?: mixed, unit_id?: mixed}> $used the mix first, then boxes, labels, extras
+     * @param list<array{product_id?: mixed, qty?: mixed, unit_id?: mixed}> $used the mix, and any extra typed by hand
      * @param list<array{product_id?: mixed, qty?: mixed, unit_id?: mixed}> $made the finished products and how many
      * @return array{used: list<array>, made: list<array>, short: list<string>, cost: string, by_value: bool}
      */
     public function preview(array $used, array $made): array
     {
         $usedLines = [];
-        $short = [];
-        $total = 0.0;
-        $hasMix = false;
+        $addUsed = function (array $p, int $qtyBase, ?string $for) use (&$usedLines): void {
+            $id = (int) $p['id'];
+            if (!isset($usedLines[$id])) {
+                $usedLines[$id] = ['product_id' => $id, 'name' => $p['name'], 'kind' => $p['kind'], 'base_unit' => $p['base_unit'], 'qty_base' => 0, 'typed' => false, 'for' => [],
+                    'stock_base' => (int) $p['stock_base'], 'stock_text' => ProductionService::baseText((int) $p['stock_base'], $p['base_unit']), 'cost_per_base' => $p['cost_per_base']];
+            }
+            $usedLines[$id]['qty_base'] += $qtyBase;
+            if ($for === null) {
+                $usedLines[$id]['typed'] = true;
+            } else {
+                $usedLines[$id]['for'][] = $for;
+            }
+        };
         foreach ($used as $l) {
             if (!is_array($l) || (int) ($l['product_id'] ?? 0) === 0 && trim((string) ($l['qty'] ?? '')) === '') {
                 continue;   // an empty row on the form
@@ -51,23 +63,11 @@ final class PackingService
             if (isset($usedLines[(int) $p['id']])) {
                 throw new \DomainException($p['name'] . ' is used twice. Add the quantities on one line.');
             }
-            $hasMix = $hasMix || $p['kind'] === 'intermediate';
-            [$qtyBase, $unit] = $this->toBase($p, (string) ($l['qty'] ?? ''), (int) ($l['unit_id'] ?? 0));
-            $cost = $qtyBase * (float) $p['cost_per_base'];
-            $total += $cost;
-            $isShort = $qtyBase > (int) $p['stock_base'];
-            if ($isShort) {
-                $short[] = $p['name'] . ': needs ' . ProductionService::baseText($qtyBase, $p['base_unit']) . ', in stock ' . ProductionService::baseText((int) $p['stock_base'], $p['base_unit']);
-            }
-            $usedLines[(int) $p['id']] = ['product_id' => (int) $p['id'], 'name' => $p['name'], 'kind' => $p['kind'], 'base_unit' => $p['base_unit'], 'qty_base' => $qtyBase,
-                'qty_text' => ProductionService::baseText($qtyBase, $p['base_unit']), 'stock_base' => (int) $p['stock_base'], 'stock_text' => ProductionService::baseText((int) $p['stock_base'], $p['base_unit']),
-                'short' => $isShort, 'cost_per_base' => $p['cost_per_base'], 'cost_usd' => Money::fmt($cost)];
+            [$qtyBase] = $this->toBase($p, (string) ($l['qty'] ?? ''), (int) ($l['unit_id'] ?? 0));
+            $addUsed($p, $qtyBase, null);
         }
         if ($usedLines === []) {
             throw new \DomainException('Start with the mix: which one was packed, and how much of it.');
-        }
-        if (!$hasMix) {
-            throw new \DomainException('Packing starts from a mix. Add the mix that was packed on the first line.');
         }
         $madeLines = [];
         $weights = [];
@@ -89,12 +89,38 @@ final class PackingService
             $weights[(int) $p['id']] = $qtyBase * $this->pricePerBase((int) $p['id']);
             $madeLines[(int) $p['id']] = ['product_id' => (int) $p['id'], 'name' => $p['name'], 'base_unit' => $p['base_unit'], 'qty_base' => $qtyBase,
                 'qty_text' => ProductionService::baseText($qtyBase, $p['base_unit']), 'unit_name' => $unit['name'], 'factor' => (int) $unit['factor']];
+            // the product's packaging per piece comes out by itself: 30 Joy → 30 boxes, 30 labels
+            foreach ($this->products->packaging((int) $p['id']) as $pk) {
+                $material = $this->products->find((int) $pk['material_id']);
+                if ($material !== null) {
+                    $addUsed($material, (int) $pk['qty_base'] * $qtyBase, $madeLines[(int) $p['id']]['qty_text'] . ' ' . $p['name']);
+                }
+            }
         }
         if ($madeLines === []) {
             throw new \DomainException('Type what came out: at least one product and how many.');
         }
-        // the share of the cost: by selling value, or by quantity when nothing has a price
-        $byValue = $weights !== [] && min($weights) > 0;   // every product priced, else per piece for all
+        if (!in_array('intermediate', array_column($usedLines, 'kind'), true)) {
+            throw new \DomainException('Packing starts from a mix. Add the mix that was packed on the first line.');
+        }
+        // what the used lines cost, which are short
+        $short = [];
+        $total = 0.0;
+        foreach ($usedLines as &$u) {
+            $cost = $u['qty_base'] * (float) $u['cost_per_base'];
+            $total += $cost;
+            $u['cost_usd'] = Money::fmt($cost);
+            $u['qty_text'] = ProductionService::baseText($u['qty_base'], $u['base_unit']);
+            $u['short'] = $u['qty_base'] > $u['stock_base'];
+            $u['auto'] = !$u['typed'];
+            $u['for'] = implode(', ', $u['for']);
+            if ($u['short']) {
+                $short[] = $u['name'] . ': needs ' . $u['qty_text'] . ', in stock ' . $u['stock_text'];
+            }
+        }
+        unset($u);
+        // the share of the cost: by selling value, or per piece when a product in the split has no price
+        $byValue = $weights !== [] && min($weights) > 0;
         if (!$byValue) {
             foreach ($madeLines as $id => $l) {
                 $weights[$id] = $l['qty_base'];

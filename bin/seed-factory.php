@@ -211,4 +211,20 @@ if ($mixId > 0 && !$hasRecipe($mixId)) {
 }
 $out("Recipes: {$made} (the mix; the products are packed from it on the Packing page, with the quantities typed each time)");
 
+// ---------------------------------------------------------------- packaging per piece (2026-10-14): what Packing takes out by itself
+$pack = static fn (string $name, string $qty, string $type): array => ['material_id' => $pid($name), 'qty' => $qty, 'unit_id' => $unitOf($pid($name), $type)];
+$made = 0;
+foreach (['Joy 100g' => [['Box 100g', '1', 'Piece'], ['Label', '1', 'Piece']], 'Joy 200g' => [['Box 200g', '1', 'Piece'], ['Label', '1', 'Piece']], 'Mini Joy 100g' => [['Box 100g', '1', 'Piece'], ['Label', '1', 'Piece']],
+          'Excellence 100g' => [['Box 100g', '1', 'Piece'], ['Label', '1', 'Piece']], 'Gold 100g' => [['Box 100g', '1', 'Piece'], ['Label', '1', 'Piece']],
+          'Pistachio 100g' => [['Box 100g', '1', 'Piece'], ['Label', '1', 'Piece'], ['Pistachio paste', '0.01', 'kg']], 'Choco Dream 100g' => [['Box 100g', '1', 'Piece'], ['Label', '1', 'Piece'], ['Cocoa powder', '0.005', 'kg']],
+          'Marshmallow Stick 25g' => [['Stick bag', '1', 'Piece']]] as $name => $lines) {
+    $id = $pid($name);
+    if ($id <= 0 || (new App\Models\Product())->packaging($id) !== []) {
+        continue;
+    }
+    $products->savePackaging($id, array_map(static fn (array $l): array => $pack(...$l), $lines));
+    $made++;
+}
+$out("Packaging per piece: {$made} products (a box and a label each; paste or cocoa for the flavoured ones)");
+
 $out('Done. Sign in as admin.');

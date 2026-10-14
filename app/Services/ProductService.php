@@ -186,6 +186,9 @@ final class ProductService
             }
             $product = $this->products->find($id) ?? throw new \DomainException('Product not found.');
             $ids = $this->saveUnits($product, $rows, (string) ($in['main_unit'] ?? ''));
+            if (array_key_exists('packaging', $in) && $in['packaging'] !== null) {   // the form always sends it; API callers may leave it alone
+                $this->savePackaging($id, is_array($in['packaging']) ? array_values($in['packaging']) : []);
+            }
             $factorOf = fn (string $key): ?int => isset($ids[$key]) ? (int) $this->units->find($ids[$key])['factor'] : null;
 
             $cost = trim((string) ($in['cost'] ?? ''));
@@ -215,6 +218,47 @@ final class ProductService
 
             return $id;
         });
+    }
+
+    /**
+     * Packaging and extras per piece of a finished product (2026-10-14): "Joy 100g = 1 Box 100g + 1 Label + 10 g of
+     * pistachio paste". Packing takes them out of stock by itself when it records how many were made.
+     *
+     * @param list<array{material_id?: mixed, qty?: mixed, unit_id?: mixed}> $lines
+     */
+    public function savePackaging(int $productId, array $lines): void
+    {
+        $product = $this->products->find($productId) ?? throw new \DomainException('Product not found.');
+        $clean = [];
+        foreach ($lines as $l) {
+            if (!is_array($l) || (int) ($l['material_id'] ?? 0) === 0 && trim((string) ($l['qty'] ?? '')) === '') {
+                continue;   // an empty row on the form
+            }
+            $m = $this->products->find((int) ($l['material_id'] ?? 0)) ?? throw new \DomainException('Choose the packaging on every line.');
+            if ($m['kind'] === 'finished') {
+                throw new \DomainException($m['name'] . ' is a finished product: packaging is a raw material or a mix.');
+            }
+            if (isset($clean[(int) $m['id']])) {
+                throw new \DomainException($m['name'] . ' is listed twice in the packaging. Add the quantities on one line.');
+            }
+            $unit = $this->units->find((int) ($l['unit_id'] ?? 0));
+            if ($unit === null || (int) $unit['product_id'] !== (int) $m['id']) {
+                throw new \DomainException('Choose the unit for ' . $m['name'] . ' in the packaging.');
+            }
+            $text = str_replace(',', '', trim((string) ($l['qty'] ?? '')));
+            if ($text === '' || !is_numeric($text) || (float) $text <= 0) {
+                throw new \DomainException('Enter how much ' . $m['name'] . ' one piece takes.');
+            }
+            $base = (int) round((float) $text * (int) $unit['factor']);
+            if ($base <= 0) {
+                throw new \DomainException('The quantity of ' . $m['name'] . ' per piece is too small for one ' . $m['base_unit'] . '.');
+            }
+            $clean[(int) $m['id']] = ['material_id' => (int) $m['id'], 'qty_base' => $base];
+        }
+        if ($clean !== [] && $product['kind'] !== 'finished') {
+            throw new \DomainException('Only a finished product has packaging per piece.');
+        }
+        $this->products->replacePackaging($productId, array_values($clean));
     }
 
     /** A product that was never sold, purchased, counted or moved is removed; any other is deactivated instead. */

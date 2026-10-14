@@ -236,6 +236,74 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
           </div>
         </div>
       </div></div>
+
+      <?php
+      $packUnitOptions = [];
+      foreach ($packUnits as $pid2 => $us) {
+          $packUnitOptions[$pid2] = array_map(static fn (array $u): array => ['id' => (int) $u['id'], 'name' => $u['name'], 'factor' => (int) $u['factor']], $us);
+      }
+      $packRows = [];
+      if (is_array($stash['packaging'] ?? null)) {
+          foreach ($stash['packaging'] as $l) {
+              $packRows[] = ['material_id' => (int) ($l['material_id'] ?? 0), 'qty' => $text($l['qty'] ?? null), 'unit_id' => (int) ($l['unit_id'] ?? 0)];
+          }
+      } else {
+          foreach ($packaging as $l) {
+              $qty = (string) $l['qty_base'];
+              $unitId = 0;
+              foreach (array_reverse($packUnits[(int) $l['material_id']] ?? []) as $u) {
+                  if ((int) $l['qty_base'] % (int) $u['factor'] === 0 || (int) $u['factor'] === 1) {
+                      $qty = rtrim(rtrim(number_format((int) $l['qty_base'] / (int) $u['factor'], 3, '.', ''), '0'), '.');
+                      $unitId = (int) $u['id'];
+                      break;
+                  }
+              }
+              $packRows[] = ['material_id' => (int) $l['material_id'], 'qty' => $qty, 'unit_id' => $unitId];
+          }
+      }
+      ?>
+      <div class="card mt-3" data-finished-only id="packaging-card">
+        <div class="card-body pb-2">
+          <h2 class="h5 mb-1">Packaging per piece</h2>
+          <p class="text-muted small mb-0">What one piece takes out of the packaging stock: a box, a label, 10 g of paste. When Packing records "30 made", it takes 30 of each out by itself; only the mix is typed there.</p>
+          <input type="hidden" name="packaging_given" value="1">
+        </div>
+        <div class="table-responsive"><table class="table align-middle m-0" id="packaging">
+          <thead><tr><th style="width:46%">Material</th><th style="width:18%">Per piece</th><th style="width:22%">Unit</th><th class="text-nowrap">In stock</th><th></th></tr></thead>
+          <tbody></tbody>
+          <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary btn-sm" type="button" id="add-packaging" <?= $dis ?>><i class="bi bi-plus-lg"></i> Add packaging</button></td></tr></tfoot>
+        </table></div>
+      </div>
+      <template id="packaging-tpl">
+        <tr>
+          <td><select class="form-select form-select-sm" name="packaging[IDX][material_id]" <?= $dis ?>><option value="">— choose —</option>
+            <?php foreach ($packMaterials as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(\App\Services\ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?><?= $m['kind'] === 'intermediate' ? ' (mix)' : '' ?></option><?php endforeach; ?></select></td>
+          <td><input class="form-control form-control-sm" name="packaging[IDX][qty]" inputmode="decimal" placeholder="1" <?= $dis ?>></td>
+          <td><select class="form-select form-select-sm" name="packaging[IDX][unit_id]" aria-label="Unit" <?= $dis ?>></select></td>
+          <td class="text-nowrap text-muted small stock"></td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-danger remove" type="button" title="Remove this line" aria-label="Remove this line" <?= $dis ?>><i class="bi bi-trash3"></i></button></td>
+        </tr>
+      </template>
+      <script>
+      (function () {
+        var units = <?= json_encode($packUnitOptions, JSON_UNESCAPED_UNICODE) ?>, rows = <?= json_encode($packRows) ?>;
+        var tbody = document.querySelector('#packaging tbody'), tpl = document.getElementById('packaging-tpl'), idx = 0;
+        function fillUnits(sel, productId, selected) {
+          sel.innerHTML = '';
+          (units[productId] || []).forEach(function (u) { var o = document.createElement('option'); o.value = u.id; o.textContent = u.name; if (u.id === selected) o.selected = true; sel.appendChild(o); });
+        }
+        function addLine(row) {
+          tbody.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/IDX/g, String(idx++)));
+          var tr = tbody.lastElementChild, mat = tr.querySelector('[name$="[material_id]"]'), unit = tr.querySelector('[name$="[unit_id]"]');
+          function stockText() { tr.querySelector('.stock').textContent = mat.selectedOptions[0] ? (mat.selectedOptions[0].dataset.stock || '') : ''; }
+          mat.addEventListener('change', function () { fillUnits(unit, parseInt(this.value, 10), 0); stockText(); });
+          tr.querySelector('.remove').addEventListener('click', function () { tr.remove(); });
+          if (row) { mat.value = String(row.material_id); fillUnits(unit, row.material_id, row.unit_id); tr.querySelector('[name$="[qty]"]').value = row.qty; stockText(); } else { mat.focus(); }
+        }
+        document.getElementById('add-packaging').addEventListener('click', function () { addLine(null); });
+        rows.forEach(addLine);
+      })();
+      </script>
     </div>
 
     <div class="col-xxl-3"><div class="pf-side">
@@ -259,7 +327,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
       </div></div>
 
       <div class="card"><div class="card-body">
-        <?php if ($isEdit && $product['kind'] !== 'material' && \App\Core\Gate::allows('production.view')): ?>
+        <?php if ($isEdit && $product['kind'] === 'intermediate' && \App\Core\Gate::allows('production.view')): ?>
           <p class="mb-3"><a class="btn btn-outline-primary btn-sm" href="<?= url('recipes/edit', ['product_id' => $pid]) ?>"><i class="bi bi-journal-text"></i> Write a recipe</a> <a class="btn btn-link btn-sm" href="<?= url('recipes') ?>">All recipes</a></p>
         <?php endif; ?>
         <h2 class="h5">Options</h2>

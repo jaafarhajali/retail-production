@@ -168,6 +168,24 @@ final class Product extends Model
         return $this->fetchAll(self::LIST_SELECT . ' WHERE p.is_active = 1' . ($kind === null ? '' : ' AND p.kind = :k') . ' ORDER BY c.sort_order, c.name, p.name', $kind === null ? [] : ['k' => $kind]);
     }
 
+    /** Packaging and extras per piece of a finished product (2026-10-14): what Packing takes out by itself. */
+    public function packaging(int $productId): array
+    {
+        return $this->fetchAll(
+            'SELECT k.*, m.name AS material_name, m.base_unit, m.kind AS material_kind FROM product_packaging k JOIN products m ON m.id = k.material_id WHERE k.product_id = :p ORDER BY k.id',
+            ['p' => $productId]
+        );
+    }
+
+    /** A definition, rewritten as a whole. */
+    public function replacePackaging(int $productId, array $lines): void
+    {
+        $this->execute('DELETE FROM product_packaging WHERE product_id = :p', ['p' => $productId]);
+        foreach ($lines as $l) {
+            $this->execute('INSERT INTO product_packaging (product_id, material_id, qty_base) VALUES (:p, :m, :q)', ['p' => $productId, 'm' => $l['material_id'], 'q' => $l['qty_base']]);
+        }
+    }
+
     /** How many active products of each kind, for the tabs. @return array<string, int> */
     public function kindCounts(): array
     {

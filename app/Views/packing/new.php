@@ -26,11 +26,11 @@ $madeRows = $rows('made');
   <div class="row g-3">
     <div class="col-lg-7">
       <div class="card mb-3">
-        <div class="card-header">Used: the mix, then the boxes, labels and extras</div>
+        <div class="card-header">Used: the mix. Boxes and labels come out by themselves, from each product's packaging per piece</div>
         <div class="table-responsive"><table class="table align-middle m-0" id="used">
           <thead><tr><th style="width:46%">What</th><th style="width:18%">Quantity</th><th style="width:22%">Unit</th><th class="text-nowrap">In stock</th><th></th></tr></thead>
           <tbody></tbody>
-          <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary btn-sm" type="button" id="add-used"><i class="bi bi-plus-lg"></i> Add packaging or an extra</button></td></tr></tfoot>
+          <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary btn-sm" type="button" id="add-used"><i class="bi bi-plus-lg"></i> Add an extra not in the products' packaging</button></td></tr></tfoot>
         </table></div>
       </div>
       <div class="card mb-3">
@@ -50,7 +50,7 @@ $madeRows = $rows('made');
     </div>
     <div class="col-lg-5">
       <div class="card"><div class="card-header">What it does</div>
-        <div class="card-body" id="preview-empty"><p class="text-muted mb-0">Choose the mix and the products: the stock and the cost show here before anything is written.</p></div>
+        <div class="card-body" id="preview-empty"><p class="text-muted mb-0">Choose the mix and the products: the stock, the packaging taken out and the cost show here before anything is written.</p></div>
         <div id="preview-body" hidden>
           <div class="table-responsive"><table class="table table-sm align-middle m-0">
             <thead><tr><th>Out of stock</th><th class="text-end">Quantity</th><?php if ($showCost): ?><th class="text-end">Cost</th><?php endif; ?></tr></thead>
@@ -135,7 +135,7 @@ $madeRows = $rows('made');
           res.j.used.forEach(function (l) {
             var tr = document.createElement('tr'); if (l.short) tr.className = 'table-danger';
             tr.innerHTML = '<td dir="auto"></td><td class="text-end text-nowrap"></td>' + (showCost ? '<td class="text-end text-nowrap"></td>' : '');
-            cell(tr, 0, l.name); cell(tr, 1, '− ' + l.qty + (l.short ? ' (in stock ' + l.stock + ')' : '')); if (showCost) cell(tr, 2, money(l.cost));
+            cell(tr, 0, l.name + (l.for ? ' · for ' + l.for : '')); cell(tr, 1, '− ' + l.qty + (l.short ? ' (in stock ' + l.stock + ')' : '')); if (showCost) cell(tr, 2, money(l.cost));
             tu.appendChild(tr);
           });
           res.j.made.forEach(function (l) {

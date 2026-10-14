@@ -16,6 +16,7 @@ the customer's account → dashboard, products by month, break-even
 - **Recipes and production**: a recipe says what one batch of the mix is made of; a run makes it in batches, takes the
   ingredients out and puts the mix in at their cost. **Packing** then takes the mix (and the boxes) out and puts the
   finished products in: how many of each is typed each time, never fixed in a recipe; the cost is shared by selling price.
+  Each product's **packaging per piece** (a box, a label) comes out of stock by itself when it is packed.
 - **Delivery invoices on the till**: Hold as invoice and print, goods go out with the seller, Finish when back.
 - **Two prints**: the official A4 invoice (TVA, due date, boxes, signatures) and the delivery note.
 - **Dashboard**: the business as a flow, the month's sales, who owes, production, the two stocks, break-even.

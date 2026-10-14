@@ -50,6 +50,9 @@ $kitchen = static function (): array {
     $svc->setPrices($gold['units'][0], '4', '3.5');
     $bag = $mk('Party bag', 'finished', 'piece', [['Piece', 1, false]], '', 1);   // no price yet
     $custom = $mk('Customized Box', 'finished', 'piece', [['Piece', 1, false]], '', 1, null, false);
+    // one Joy or Gold takes one box out of the packaging stock when it is packed
+    $svc->savePackaging($joy['id'], [['material_id' => $m['box']['id'], 'qty' => '1', 'unit_id' => $m['box']['units'][0]]]);
+    $svc->savePackaging($gold['id'], [['material_id' => $m['box']['id'], 'qty' => '1', 'unit_id' => $m['box']['units'][0]]]);
     // 5 kg of mix at $4.68 per kg (200 g honey + 10 g colouring + 300 g B + 490 g C per kg)
     $line = static fn (array $mat, string $qty): array => ['material_id' => $mat['id'], 'qty' => $qty, 'unit_id' => $mat['units'][0]];
     $recipe = (new RecipeService())->save(0, ['product_id' => $mix['id'], 'name' => 'Standard', 'output_qty' => '1', 'output_unit_id' => $mix['units'][0],
@@ -68,24 +71,26 @@ return [
         Auth::login(TEST_ADMIN_ID);
     },
 
-    'the same mix, two different splits: 3 kg + 30 boxes → 30 Joy; then 2 kg + 20 boxes → 10 Joy + 10 Gold, the cost shared by selling price' => function () use ($kitchen, $use, $stockOf, $costOf): void {
+    'the same mix, two different splits: 3 kg → 30 Joy (30 boxes out by themselves); then 2 kg → 10 Joy + 10 Gold, the cost shared by selling price' => function () use ($kitchen, $use, $stockOf, $costOf): void {
         $k = $kitchen();
         assert_same([5000, '0.004680'], [$stockOf($k['mix']['id']), $costOf($k['mix']['id'])]);
         $svc = new PackingService();
         // packing 1: 3 kg of mix ($14.04) + 30 boxes ($3.60) → 30 Joy at $0.588
-        $p = $svc->preview([$use($k['mix'], '3'), $use($k['m']['box'], '30')], [$use($k['joy'], '30')]);
+        $p = $svc->preview([$use($k['mix'], '3')], [$use($k['joy'], '30')]);
         assert_same(['17.64', [], true], [$p['cost'], $p['short'], $p['by_value']]);
         assert_same([3000, 30], array_column($p['used'], 'qty_base'));
+        assert_same(['Box 100g', true, '30 pieces Joy 100g', '3.60'], [$p['used'][1]['name'], $p['used'][1]['auto'], $p['used'][1]['for'], $p['used'][1]['cost_usd']], 'the boxes come from the product, not from the form');
         assert_same(['17.64', '0.588000', '0.59', 100], [$p['made'][0]['cost_usd'], $p['made'][0]['cost_per_base'], $p['made'][0]['cost_per_unit'], $p['made'][0]['share_pct']]);
-        $r = $svc->pack([$use($k['mix'], '3'), $use($k['m']['box'], '30')], [$use($k['joy'], '30')], 'morning', TEST_ADMIN_ID);
+        $r = $svc->pack([$use($k['mix'], '3')], [$use($k['joy'], '30')], 'morning', TEST_ADMIN_ID);
         assert_same(['PCK-000001', 'Joy 100g ×30', '17.64'], [$r['pack_no'], $r['made_text'], $r['cost']]);
         assert_same([2000, 70, 30], [$stockOf($k['mix']['id']), $stockOf($k['m']['box']['id']), $stockOf($k['joy']['id'])]);
         assert_same('0.588000', $costOf($k['joy']['id']));
         // packing 2: 2 kg ($9.36) + 20 boxes ($2.40) = $11.76 → 10 Joy ($3 each, value 30) + 10 Gold ($4, value 40): Joy takes 3/7 = $5.04, Gold $6.72
-        $p = $svc->preview([$use($k['mix'], '2'), $use($k['m']['box'], '20')], [$use($k['joy'], '10'), $use($k['gold'], '10')]);
+        $p = $svc->preview([$use($k['mix'], '2')], [$use($k['joy'], '10'), $use($k['gold'], '10')]);
         assert_same('11.76', $p['cost']);
+        assert_same([20, '10 pieces Joy 100g, 10 pieces Gold 100g'], [$p['used'][1]['qty_base'], $p['used'][1]['for']], 'one box line for both products');
         assert_same([['5.04', '0.504000', 43], ['6.72', '0.672000', 57]], array_map(static fn (array $l): array => [$l['cost_usd'], $l['cost_per_base'], $l['share_pct']], $p['made']));
-        $r = $svc->pack([$use($k['mix'], '2'), $use($k['m']['box'], '20')], [$use($k['joy'], '10'), $use($k['gold'], '10')], '', TEST_ADMIN_ID);
+        $r = $svc->pack([$use($k['mix'], '2')], [$use($k['joy'], '10'), $use($k['gold'], '10')], '', TEST_ADMIN_ID);
         assert_same(['PCK-000002', 'Joy 100g ×10, Gold 100g ×10'], [$r['pack_no'], $r['made_text']]);
         assert_same([0, 50, 40, 10], [$stockOf($k['mix']['id']), $stockOf($k['m']['box']['id']), $stockOf($k['joy']['id']), $stockOf($k['gold']['id'])]);
         assert_same(['0.567000', '0.672000'], [$costOf($k['joy']['id']), $costOf($k['gold']['id'])], 'Joy: (30 × 0.588 + 10 × 0.504) ÷ 40, the moving average');
@@ -123,9 +128,18 @@ return [
         assert_contains('Not enough in stock', $e->getMessage());
         assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM packings')->fetchColumn());
         assert_same(5000, $stockOf($k['mix']['id']));
-        // a product without a price in the split: the cost is shared per piece instead (1 kg = $4.68 → 20 Joy + 20 bags = $2.34 each side)
+        // a product without a price in the split: the cost is shared per piece instead (1 kg $4.68 + 20 boxes $2.40 → 20 Joy + 20 bags = $3.54 each side)
         $p = $svc->preview([$use($k['mix'], '1')], [$use($k['joy'], '20'), $use($k['bag'], '20')]);
-        assert_same([false, '2.34', '2.34'], [$p['by_value'], $p['made'][0]['cost_usd'], $p['made'][1]['cost_usd']]);
+        assert_same([false, '3.54', '3.54'], [$p['by_value'], $p['made'][0]['cost_usd'], $p['made'][1]['cost_usd']]);
+        // boxes typed by hand on top of the automatic ones add up on one line
+        $p = $svc->preview([$use($k['mix'], '1'), $use($k['m']['box'], '5')], [$use($k['joy'], '10')]);
+        assert_same([15, false], [$p['used'][1]['qty_base'], $p['used'][1]['auto']]);
+        // the packaging list itself: a finished product is refused, a line twice is refused
+        $ps = new ProductService();
+        $e = assert_throws(DomainException::class, fn () => $ps->savePackaging($k['joy']['id'], [['material_id' => $k['gold']['id'], 'qty' => '1', 'unit_id' => $k['gold']['units'][0]]]));
+        assert_contains('finished product', $e->getMessage());
+        $e = assert_throws(DomainException::class, fn () => $ps->savePackaging($k['joy']['id'], [['material_id' => $k['m']['box']['id'], 'qty' => '1', 'unit_id' => $k['m']['box']['units'][0]], ['material_id' => $k['m']['box']['id'], 'qty' => '2', 'unit_id' => $k['m']['box']['units'][0]]]));
+        assert_contains('twice', $e->getMessage());
     },
 
     'the pages: Pack with its preview, the packing in the production list and its detail, the report and the dashboard count it; a cashier may not' => function () use ($kitchen, $use): void {
@@ -136,15 +150,21 @@ return [
         assert_contains('Raspberry mix', $page);
         assert_contains('Gold 100g', $page);
         assert_not_contains('Customized Box', $page, 'keeps no stock, so it is not offered');
-        $r = $client->postJson('packing/preview', ['used' => [$use($k['mix'], '2'), $use($k['m']['box'], '20')], 'made' => [$use($k['joy'], '10'), $use($k['gold'], '10')]]);
+        $r = $client->postJson('packing/preview', ['used' => [$use($k['mix'], '2')], 'made' => [$use($k['joy'], '10'), $use($k['gold'], '10')]]);
         assert_same(200, $r->status, $r->body);
         $j = json_decode($r->body, true);
         assert_same(['11.76', [], true, 2, 2], [$j['cost'], $j['short'], $j['by_value'], count($j['used']), count($j['made'])]);
+        assert_same(['Box 100g', '20 pieces', true, '10 pieces Joy 100g, 10 pieces Gold 100g'], [$j['used'][1]['name'], $j['used'][1]['qty'], $j['used'][1]['auto'], $j['used'][1]['for']]);
+        // the product page shows the packaging per piece
+        $page = $client->get('products/edit', ['id' => $k['joy']['id']])->body;
+        assert_contains('Packaging per piece', $page);
+        assert_contains('name="packaging_given"', $page);
+        assert_contains('"material_id":' . $k['m']['box']['id'], $page);
         assert_same(['Gold 100g', '10 pieces', 57, '6.72', '0.67', 'Piece'], array_values($j['made'][1]));
         $r = $client->postJson('packing/preview', ['used' => [], 'made' => [$use($k['joy'], '10')]]);
         assert_same(422, $r->status);
         // the empty rows the form sends along are ignored
-        $r = $client->post('packing/store', ['used' => [['product_id' => (string) $k['mix']['id'], 'qty' => '2', 'unit_id' => (string) $k['mix']['units'][0]], ['product_id' => '', 'qty' => '', 'unit_id' => '']],
+        $r = $client->post('packing/store', ['used' => [['product_id' => (string) $k['mix']['id'], 'qty' => '2', 'unit_id' => (string) $k['mix']['units'][0]], ['product_id' => '', 'qty' => '', 'unit_id' => '']],   // the boxes are not typed
             'made' => [['product_id' => (string) $k['joy']['id'], 'qty' => '10', 'unit_id' => (string) $k['joy']['units'][0]], ['product_id' => (string) $k['gold']['id'], 'qty' => '10', 'unit_id' => (string) $k['gold']['units'][0]], ['product_id' => '', 'qty' => '', 'unit_id' => '']], 'notes' => 'by hand']);
         assert_same(302, $r->status, $r->body);
         assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM packings')->fetchColumn());
@@ -153,7 +173,7 @@ return [
         assert_contains('Joy 100g ×10, Gold 100g ×10', $page);
         assert_contains('Pack into products', $page);
         $page = $client->get('packing/view', ['id' => 1])->body;
-        foreach (['PCK-000001', 'Taken out of stock', 'Put into stock', 'Raspberry mix', 'Gold 100g', 'by hand', '$9.36'] as $needle) {
+        foreach (['PCK-000001', 'Taken out of stock', 'Put into stock', 'Raspberry mix', 'Box 100g', '20 pieces', 'Gold 100g', 'by hand', '$9.36'] as $needle) {
             assert_contains($needle, $page, $needle);
         }
         $page = $client->get('reports', ['type' => 'production'])->body;

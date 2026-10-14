@@ -118,6 +118,7 @@ final class ProductController extends Controller
                 'cost' => $this->input('cost'), 'cost_unit' => $this->input('cost_unit'),
                 'min_qty' => $this->input('min_qty'), 'min_unit' => $this->input('min_unit'),
                 'opening_qty' => $this->input('opening_qty'), 'opening_unit' => $this->input('opening_unit'),
+                'packaging' => is_array($_POST['packaging'] ?? null) ? $_POST['packaging'] : (isset($_POST['packaging_given']) ? [] : null),
             ], \App\Core\Auth::id());
         } catch (\DomainException $e) {
             $this->failBack($id > 0 ? 'products/edit' : 'products/create', $id > 0 ? ['id' => $id] : [],
@@ -341,6 +342,7 @@ final class ProductController extends Controller
         }
 
         $units = $id > 0 ? (new ProductUnit())->forProduct($id) : [];
+        $packMaterials = array_merge((new Product())->forPrint('material'), (new Product())->forPrint('intermediate'));   // what a piece can take out when packed
         $usedUnits = [];
         foreach ($units as $u) {
             $usedUnits[(int) $u['id']] = (new ProductUnit())->isUsed((int) $u['id']);
@@ -359,6 +361,9 @@ final class ProductController extends Controller
             'barcodes'   => $id > 0 ? (new Barcode())->forProduct($id) : [],
             'unitNames'  => ProductService::DEFAULT_UNIT_NAMES,
             'unitTypes'  => ProductService::UNIT_TYPES,
+            'packaging'  => $id > 0 ? (new Product())->packaging($id) : [],
+            'packMaterials' => $packMaterials,
+            'packUnits'  => (new ProductUnit())->forProducts(array_map('intval', array_column($packMaterials, 'id'))),
             'canManage'  => Gate::allows('product.manage'),
             'canPrice'   => Gate::allows('price.manage'),
             'showCost'   => Gate::allows('product.view_cost'),
