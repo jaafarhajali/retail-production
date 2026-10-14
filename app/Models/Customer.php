@@ -72,12 +72,13 @@ final class Customer extends Model
     public function addLedger(array $f): int
     {
         $this->execute(
-            'INSERT INTO customer_ledger (customer_id, type, amount_usd, currency, amount_original, exchange_rate, sale_id, return_id, session_id, user_id, note)
-             VALUES (:c, :t, :a, :cur, :orig, :r, :s, :ret, :ses, :u, :n)',
+            'INSERT INTO customer_ledger (customer_id, type, amount_usd, currency, amount_original, exchange_rate, sale_id, return_id, session_id, user_id, note, method, reference)
+             VALUES (:c, :t, :a, :cur, :orig, :r, :s, :ret, :ses, :u, :n, :me, :rf)',
             [
                 'c' => $f['customer_id'], 't' => $f['type'], 'a' => $f['amount_usd'], 'cur' => $f['currency'] ?? null,
                 'orig' => $f['amount_original'] ?? null, 'r' => $f['exchange_rate'] ?? null, 's' => $f['sale_id'] ?? null,
                 'ret' => $f['return_id'] ?? null, 'ses' => $f['session_id'] ?? null, 'u' => $f['user_id'] ?? null, 'n' => $f['note'] ?? null,
+                'me' => $f['method'] ?? null, 'rf' => $f['reference'] ?? null,
             ]
         );
 

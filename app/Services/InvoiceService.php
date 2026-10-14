@@ -3,8 +3,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Audit;
 use App\Core\Database;
 use App\Core\Settings;
+use App\Models\Customer;
+use App\Models\ExchangeRate;
 
 /**
  * Desk invoices (2026-10-14): what a B2B customer still owes, invoice by invoice.
@@ -112,6 +115,118 @@ final class InvoiceService
         }
 
         return date('Y-m-d', strtotime('+' . $this->termsDays($customer) . ' days', $issued === null ? time() : strtotime($issued)));
+    }
+
+    /**
+     * A payment received at the desk (2026-10-14): by transfer, cheque or card, in USD or LBP at today's rate. Cash is
+     * collected at the till so that it goes into a drawer. One ledger row per currency, applied to the oldest invoice
+     * first by outstanding(). Floating products on the account are re-priced first, as at the till.
+     *
+     * @return array{paid_usd: string, balance: string}
+     */
+    public function recordPayment(int $customerId, string $usd, string $lbp, string $method, string $reference, string $note, int $userId): array
+    {
+        $customers = new Customer();
+        $customer = $customers->find($customerId) ?? throw new \DomainException('Choose the customer.');
+        if (!in_array($method, ['transfer', 'cheque', 'card'], true)) {
+            throw new \DomainException('Choose how it was paid: bank transfer, cheque or card. Cash is collected at the till.');
+        }
+        $rate = (new ExchangeRate())->current();
+        $usdIn = Pricing::parse($usd, true) ?? '0.00';
+        $lbpIn = CashService::parseLbp($lbp, true);
+        if ((float) $usdIn <= 0.004 && $lbpIn <= 0) {
+            throw new \DomainException('Type what was received: in USD, in LBP, or both.');
+        }
+        $reference = mb_substr(trim($reference), 0, 80) ?: null;
+        $note = mb_substr(trim($note), 0, 255) ?: null;
+        (new DebtService())->charge($customerId, $userId, null);
+
+        return Database::transaction(function () use ($customers, $customer, $customerId, $usdIn, $lbpIn, $rate, $method, $reference, $note, $userId): array {
+            $paid = 0.0;
+            if ((float) $usdIn > 0.004) {
+                $customers->addLedger(['customer_id' => $customerId, 'type' => 'payment', 'amount_usd' => '-' . $usdIn, 'currency' => 'USD', 'amount_original' => $usdIn, 'exchange_rate' => $rate,
+                                       'user_id' => $userId, 'note' => $note, 'method' => $method, 'reference' => $reference]);
+                $paid += (float) $usdIn;
+            }
+            if ($lbpIn > 0) {
+                $usdValue = Money::lbpToUsd($lbpIn, $rate);
+                $customers->addLedger(['customer_id' => $customerId, 'type' => 'payment', 'amount_usd' => '-' . $usdValue, 'currency' => 'LBP', 'amount_original' => (string) $lbpIn, 'exchange_rate' => $rate,
+                                       'user_id' => $userId, 'note' => $note, 'method' => $method, 'reference' => $reference]);
+                $paid += (float) $usdValue;
+            }
+            Audit::log('payment.received', 'customer', $customerId, ['customer' => $customer['name'], 'method' => $method, 'reference' => $reference, 'usd' => $usdIn, 'lbp' => $lbpIn], $paid, 'USD');
+
+            return ['paid_usd' => Money::fmt($paid), 'balance' => $customers->balance($customerId)];
+        });
+    }
+
+    /**
+     * The statement of account for a period: the balance before it, every ledger row in it with a running balance,
+     * the totals, the balance now and the invoices still open.
+     */
+    public function statement(int $customerId, string $from, string $to): array
+    {
+        $pdo = Database::pdo();
+        $st = $pdo->prepare('SELECT COALESCE(SUM(amount_usd), 0) FROM customer_ledger WHERE customer_id = :c AND created_at < :f');
+        $st->execute(['c' => $customerId, 'f' => $from . ' 00:00:00']);
+        $opening = (float) $st->fetchColumn();
+        $st = $pdo->prepare('SELECT l.*, s.invoice_no FROM customer_ledger l LEFT JOIN sales s ON s.id = l.sale_id WHERE l.customer_id = :c AND l.created_at BETWEEN :f AND :t ORDER BY l.id');
+        $st->execute(['c' => $customerId, 'f' => $from . ' 00:00:00', 't' => $to . ' 23:59:59']);
+        $rows = [];
+        $debits = 0.0;
+        $credits = 0.0;
+        $methods = ['transfer' => 'bank transfer', 'cheque' => 'cheque', 'card' => 'card', 'cash' => 'cash'];
+        foreach ($st->fetchAll(\PDO::FETCH_ASSOC) as $r) {
+            $amount = (float) $r['amount_usd'];
+            $r['label'] = match ($r['type']) {
+                'sale_credit' => 'Invoice ' . ($r['invoice_no'] ?? ''),
+                'payment' => 'Payment' . (isset($methods[$r['method'] ?? '']) ? ' by ' . $methods[$r['method']] : ($r['session_id'] !== null ? ' in cash at the till' : '')) . ($r['currency'] === 'LBP' ? ' (' . number_format((float) $r['amount_original']) . ' LBP)' : ''),
+                'return_credit' => 'Credit for returned goods' . ($r['invoice_no'] !== null ? ' on ' . $r['invoice_no'] : ''),
+                default => 'Adjustment' . ($r['note'] !== null ? ': ' . $r['note'] : ''),
+            };
+            $r['reference'] = $r['reference'] ?? ($r['type'] === 'payment' ? $r['note'] : null);
+            $amount > 0 ? $debits += $amount : $credits -= $amount;
+            $rows[] = $r;
+        }
+        $o = $this->outstanding($customerId);
+
+        return ['opening' => Money::fmt($opening), 'rows' => $rows, 'debits' => Money::fmt($debits), 'credits' => Money::fmt($credits), 'closing' => Money::fmt($opening + $debits - $credits),
+                'balanceNow' => (new Customer())->balance($customerId), 'open' => array_values(array_filter($o['items'], static fn (array $i): bool => $i['status'] !== 'paid'))];
+    }
+
+    /**
+     * Who owes what, by how long it is past due: not yet due, 1–30, 31–60, over 60 days. An item without a due date
+     * (credit given at the till) is due after the customer's terms.
+     *
+     * @return list<array{customer_id: int, name: string, current: string, b30: string, b60: string, b90: string, total: string, oldest_days: ?int}>
+     */
+    public function aging(?string $today = null): array
+    {
+        $today = $today ?? date('Y-m-d');
+        $rows = [];
+        foreach ((new Customer())->debtors() as $c) {
+            $b = ['current' => 0.0, 'b30' => 0.0, 'b60' => 0.0, 'b90' => 0.0];
+            $oldest = null;
+            foreach ($this->outstanding((int) $c['id'])['items'] as $it) {
+                $left = (float) $it['remaining'];
+                if ($left <= 0.004) {
+                    continue;
+                }
+                $due = $it['due_date'] ?? date('Y-m-d', strtotime('+' . $this->termsDays($c) . ' days', strtotime($it['date'])));
+                $days = (int) floor((strtotime($today) - strtotime($due)) / 86400);
+                $b[$days <= 0 ? 'current' : ($days <= 30 ? 'b30' : ($days <= 60 ? 'b60' : 'b90'))] += $left;
+                $oldest = max($oldest ?? 0, $days);
+            }
+            $total = array_sum($b);
+            if ($total <= 0.004) {
+                continue;
+            }
+            $rows[] = ['customer_id' => (int) $c['id'], 'name' => $c['name'], 'current' => Money::fmt($b['current']), 'b30' => Money::fmt($b['b30']), 'b60' => Money::fmt($b['b60']), 'b90' => Money::fmt($b['b90']),
+                       'total' => Money::fmt($total), 'oldest_days' => $oldest === null ? null : max(0, $oldest)];
+        }
+        usort($rows, static fn (array $a, array $b): int => (float) $b['total'] <=> (float) $a['total']);
+
+        return $rows;
     }
 
     public function termsDays(?array $customer): int

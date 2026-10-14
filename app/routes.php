@@ -164,6 +164,9 @@ return [
     ['GET',  'invoices',         [InvoiceController::class, 'index'],  'invoice.manage'],
     ['GET',  'invoices/new',     [InvoiceController::class, 'create'], 'invoice.manage'],
     ['POST', 'invoices/store',   [InvoiceController::class, 'store'],  'invoice.manage'],
+    ['GET',  'invoices/pay',     [InvoiceController::class, 'pay'],    'invoice.manage'],
+    ['POST', 'invoices/pay-store', [InvoiceController::class, 'payStore'], 'invoice.manage'],
+    ['GET',  'customers/statement', [CustomerController::class, 'statement'], 'customer.manage'],
     // Phase 6 — returns
     ['GET',  'returns',          [ReturnController::class, 'index'],   'return.create'],
     ['POST', 'returns/store',    [ReturnController::class, 'store'],   'return.create'],

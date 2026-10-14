@@ -8,6 +8,9 @@
         <?php if (($s['origin'] ?? 'till') === 'desk'): ?>
           <dt>Written by</dt><dd><?= e($s['username']) ?><span class="cell-sub">Desk invoice · no cash session</span></dd>
           <dt>Due</dt><dd><?= $s['due_date'] ? e(date('d/m/Y', strtotime($s['due_date']))) : '' ?><?php if ($s['ship_to']): ?><span class="cell-sub" dir="auto">Deliver to: <?= e($s['ship_to']) ?></span><?php endif; ?></dd>
+          <?php $open = $s['customer_id'] === null ? null : ((new \App\Services\InvoiceService())->forSales([(int) $s['customer_id']])[(int) $s['id']] ?? null); if ($open !== null): ?>
+            <dt>Payment</dt><dd><?= ['paid' => 'Paid', 'partly' => 'Partly paid', 'unpaid' => 'Unpaid', 'overdue' => 'Overdue'][$open['status']] ?><span class="cell-sub">paid <?= usd($open['paid']) ?> · left <?= usd($open['remaining']) ?></span></dd>
+          <?php endif; ?>
         <?php else: ?>
           <dt>Cashier</dt><dd><?= e($s['username']) ?><span class="cell-sub"><span dir="auto"><?= e($s['register_name']) ?></span> · <?= e($s['session_no']) ?></span></dd>
         <?php endif; ?>

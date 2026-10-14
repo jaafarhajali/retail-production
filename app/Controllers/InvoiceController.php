@@ -82,6 +82,28 @@ final class InvoiceController extends Controller
         redirect('sales/view', ['id' => $r['id']]);
     }
 
+    /** Record a payment that arrived by bank, cheque or card. */
+    public function pay(): void
+    {
+        $customerId = $this->queryInt('customer_id');
+        $this->render('invoices/pay', [
+            'customers' => (new Customer())->all(true), 'customerId' => $customerId, 'rate' => (new \App\Models\ExchangeRate())->current(),
+            'outstanding' => $customerId > 0 ? (new InvoiceService())->outstanding($customerId) : ['items' => [], 'unapplied' => '0.00'],
+        ], 'Record a payment');
+    }
+
+    public function payStore(): void
+    {
+        $customerId = $this->inputInt('customer_id');
+        try {
+            $r = (new InvoiceService())->recordPayment($customerId, $this->input('usd'), $this->input('lbp'), $this->input('method'), $this->input('reference'), $this->input('note'), Auth::id());
+        } catch (\DomainException $e) {
+            $this->failBack('invoices/pay', $customerId > 0 ? ['customer_id' => $customerId] : [], ['form' => $e->getMessage()]);
+        }
+        Flash::set('success', usd($r['paid_usd']) . ' received. ' . ((float) $r['balance'] > 0.004 ? 'Still owed: ' . usd($r['balance']) . '.' : 'Nothing owed now.'));
+        redirect('invoices/pay', ['customer_id' => $customerId]);
+    }
+
     private function dateQuery(string $key): string
     {
         $v = $this->query($key);

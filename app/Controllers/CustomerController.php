@@ -26,6 +26,18 @@ final class CustomerController extends Controller
         $this->render('customers/edit', ['customer' => $customer, 'ledger' => $id > 0 ? (new Customer())->ledger($id) : []], $customer === null ? 'New customer' : $customer['name']);
     }
 
+    /** The statement of account, printed for the customer (2026-10-14). */
+    public function statement(): void
+    {
+        $id = $this->queryInt('id');
+        $customer = (new Customer())->find($id) ?? throw new HttpException(404);
+        $from = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('from')) ? $this->query('from') : date('Y-m-01', strtotime('-2 months'));
+        $to = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('to')) ? $this->query('to') : date('Y-m-d');
+        \App\Core\View::render('customers/statement', (new \App\Services\InvoiceService())->statement($id, $from, $to) + [
+            'customer' => $customer, 'from' => $from, 'to' => $to, 'pageTitle' => 'Statement · ' . $customer['name'], 'auto' => $this->query('auto') === '1',
+        ], 'layouts/print');
+    }
+
     public function save(): void
     {
         $id = $this->inputInt('id');

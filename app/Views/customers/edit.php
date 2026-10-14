@@ -49,6 +49,7 @@
           <dt>Total returns</dt><dd><?= usd($tot['returns']) ?></dd>
           <?php if ($tot['on_hold'] > 0): ?><dt>Out with the seller</dt><dd><?= $tot['on_hold'] ?> invoice<?= $tot['on_hold'] === 1 ? '' : 's' ?> on hold</dd><?php endif; ?>
         </dl>
+        <?php if (\App\Core\Gate::allows('invoice.manage')): ?><p class="d-flex flex-wrap gap-2 mb-3"><a class="btn btn-outline-primary btn-sm" href="<?= url('invoices/pay', ['customer_id' => $customer['id']]) ?>"><i class="bi bi-cash-coin"></i> Record a payment</a><a class="btn btn-outline-primary btn-sm" href="<?= url('invoices', ['customer_id' => $customer['id']]) ?>"><i class="bi bi-file-earmark-text"></i> Invoices</a><a class="btn btn-outline-secondary btn-sm" href="<?= url('customers/statement', ['id' => $customer['id']]) ?>" target="_blank"><i class="bi bi-printer"></i> Statement of account</a></p><?php endif; ?>
         <h2 class="h6">Adjust the balance</h2>
         <form method="post" action="<?= url('customers/adjust') ?>" class="row g-2 align-items-end">
           <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $customer['id'] ?>">

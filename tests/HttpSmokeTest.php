@@ -22,11 +22,11 @@ return [
         $registerId = (new Register())->create('Register 01');
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         foreach (['dashboard', 'products', 'categories', 'stock', 'stock/adjust', 'purchases', 'purchases/create', 'recipes', 'recipes/edit', 'production', 'production/new', 'packing/new', 'suppliers', 'suppliers/edit', 'customers', 'customers/edit',
-                  'sessions', 'sessions/open', 'sales', 'invoices', 'invoices/new', 'returns', 'expenses', 'counts', 'backup', 'reports', 'users', 'roles', 'registers', 'rates', 'settings', 'audit', 'pos'] as $route) {
+                  'sessions', 'sessions/open', 'sales', 'invoices', 'invoices/new', 'invoices/pay', 'returns', 'expenses', 'counts', 'backup', 'reports', 'users', 'roles', 'registers', 'rates', 'settings', 'audit', 'pos'] as $route) {
             $r = $client->get($route);
             assert_same(200, $r->status, "GET {$route}");
         }
-        foreach (['payments', 'profit', 'credit', 'stock', 'purchases', 'returns', 'waste', 'sessions'] as $type) {
+        foreach (['payments', 'profit', 'credit', 'stock', 'purchases', 'returns', 'waste', 'sessions', 'aging'] as $type) {
             assert_same(200, $client->get('reports', ['type' => $type])->status, "report {$type}");
             assert_same(200, $client->get('reports', ['type' => $type, 'print' => 1])->status, "report {$type} print");
         }

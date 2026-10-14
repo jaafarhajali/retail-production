@@ -17,7 +17,7 @@ final class ReportController extends Controller
     private const TYPES = [
         'sales' => 'report.sales', 'payments' => 'report.sales', 'profit' => 'report.profit', 'credit' => 'report.sales',
         'stock' => 'report.stock', 'purchases' => 'report.stock', 'returns' => 'report.sales', 'waste' => 'report.stock', 'sessions' => 'report.cash',
-        'production' => 'report.production', 'products' => 'report.sales',
+        'production' => 'report.production', 'products' => 'report.sales', 'aging' => 'report.sales',
     ];
 
     public function index(): void
@@ -50,6 +50,7 @@ final class ReportController extends Controller
             'sessions' => ['rows' => $r->sessions($from, $to)],
             'production' => ['rows' => (new \App\Models\ProductionRun())->byProduct($from, $to), 'consumed' => (new \App\Models\ProductionRun())->consumed($from, $to)],
             'products' => $this->productsData($r, $from, $to),
+            'aging' => ['rows' => (new \App\Services\InvoiceService())->aging()],
         };
         $available = array_keys(array_filter(self::TYPES, static fn (string $perm): bool => Gate::allows($perm)));
         $vars = $data + ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'month' => $month !== '' ? $month : substr($from, 0, 7), 'available' => $available, 'showCost' => Gate::allows('product.view_cost')];
