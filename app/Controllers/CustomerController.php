@@ -23,7 +23,32 @@ final class CustomerController extends Controller
     {
         $id = $this->queryInt('id');
         $customer = $id > 0 ? ((new Customer())->find($id) ?? throw new HttpException(404)) : null;
-        $this->render('customers/edit', ['customer' => $customer, 'ledger' => $id > 0 ? (new Customer())->ledger($id) : []], $customer === null ? 'New customer' : $customer['name']);
+        $priceList = [];
+        if ($id > 0) {   // every finished product and its units, with the agreed price if any (2026-10-14)
+            $products = new \App\Models\Product();
+            $finished = $products->forPrint('finished');
+            $units = (new \App\Models\ProductUnit())->forProducts(array_map('intval', array_column($finished, 'id')));
+            $agreed = (new Customer())->agreedPrices($id);
+            foreach ($finished as $p) {
+                foreach ($units[(int) $p['id']] ?? [] as $u) {
+                    $priceList[] = ['unit_id' => (int) $u['id'], 'product' => $p['name'], 'unit' => $u['name'], 'retail' => $u['retail_price'], 'wholesale' => $u['wholesale_price'], 'agreed' => $agreed[(int) $u['id']] ?? ''];
+                }
+            }
+        }
+        $this->render('customers/edit', ['customer' => $customer, 'ledger' => $id > 0 ? (new Customer())->ledger($id) : [], 'priceList' => $priceList, 'canInvoice' => \App\Core\Gate::allows('invoice.manage')], $customer === null ? 'New customer' : $customer['name']);
+    }
+
+    /** The customer's agreed prices (2026-10-14). */
+    public function prices(): void
+    {
+        $id = $this->inputInt('id');
+        try {
+            (new PartyService())->saveAgreedPrices($id, is_array($_POST['prices'] ?? null) ? $_POST['prices'] : []);
+        } catch (\DomainException $e) {
+            $this->failBack('customers/edit', ['id' => $id], ['prices' => $e->getMessage()]);
+        }
+        Flash::set('success', 'Agreed prices saved.');
+        redirect('customers/edit', ['id' => $id]);
     }
 
     /** The statement of account, printed for the customer (2026-10-14). */

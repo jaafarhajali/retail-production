@@ -76,6 +76,20 @@
           </tbody>
         </table></div>
       </div>
+      <?php if ($canInvoice && $priceList !== []): ?>
+      <div class="card mt-3"><div class="card-header">Agreed prices</div>
+        <form method="post" action="<?= url('customers/prices') ?>">
+          <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $customer['id'] ?>">
+          <?php if (form_error('prices') !== ''): ?><div class="alert alert-danger m-3 mb-0"><?= form_error('prices') ?></div><?php endif; ?>
+          <div class="table-responsive"><table class="table table-sm align-middle m-0">
+            <thead><tr><th>Product</th><th>Unit</th><th class="text-end">Wholesale</th><th class="text-end">Retail</th><th style="width:30%">Agreed</th></tr></thead>
+            <tbody><?php foreach ($priceList as $pl): ?><tr><td dir="auto"><?= e($pl['product']) ?></td><td><?= e($pl['unit']) ?></td><td class="text-end"><?= $pl['wholesale'] !== null ? usd($pl['wholesale']) : '' ?></td><td class="text-end"><?= $pl['retail'] !== null ? usd($pl['retail']) : '' ?></td>
+              <td><div class="input-group input-group-sm"><span class="input-group-text">$</span><input class="form-control" name="prices[<?= (int) $pl['unit_id'] ?>]" inputmode="decimal" value="<?= e($pl['agreed']) ?>" placeholder="list price"></div></td></tr><?php endforeach; ?></tbody>
+          </table></div>
+          <div class="card-body"><button class="btn btn-primary btn-sm" type="submit">Save agreed prices</button> <span class="form-text ms-2">Used on this customer's desk invoices instead of the list price. Empty = the list price.</span></div>
+        </form>
+      </div>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 </div>

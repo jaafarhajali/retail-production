@@ -85,6 +85,26 @@ final class Customer extends Model
         return $this->lastId();
     }
 
+    /** Agreed prices (2026-10-14): product unit id => the price this customer pays, used on desk invoices. */
+    public function agreedPrices(int $customerId): array
+    {
+        $out = [];
+        foreach ($this->fetchAll('SELECT product_unit_id, price_usd FROM customer_prices WHERE customer_id = :c', ['c' => $customerId]) as $r) {
+            $out[(int) $r['product_unit_id']] = $r['price_usd'];
+        }
+
+        return $out;
+    }
+
+    /** @param array<int, string> $prices unit id => price; rewritten as a whole */
+    public function replaceAgreedPrices(int $customerId, array $prices): void
+    {
+        $this->execute('DELETE FROM customer_prices WHERE customer_id = :c', ['c' => $customerId]);
+        foreach ($prices as $unitId => $price) {
+            $this->execute('INSERT INTO customer_prices (customer_id, product_unit_id, price_usd) VALUES (:c, :u, :p)', ['c' => $customerId, 'u' => $unitId, 'p' => $price]);
+        }
+    }
+
     /** Customers who owe money, largest first (credit report). */
     public function debtors(): array
     {

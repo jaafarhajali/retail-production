@@ -22,7 +22,8 @@
         <?php if ($canReprint): ?><a class="btn btn-outline-primary" href="<?= url('sales/receipt', ['id' => $s['id'], 'copy' => 1]) ?>" target="_blank"><i class="bi bi-printer"></i> Reprint (COPY)</a><?php endif; ?>
         <a class="btn btn-outline-primary" href="<?= url('sales/print', ['id' => $s['id'], 'type' => 'normal']) ?>" target="_blank"><i class="bi bi-file-earmark-text"></i> Delivery note</a>
         <a class="btn btn-outline-primary" href="<?= url('sales/print', ['id' => $s['id'], 'type' => 'official']) ?>" target="_blank"><i class="bi bi-file-earmark-ruled"></i> Official invoice</a>
-        <?php if ($canReturn && $s['status'] === 'completed'): ?><a class="btn btn-outline-secondary" href="<?= url('returns', ['invoice' => $s['invoice_no']]) ?>"><i class="bi bi-arrow-return-left"></i> Return items</a><?php endif; ?>
+        <?php if (($s['origin'] ?? 'till') === 'desk' && $s['status'] === 'completed' && \App\Core\Gate::allows('invoice.manage')): ?><a class="btn btn-outline-secondary" href="<?= url('invoices/credit', ['id' => $s['id']]) ?>"><i class="bi bi-arrow-return-left"></i> Credit note</a>
+        <?php elseif ($canReturn && $s['status'] === 'completed'): ?><a class="btn btn-outline-secondary" href="<?= url('returns', ['invoice' => $s['invoice_no']]) ?>"><i class="bi bi-arrow-return-left"></i> Return items</a><?php endif; ?>
       </div>
     </div></div>
   </div>

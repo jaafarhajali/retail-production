@@ -32,6 +32,68 @@ final class ReturnService
             throw new \DomainException('A voided sale cannot be returned.');
         }
         $this->requireOpenSession($sessionId);
+        [$lines, $total] = $this->linesFromSale($sale, $items);
+        if (!in_array($cashCurrency, ['USD', 'LBP', 'MIX'], true)) {
+            throw new \DomainException('Choose the refund currency.');
+        }
+        return $this->write($sale, $sale['customer_id'] === null ? null : (int) $sale['customer_id'], $lines, Money::fmt($total), $cashCurrency, $reason, $sessionId, $registerId, $userId, $allowShortDrawer, $usdPart, $lbpPart);
+    }
+
+    /**
+     * A credit note (2026-10-14): a return against a desk invoice, written at the desk with no cash session. The goods
+     * come back (or go to waste) and the whole amount, at the invoice's own prices, is credited to the customer's
+     * account, where it settles the oldest open invoice first. Numbered like a return (RTN-).
+     *
+     * @param list<array{sale_item_id: int, qty: string, condition: string}> $items
+     * @return array{id: int, return_no: string, total_usd: string, balance: string}
+     */
+    public function creditNote(int $saleId, array $items, string $reason, int $userId): array
+    {
+        $sales = new Sale();
+        $sale = $sales->find($saleId) ?? throw new \DomainException('Invoice not found.');
+        if ($sale['status'] !== 'completed') {
+            throw new \DomainException($sale['invoice_no'] . ' is not an issued invoice.');
+        }
+        if ($sale['customer_id'] === null) {
+            throw new \DomainException('A credit note needs a customer account to credit. This sale has none: use a return at the till.');
+        }
+        [$lines, $total] = $this->linesFromSale($sale, $items);
+        $totalUsd = Money::fmt($total);
+        $customerId = (int) $sale['customer_id'];
+        $rate = (new ExchangeRate())->current();
+
+        return Database::transaction(function () use ($sale, $saleId, $customerId, $lines, $totalUsd, $reason, $userId, $rate): array {
+            $no = Counter::format('RTN-', Counter::next('return'));
+            $returns = new SaleReturn();
+            $id = $returns->create(['return_no' => $no, 'sale_id' => $saleId, 'session_id' => null, 'register_id' => null, 'user_id' => $userId, 'customer_id' => $customerId,
+                                    'total_usd' => $totalUsd, 'rounding_usd' => '0.00', 'exchange_rate' => $rate, 'reason' => trim($reason) ?: null]);
+            $stock = new StockService();
+            foreach ($lines as $l) {
+                $returns->addItem($id, $l);
+                $stock->move($l['product_id'], $l['base_qty'], 'return_restock', null, $l['cost_per_base'], 'return', $id, $userId, null);
+                if ($l['item_condition'] === 'waste') {
+                    $stock->move($l['product_id'], -$l['base_qty'], 'waste', 'returned-damaged', $l['cost_per_base'], 'return', $id, $userId, null);
+                }
+            }
+            $customers = new Customer();
+            $customers->addLedger(['customer_id' => $customerId, 'type' => 'return_credit', 'amount_usd' => '-' . $totalUsd, 'currency' => 'USD', 'amount_original' => $totalUsd, 'exchange_rate' => $rate,
+                                   'return_id' => $id, 'sale_id' => $saleId, 'user_id' => $userId, 'note' => $no]);
+            $returns->addRefund($id, 'debt_reduction', 'USD', $totalUsd, $totalUsd);
+            Audit::log('return.credit_note', 'return', $id, ['no' => $no, 'invoice' => $sale['invoice_no'], 'lines' => count($lines)], (float) $totalUsd, 'USD');
+
+            return ['id' => $id, 'return_no' => $no, 'total_usd' => $totalUsd, 'balance' => $customers->balance($customerId)];
+        });
+    }
+
+    /**
+     * The lines of a return against a sale: quantities checked against what is still out, refunds at the sale's prices.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: float}
+     */
+    private function linesFromSale(array $sale, array $items): array
+    {
+        $saleId = (int) $sale['id'];
+        $sales = new Sale();
         $soldItems = array_column($sales->items($saleId), null, 'id');
         $lines = [];
         $total = 0.0;
@@ -62,10 +124,8 @@ final class ReturnService
         if ($lines === []) {
             throw new \DomainException('Choose at least one item to return.');
         }
-        if (!in_array($cashCurrency, ['USD', 'LBP', 'MIX'], true)) {
-            throw new \DomainException('Choose the refund currency.');
-        }
-        return $this->write($sale, $sale['customer_id'] === null ? null : (int) $sale['customer_id'], $lines, Money::fmt($total), $cashCurrency, $reason, $sessionId, $registerId, $userId, $allowShortDrawer, $usdPart, $lbpPart);
+
+        return [$lines, $total];
     }
 
     /**

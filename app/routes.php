@@ -167,6 +167,10 @@ return [
     ['GET',  'invoices/pay',     [InvoiceController::class, 'pay'],    'invoice.manage'],
     ['POST', 'invoices/pay-store', [InvoiceController::class, 'payStore'], 'invoice.manage'],
     ['GET',  'customers/statement', [CustomerController::class, 'statement'], 'customer.manage'],
+    ['POST', 'customers/prices', [CustomerController::class, 'prices'],   'invoice.manage'],
+    ['GET',  'invoices/credit',  [InvoiceController::class, 'credit'],      'invoice.manage'],
+    ['POST', 'invoices/credit-store', [InvoiceController::class, 'creditStore'], 'invoice.manage'],
+    ['GET',  'returns/print',    [ReturnController::class, 'print'],        Router::AUTH],   // the A4 credit note
     // Phase 6 — returns
     ['GET',  'returns',          [ReturnController::class, 'index'],   'return.create'],
     ['POST', 'returns/store',    [ReturnController::class, 'store'],   'return.create'],

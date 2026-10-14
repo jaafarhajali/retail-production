@@ -106,6 +106,7 @@ final class SaleService
     public function issue(array $in): array
     {
         $in += ['register_id' => null, 'session_id' => null];
+        $in['agreed_prices'] = (int) ($in['customer_id'] ?? 0) > 0 ? (new Customer())->agreedPrices((int) $in['customer_id']) : [];
         $p = $this->prepare($in);
         if ($p['customer'] === null) {
             throw new \DomainException('An invoice needs its customer. Choose the customer first.');
@@ -477,6 +478,9 @@ final class SaleService
                 throw new \DomainException($product['name'] . ' is a ' . ($product['kind'] === 'material' ? 'raw material' : 'mix') . ', it is not sold.');
             }
             $listPrice = $level === 'wholesale' ? $unit['wholesale_price'] : $unit['retail_price'];
+            if (isset($in['agreed_prices'][(int) $unit['id']])) {
+                $listPrice = $in['agreed_prices'][(int) $unit['id']];   // the price agreed with this customer (desk invoices, 2026-10-14)
+            }
             if ($listPrice === null || (float) $listPrice <= 0) {
                 throw new \DomainException("{$product['name']} ({$unit['name']}) is not sold at the {$level} price.");
             }

@@ -75,6 +75,22 @@ final class ReturnController extends Controller
         $this->render('returns/view', ['return' => $return, 'items' => (new SaleReturn())->items((int) $return['id']), 'refunds' => (new SaleReturn())->refunds((int) $return['id'])], $return['return_no']);
     }
 
+    /** The A4 credit note (2026-10-14). */
+    public function print(): void
+    {
+        $return = (new SaleReturn())->find($this->queryInt('id')) ?? throw new HttpException(404);
+        $sale = $return['sale_id'] === null ? null : (new \App\Models\Sale())->find((int) $return['sale_id']);
+        $customer = $return['customer_id'] === null ? null : (new \App\Models\Customer())->find((int) $return['customer_id']);
+        $balance = null;
+        if ($customer !== null) {
+            $row = \App\Core\Database::pdo()->prepare('SELECT COALESCE(SUM(amount_usd), 0) FROM customer_ledger WHERE customer_id = :c1 AND id <= (SELECT COALESCE(MAX(id), 0) FROM customer_ledger WHERE customer_id = :c2 AND return_id = :r)');
+            $row->execute(['c1' => $customer['id'], 'c2' => $customer['id'], 'r' => $return['id']]);
+            $balance = number_format((float) $row->fetchColumn(), 2, '.', '');
+        }
+        View::render('returns/credit-note', ['pageTitle' => 'Credit note ' . $return['return_no'], 'return' => $return, 'items' => (new SaleReturn())->items((int) $return['id']),
+            'sale' => $sale, 'customer' => $customer, 'balance' => $balance, 'auto' => $this->query('auto') === '1'], 'layouts/print');
+    }
+
     public function receipt(): void
     {
         $return = (new SaleReturn())->find($this->queryInt('id')) ?? throw new HttpException(404);

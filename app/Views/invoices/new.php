@@ -22,7 +22,7 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
             <label class="form-label" for="customer_id">Customer</label>
             <select class="form-select form-select-lg" id="customer_id" name="customer_id" required>
               <option value="">— choose —</option>
-              <?php foreach ($customers as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) $c['id'] === $selectedCustomer ? 'selected' : '' ?> data-level="<?= e($c['default_price_level']) ?>" data-terms="<?= (int) $c['terms_days'] ?>" data-address="<?= e($c['address'] ?? '') ?>" data-balance="<?= e($c['balance_usd']) ?>" dir="auto"><?= e($c['name']) ?></option><?php endforeach; ?></select>
+              <?php foreach ($customers as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) $c['id'] === $selectedCustomer ? 'selected' : '' ?> data-level="<?= e($c['default_price_level']) ?>" data-terms="<?= (int) $c['terms_days'] ?>" data-address="<?= e($c['address'] ?? '') ?>" data-balance="<?= e($c['balance_usd']) ?>" data-agreed="<?= e(json_encode((object) $c['agreed'])) ?>" dir="auto"><?= e($c['name']) ?></option><?php endforeach; ?></select>
             <div class="form-text" id="cust-note"></div>
           </div>
           <div class="col-md-3">
@@ -92,7 +92,8 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
   var tbody = document.querySelector('#lines tbody'), tpl = document.getElementById('line-tpl'), idx = 0;
   var customer = document.getElementById('customer_id'), level = document.getElementById('price_level'), due = document.getElementById('due_date'), shipTo = document.getElementById('ship_to');
   function money(n) { return '$' + n.toFixed(2); }
-  function priceOf(u) { var p = level.value === 'wholesale' ? u.wholesale : u.retail; return p === null || p === undefined ? null : parseFloat(p); }
+  function agreed() { var o = customer.selectedOptions[0]; try { return o && o.dataset.agreed ? JSON.parse(o.dataset.agreed) : {}; } catch (e) { return {}; } }
+  function priceOf(u) { var a = agreed(); if (a[u.id] !== undefined) return parseFloat(a[u.id]); var p = level.value === 'wholesale' ? u.wholesale : u.retail; return p === null || p === undefined ? null : parseFloat(p); }
   function fillUnits(sel, p, selected) {
     sel.innerHTML = '';
     (p ? p.units : []).forEach(function (u) { var o = document.createElement('option'); o.value = u.id; o.textContent = u.name + (u.factor > 1 ? ' (' + u.factor + ')' : ''); if (u.id === selected || (!selected && u.main)) o.selected = true; sel.appendChild(o); });
@@ -105,7 +106,7 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
       var price = u ? priceOf(u) : null, priceCell = tr.querySelector('.price'), totalCell = tr.querySelector('.total');
       if (!u || price === null) { priceCell.textContent = u ? 'no ' + level.value + ' price' : ''; totalCell.textContent = ''; tr.querySelector('[name$="[discount]"]').value = ''; return; }
       var gross = Math.round(price * qty * 100) / 100, disc = Math.round(gross * Math.min(100, Math.max(0, pct)) / 100 * 100) / 100, total = gross - disc;
-      priceCell.textContent = money(price); totalCell.textContent = money(total);
+      priceCell.textContent = money(price) + (agreed()[u.id] !== undefined ? ' (agreed)' : ''); totalCell.textContent = money(total);
       tr.querySelector('[name$="[discount]"]').value = disc > 0 ? disc.toFixed(2) : '';
       sub += total; ldisc += disc; if (qty > 0) ok = true;
     });

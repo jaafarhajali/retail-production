@@ -127,6 +127,33 @@ final class PartyService
         return $id;
     }
 
+    /**
+     * Agreed prices (2026-10-14): what this customer pays per unit, typed on their page; empty means the list price.
+     *
+     * @param array<int|string, mixed> $in unit id => price text
+     */
+    public function saveAgreedPrices(int $customerId, array $in): void
+    {
+        $customers = new Customer();
+        $customer = $customers->find($customerId) ?? throw new \DomainException('Customer not found.');
+        $units = new \App\Models\ProductUnit();
+        $clean = [];
+        foreach ($in as $unitId => $text) {
+            $text = trim((string) $text);
+            if ($text === '') {
+                continue;
+            }
+            $unit = $units->find((int) $unitId) ?? throw new \DomainException('Unknown unit.');
+            $price = Pricing::parse($text);
+            if ((float) $price <= 0) {
+                throw new \DomainException('The agreed price for ' . $unit['product_name'] . ' (' . $unit['name'] . ') must be more than zero, or empty for the list price.');
+            }
+            $clean[(int) $unitId] = $price;
+        }
+        $customers->replaceAgreedPrices($customerId, $clean);
+        Audit::log('customer.prices', 'customer', $customerId, ['name' => $customer['name'], 'units' => count($clean)]);
+    }
+
     /** Manual ledger correction (positive = customer owes more). */
     public function adjustCustomer(int $customerId, string $amount, string $note, int $userId): void
     {

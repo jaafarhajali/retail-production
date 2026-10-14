@@ -56,7 +56,8 @@ final class InvoiceController extends Controller
             }
         }
         $svc = new InvoiceService();
-        $customers = array_map(static fn (array $c): array => $c + ['terms_days' => $svc->termsDays($c)], (new Customer())->all(true));
+        $model = new Customer();
+        $customers = array_map(static fn (array $c): array => $c + ['terms_days' => $svc->termsDays($c), 'agreed' => $model->agreedPrices((int) $c['id'])], $model->all(true));
         $this->render('invoices/new', ['customers' => $customers, 'catalogue' => $catalogue, 'defaultTerms' => $svc->termsDays(null)], 'New invoice');
     }
 
@@ -102,6 +103,35 @@ final class InvoiceController extends Controller
         }
         Flash::set('success', usd($r['paid_usd']) . ' received. ' . ((float) $r['balance'] > 0.004 ? 'Still owed: ' . usd($r['balance']) . '.' : 'Nothing owed now.'));
         redirect('invoices/pay', ['customer_id' => $customerId]);
+    }
+
+    /** A credit note against a desk invoice: what came back. */
+    public function credit(): void
+    {
+        $sales = new Sale();
+        $sale = $sales->find($this->queryInt('id')) ?? throw new \App\Core\HttpException(404);
+        if ($sale['status'] !== 'completed' || $sale['customer_id'] === null) {
+            throw new \DomainException('A credit note is written against an issued invoice with a customer.');
+        }
+        $this->render('invoices/credit', ['sale' => $sale, 'items' => $sales->items((int) $sale['id'])], 'Credit note · ' . $sale['invoice_no']);
+    }
+
+    public function creditStore(): void
+    {
+        $saleId = $this->inputInt('sale_id');
+        $items = [];
+        foreach (is_array($_POST['items'] ?? null) ? $_POST['items'] : [] as $itemId => $it) {
+            if (is_array($it)) {
+                $items[] = ['sale_item_id' => (int) $itemId, 'qty' => (string) ($it['qty'] ?? ''), 'condition' => (string) ($it['condition'] ?? 'restock')];
+            }
+        }
+        try {
+            $r = (new \App\Services\ReturnService())->creditNote($saleId, $items, $this->input('reason'), Auth::id());
+        } catch (\DomainException $e) {
+            $this->failBack('invoices/credit', ['id' => $saleId], ['form' => $e->getMessage()]);
+        }
+        Flash::set('success', 'Credit note ' . $r['return_no'] . ': ' . usd($r['total_usd']) . ' credited. ' . ((float) $r['balance'] > 0.004 ? 'Still owed: ' . usd($r['balance']) . '.' : 'Nothing owed now.'));
+        redirect('returns/view', ['id' => $r['id']]);
     }
 
     private function dateQuery(string $key): string

@@ -18,7 +18,10 @@ the customer's account → dashboard, products by month, break-even
   finished products in: how many of each is typed each time, never fixed in a recipe; the cost is shared by selling price.
   Each product's **packaging per piece** (a box, a label) comes out of stock by itself when it is packed.
 - **Delivery invoices on the till**: Hold as invoice and print, goods go out with the seller, Finish when back.
-- **Two prints**: the official A4 invoice (TVA, due date, boxes, signatures) and the delivery note.
+- **Desk invoices for B2B customers** (Selling → Invoices): written by the owner with no cash session, due after the
+  customer's payment terms, agreed prices per customer, payments by transfer or cheque applied to the oldest invoice
+  first, credit notes for goods that come back, a statement of account to print, and a "who owes, by age" report.
+- **Three prints**: the official A4 invoice (TVA, due date, boxes, signatures), the delivery note and the credit note.
 - **Dashboard**: the business as a flow, the month's sales, who owes, production, the two stocks, break-even.
 
 Design and decisions: `docs/plans/2026-10-12-factory-analysis-and-plan.md`, `docs/ROADMAP.md` (decisions log),
