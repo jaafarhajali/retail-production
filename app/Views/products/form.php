@@ -13,7 +13,12 @@ $dis = $readonly ? 'disabled' : '';
 $stash = is_array($_SESSION['_old'] ?? null) ? $_SESSION['_old'] : [];
 $text = static fn (mixed $v): string => is_scalar($v) ? trim((string) $v) : '';   // stashed values may be tampered arrays
 
+$kind = $isEdit ? (string) $product['kind'] : $text($stash['kind'] ?? ($_GET['kind'] ?? 'finished'));
+$kind = isset(ProductService::KINDS[$kind]) ? $kind : 'finished';
 $base = $isEdit ? (string) $product['base_unit'] : (in_array($text($stash['base_unit'] ?? null), ProductService::BASE_UNITS, true) ? $text($stash['base_unit']) : 'piece');
+if (!$isEdit && $kind === 'intermediate') {
+    $base = 'g';   // a mix is always weighed (2026-10-15)
+}
 $big = ['g' => 'kg', 'ml' => 'L'];
 $selectedCategory = isset($stash['category_id']) ? (int) $text($stash['category_id']) : (int) ($product['category_id'] ?? 0);
 $unitsById = array_column($units, null, 'id');
@@ -118,6 +123,8 @@ $renderRow = static function (string $key, array $row, ?array $unit) use ($typeO
 };
 $unitPick = static fn (string $field, string $selected): string => '<select class="form-select" name="' . $field . '" data-unit-pick data-selected="' . e($selected) . '" aria-label="Unit" ' . ($readonly ? 'disabled' : '') . '></select>';
 $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$base];
+// Shown only for the kinds listed; the page script switches them when "What is it?" changes.
+$only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' . (in_array($kind, explode(' ', $kinds), true) ? '' : ' hidden');
 ?>
 <?php if (isset($_SESSION['_errors']['same_name'])): ?>
   <div class="alert alert-warning same-name"><div class="form-check m-0">
@@ -135,7 +142,6 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
   <div class="row g-3">
     <div class="col-xxl-9">
       <div class="card mb-3"><div class="card-body">
-        <?php $kind = $isEdit ? (string) $product['kind'] : ($stash['kind'] ?? ($_GET['kind'] ?? 'finished')); $kind = isset(ProductService::KINDS[$kind]) ? $kind : 'finished'; ?>
         <div class="pf-kind mb-3" data-kind-choice>
           <span class="form-label d-block">What is it?</span>
           <div class="btn-group" role="group">
@@ -144,7 +150,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
               <label class="btn btn-outline-primary" for="kind-<?= $k ?>"><?= e($label) ?></label>
             <?php endforeach; ?>
           </div>
-          <div class="form-text" data-kind-hint data-finished="Sold on the till, with retail and wholesale prices." data-intermediate="Made from raw materials by a production run; used by finished products. Never sold." data-material="Bought from suppliers and consumed by production: honey, sugar, colouring, boxes, labels. Never sold."></div>
+          <div class="form-text" data-kind-hint data-finished="Sold on the till, with retail and wholesale prices." data-intermediate="The pot in the kitchen: Production fills it from its flavour recipes, Packing empties it into finished products. Never sold." data-material="Bought from suppliers and consumed by production: honey, sugar, colouring, boxes, labels. Never sold."></div>
         </div>
         <div class="row g-3">
           <div class="col-md-8">
@@ -169,10 +175,15 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
           <input type="hidden" name="base_unit" value="<?= e($base) ?>">
           <p class="pf-how"><strong><?= e(ucfirst(ProductService::HOW_SOLD[$base])) ?></strong><span class="text-muted">: stock is counted in <?= e($base === 'piece' ? 'pieces' : ($base === 'g' ? 'grams' : 'millilitres')) ?>. This cannot change once the product exists.</span></p>
         <?php else: ?>
-          <div class="pf-how-pick" role="radiogroup" aria-label="How is it sold?">
-            <?php foreach (['piece' => ['By piece', 'Tins, hoses, bowls, cans. Also a pack that is never opened.'], 'g' => ['By weight', 'Charcoal or tobacco that you weigh and sell loose.'], 'ml' => ['By volume', 'Liquids that you pour and sell loose.']] as $value => [$label, $hint]): ?>
+          <p class="pf-how" <?= $only('intermediate') ?>><strong>By weight</strong><span class="text-muted">: a mix is always weighed. Its stock is counted in grams.</span></p>
+          <div class="pf-how-pick" role="radiogroup" aria-label="How is it counted?" <?= $only('finished material') ?>>
+            <?php foreach ([
+                'piece' => ['By piece', 'Jars, boxes, bags: sold as whole pieces.', 'Jars, boxes, labels, stick bags: counted one by one.'],
+                'g'     => ['By weight', 'Sold loose, weighed at the sale.', 'Sugar, gelatin, honey, cocoa: weighed in g or kg.'],
+                'ml'    => ['By volume', 'Sold loose, measured in ml or L.', 'Flavours, colourings, syrups: measured in ml or L.'],
+            ] as $value => [$label, $forSale, $forStock]): ?>
               <label class="pf-how-option"><input class="form-check-input" type="radio" name="base_unit" value="<?= $value ?>" <?= $base === $value ? 'checked' : '' ?> <?= $dis ?>>
-                <span><strong><?= $label ?></strong><small><?= $hint ?></small></span></label>
+                <span><strong><?= $label ?></strong><small <?= $only('finished') ?>><?= $forSale ?></small><small <?= $only('material') ?>><?= $forStock ?></small></span></label>
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
@@ -190,7 +201,9 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
         <?php if (!$readonly): ?>
           <div class="pf-add">
             <button class="btn btn-outline-primary" type="button" data-add-row><i class="bi bi-plus-lg"></i> <span data-finished-only>Add another way to sell it</span><span data-not-finished>Add another unit</span></button>
-            <span class="form-text">For example a Box of 6. Selling one box takes 6 pieces from the stock.</span>
+            <span class="form-text" <?= $only('finished') ?>>For example a Box of 24. Selling one box takes 24 pieces from the stock.</span>
+            <span class="form-text" <?= $only('material') ?>>For example a Bag 25kg. Buying one bag adds 25 kg to the stock.</span>
+            <span class="form-text" <?= $only('intermediate') ?>>kg is usually enough: Production and Packing count the mix in kg.</span>
           </div>
         <?php endif; ?>
         <template id="unit-row-template"><?= $renderRow('__KEY__', ['id' => 0, 'type' => 'Box', 'size' => '', 'size_unit' => '', 'retail' => '', 'wholesale' => '', 'barcodes' => ''], null) ?></template>
@@ -221,11 +234,11 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
               <?php if ($canStock): ?><a class="btn btn-outline-primary" href="<?= url('stock/adjust', ['product_id' => $pid]) ?>"><i class="bi bi-plus-slash-minus"></i> Add or correct stock</a><?php endif; ?>
               <a class="btn btn-link" href="<?= url('stock', ['product_id' => $pid]) ?>">History</a>
             <?php else: ?>
-              <label class="form-label" for="opening_qty">Stock in the shop now</label>
+              <label class="form-label" for="opening_qty">Stock now</label>
               <div class="input-group">
                 <input class="form-control" id="opening_qty" name="opening_qty" inputmode="decimal" value="<?= old('opening_qty') ?>" placeholder="0" <?= $canStock && !$readonly ? '' : 'disabled' ?>>
                 <?= $unitPick('opening_unit', $text($stash['opening_unit'] ?? null)) ?></div>
-              <div class="form-text"><?= $isEdit ? 'Only for a product that has no stock history yet. Later, stock comes from purchases.' : 'Later, stock comes from purchases.' ?></div>
+              <div class="form-text"><?= $isEdit ? 'Only for a product that has no stock history yet. ' : '' ?><span <?= $only('finished') ?>>Later, stock comes from Packing.</span><span <?= $only('intermediate') ?>>Later, stock comes from Production.</span><span <?= $only('material') ?>>Later, stock comes from purchases.</span></div>
             <?php endif; ?>
           </div>
           <div>
@@ -326,10 +339,27 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
         </div>
       </div></div>
 
+      <?php if ($isEdit && $kind === 'intermediate' && \App\Core\Gate::allows('production.view')): ?>
+        <div class="card"><div class="card-body">
+          <h2 class="h5">Flavours</h2>
+          <p class="form-text mt-0">Each flavour is a recipe of this mix. Whatever flavour Production makes goes into this one stock.</p>
+          <?php if ($flavours === []): ?>
+            <p class="text-muted mb-2">No flavour yet.</p>
+          <?php else: ?>
+            <ul class="list-unstyled mb-2">
+              <?php foreach ($flavours as $f): ?><li dir="auto"><i class="bi bi-dot"></i><?php if ($canRecipe): ?><a href="<?= url('recipes/edit', ['id' => $f['id']]) ?>"><?= e($f['name']) ?></a><?php else: ?><?= e($f['name']) ?><?php endif; ?></li><?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
+          <?php if ($canRecipe): ?><a class="btn btn-outline-primary btn-sm" href="<?= url('recipes/edit', ['product_id' => $pid]) ?>"><i class="bi bi-plus-lg"></i> Add a flavour</a><?php endif; ?>
+        </div></div>
+      <?php elseif (!$isEdit): ?>
+        <div class="card" <?= $only('intermediate') ?>><div class="card-body">
+          <h2 class="h5">Flavours</h2>
+          <p class="form-text m-0">Save the mix first, then add its flavours here: each flavour is a recipe of this mix.</p>
+        </div></div>
+      <?php endif; ?>
+
       <div class="card"><div class="card-body">
-        <?php if ($isEdit && $product['kind'] === 'intermediate' && \App\Core\Gate::allows('production.view')): ?>
-          <p class="mb-3"><a class="btn btn-outline-primary btn-sm" href="<?= url('recipes/edit', ['product_id' => $pid]) ?>"><i class="bi bi-journal-text"></i> Write a recipe</a> <a class="btn btn-link btn-sm" href="<?= url('recipes') ?>">All recipes</a></p>
-        <?php endif; ?>
         <h2 class="h5">Options</h2>
         <div class="pf-switches">
         <div class="form-check form-switch" data-finished-only>

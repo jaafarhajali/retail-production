@@ -28,7 +28,7 @@ foreach ($byProduct as $pid => $p) {
           <option value="">— choose —</option>
           <?php foreach ($byProduct as $pid => $p): ?><option value="<?= (int) $pid ?>" <?= (int) $pid === $selectedProduct ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?>
         </select>
-        <label class="form-label mt-3" for="recipe_id">Recipe</label>
+        <label class="form-label mt-3" for="recipe_id">Flavour</label>
         <select class="form-select" id="recipe_id" name="recipe_id" data-selected="<?= $selectedRecipe ?>"></select>
         <label class="form-label mt-3" for="qty">How much?</label>
         <div class="input-group input-group-lg">

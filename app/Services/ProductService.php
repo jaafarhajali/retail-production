@@ -676,6 +676,9 @@ final class ProductService
         if (!isset(self::KINDS[$kind])) {
             throw new \DomainException('Choose what it is: a finished product, a mix, or a raw material.');
         }
+        if ($kind === 'intermediate' && $baseUnit !== 'g') {
+            throw new \DomainException('A mix is counted by weight, in grams: it is the pot that Production fills and Packing empties.');   // 2026-10-15
+        }
 
         $categoryId = null;
         $rawCategory = trim((string) ($in['category_id'] ?? ''));

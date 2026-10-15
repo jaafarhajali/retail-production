@@ -12,6 +12,7 @@ use App\Models\Barcode;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductUnit;
+use App\Models\Recipe;
 use App\Services\Pricing;
 use App\Services\ProductImageService;
 use App\Services\ProductService;
@@ -31,6 +32,8 @@ final class ProductController extends Controller
             'canManage'  => Gate::allows('product.manage'),
             'usedIds'    => (new Product())->usedIds(array_column($pg['rows'], 'id')),
             'kindCounts' => (new Product())->kindCounts(),
+            'flavours'   => $filters['kind'] === 'intermediate' ? $this->flavours() : [],
+            'canRecipe'  => Gate::allows('production.manage'),
         ], 'Products');
     }
 
@@ -325,6 +328,26 @@ final class ProductController extends Controller
         ];
     }
 
+    /**
+     * A mix's flavours are its active recipes (2026-10-15): product id → [id, name], for a user who may see production.
+     *
+     * @return array<int, list<array{id: int, name: string}>>
+     */
+    private function flavours(): array
+    {
+        if (!Gate::allows('production.view')) {
+            return [];
+        }
+        $out = [];
+        foreach ((new Recipe())->all() as $r) {
+            if ($r['product_kind'] === 'intermediate') {
+                $out[(int) $r['product_id']][] = ['id' => (int) $r['id'], 'name' => (string) $r['name']];
+            }
+        }
+
+        return $out;
+    }
+
     /** @return array<string, mixed> */
     private function formData(?array $product): array
     {
@@ -362,6 +385,8 @@ final class ProductController extends Controller
             'unitNames'  => ProductService::DEFAULT_UNIT_NAMES,
             'unitTypes'  => ProductService::UNIT_TYPES,
             'packaging'  => $id > 0 ? (new Product())->packaging($id) : [],
+            'flavours'   => $product !== null && $product['kind'] === 'intermediate' ? ($this->flavours()[$id] ?? []) : [],
+            'canRecipe'  => Gate::allows('production.manage'),
             'packMaterials' => $packMaterials,
             'packUnits'  => (new ProductUnit())->forProducts(array_map('intval', array_column($packMaterials, 'id'))),
             'canManage'  => Gate::allows('product.manage'),

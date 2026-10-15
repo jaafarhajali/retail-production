@@ -94,6 +94,10 @@
       form.querySelectorAll('[data-finished-only]').forEach(function (el) { el.hidden = !finished; });
       form.querySelectorAll('[data-not-finished]').forEach(function (el) { el.hidden = finished; });
       var hint = form.querySelector('[data-kind-hint]'); if (hint) { hint.textContent = hint.dataset[kind] || ''; }
+      form.querySelectorAll('[data-kind-only]').forEach(function (el) { el.hidden = el.dataset.kindOnly.split(' ').indexOf(kind) < 0; });
+      // A mix is always weighed (2026-10-15): the choice is hidden and set to grams.
+      var grams = form.querySelector('input[name="base_unit"][value="g"]');
+      if (kind === 'intermediate' && grams) { grams.checked = true; }
     }
     form.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', applyKind); });
     applyKind();

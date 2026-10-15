@@ -53,13 +53,16 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
         <span class="text-muted small"><?= (int) $pg['total'] ?> <?= (int) $pg['total'] === 1 ? 'product' : 'products' ?></span>
         <a class="btn btn-outline-secondary" href="<?= url('products/print', $printWith) ?>" target="_blank"><i class="bi bi-printer"></i> Print this list</a>
         <?php if ($canManage): ?>
-          <a class="btn btn-primary" href="<?= url('products/create') ?>"><i class="bi bi-plus-lg"></i> Add product</a>
+          <a class="btn btn-primary" href="<?= url('products/create', $filters['kind'] === 'finished' ? [] : ['kind' => $filters['kind']]) ?>"><i class="bi bi-plus-lg"></i> <?= ['finished' => 'Add product', 'intermediate' => 'Add a mix', 'material' => 'Add a raw material'][$filters['kind']] ?? 'Add product' ?></a>
         <?php endif; ?>
       </div>
     </div>
   </div>
 </form>
 
+<?php if ($filters['kind'] === 'intermediate'): ?>
+  <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> A mix is the pot in the kitchen, weighed in grams. Its <strong>flavours</strong> are its recipes: every flavour that Production makes goes into the same pot, and Packing takes from it to make the finished products.</p>
+<?php endif; ?>
 <div class="card"><div class="table-responsive">
   <table class="table table-hover align-middle m-0 product-list">
     <thead><tr>
@@ -75,6 +78,12 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
           <a class="pl-name" href="<?= url('products/edit', ['id' => $p['id']]) ?>"><?= e($p['name']) ?></a>
           <?php if (!(int) $p['is_active']): ?><span class="badge text-bg-secondary">Off</span><?php endif; ?>
           <span class="cell-sub"><code><?= e($p['internal_code']) ?></code></span>
+          <?php if ($p['kind'] === 'intermediate' && ($flavours !== [] || $canRecipe)): $mine = $flavours[(int) $p['id']] ?? []; ?>
+            <span class="cell-sub">Flavours:
+              <?= $mine === [] ? '<span class="text-muted">none yet</span>' : implode(' · ', array_map(static fn (array $f): string => $canRecipe ? '<a href="' . url('recipes/edit', ['id' => $f['id']]) . '">' . e($f['name']) . '</a>' : e($f['name']), $mine)) ?>
+              <?php if ($canRecipe): ?> <a class="ms-2" href="<?= url('recipes/edit', ['product_id' => $p['id']]) ?>"><i class="bi bi-plus-lg"></i> Add a flavour</a><?php endif; ?>
+            </span>
+          <?php endif; ?>
         </td>
         <td dir="auto">
           <?php if ($p['category_name'] !== null): ?>

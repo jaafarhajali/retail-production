@@ -1,11 +1,11 @@
 <?php use App\Services\ProductionService; ?>
 <div class="toolbar">
-  <p class="toolbar-note"><i class="bi bi-journal-text"></i><?= count($recipes) ?> recipe(s). A recipe says what one batch of a mix is made of; Production makes it in batches, and Packing turns the mix into products with the quantities you type each time.</p>
+  <p class="toolbar-note"><i class="bi bi-journal-text"></i><?= count($recipes) ?> recipe(s). A recipe is one flavour of a mix: what one batch is made of. Production makes it in batches, every flavour into the same mix, and Packing turns the mix into products with the quantities you type each time.</p>
   <?php if ($canManage): ?><a class="btn btn-primary" href="<?= url('recipes/edit') ?>"><i class="bi bi-plus-lg"></i> New recipe</a><?php endif; ?>
 </div>
 <div class="card"><div class="table-responsive">
   <table class="table table-hover align-middle">
-    <thead><tr><th>Makes</th><th>Recipe</th><th>One batch</th><th>Lines</th><?php if ($showCost): ?><th class="text-end">Batch cost now</th><th class="text-end">Cost per unit</th><?php endif; ?><th>Runs</th><th></th></tr></thead>
+    <thead><tr><th>Makes</th><th>Flavour</th><th>One batch</th><th>Lines</th><?php if ($showCost): ?><th class="text-end">Batch cost now</th><th class="text-end">Cost per unit</th><?php endif; ?><th>Runs</th><th></th></tr></thead>
     <tbody>
     <?php foreach ($recipes as $r): ?>
       <tr>
