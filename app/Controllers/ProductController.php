@@ -365,7 +365,7 @@ final class ProductController extends Controller
         }
 
         $units = $id > 0 ? (new ProductUnit())->forProduct($id) : [];
-        $packMaterials = array_merge((new Product())->forPrint('material'), (new Product())->forPrint('intermediate'));   // what a piece can take out when packed
+        $packMaterials = (new Product())->forPrint('material');   // what a piece can take out when packed; the mix is typed on the Pack page each time
         $usedUnits = [];
         foreach ($units as $u) {
             $usedUnits[(int) $u['id']] = (new ProductUnit())->isUsed((int) $u['id']);
@@ -387,6 +387,7 @@ final class ProductController extends Controller
             'packaging'  => $id > 0 ? (new Product())->packaging($id) : [],
             'flavours'   => $product !== null && $product['kind'] === 'intermediate' ? ($this->flavours()[$id] ?? []) : [],
             'canRecipe'  => Gate::allows('production.manage'),
+            'mixExists'  => (int) (new Product())->kindCounts()['intermediate'] > 0,
             'packMaterials' => $packMaterials,
             'packUnits'  => (new ProductUnit())->forProducts(array_map('intval', array_column($packMaterials, 'id'))),
             'canManage'  => Gate::allows('product.manage'),

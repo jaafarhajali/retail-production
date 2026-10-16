@@ -70,7 +70,7 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
       <?php endif; ?>
       <div class="<?= $single ? 'col-md-5' : 'col-md-3' ?>">
         <label class="form-label" for="name">Flavour</label>
-        <input class="form-control" id="name" name="name" dir="auto" maxlength="120" value="<?= old('name', $recipe['name'] ?? '') ?>" placeholder="e.g. Strawberry">
+        <input class="form-control" id="name" name="name" dir="auto" maxlength="120" value="<?= old('name', $recipe['name'] ?? '') ?>" placeholder="e.g. Strawberry" required>
       </div>
       <div class="<?= $single ? 'col-md-7' : 'col-md-4' ?>">
         <label class="form-label" for="output_qty">One batch makes</label>

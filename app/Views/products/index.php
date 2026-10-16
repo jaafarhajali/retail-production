@@ -62,7 +62,7 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
 </form>
 
 <?php if ($filters['kind'] === 'intermediate'): ?>
-  <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> A mix is the pot in the kitchen, weighed in grams. Its <strong>flavours</strong> are its recipes: every flavour that Production makes goes into the same pot, and Packing takes from it to make the finished products.</p>
+  <p class="text-muted small mb-3"><i class="bi bi-info-circle"></i> A mix is made in the kitchen and kept in stock by weight. Its <strong>flavours</strong> are its recipes: every flavour that Production makes adds to the same stock, and Packing takes from it to make the finished products.</p>
 <?php endif; ?>
 <div class="card"><div class="table-responsive">
   <table class="table table-hover align-middle m-0 product-list">

@@ -14,7 +14,7 @@ final class SettingService
 
     /** key => [label, max length, required] */
     private const TEXT_FIELDS = [
-        'shop_name'      => ['Shop name', 100, true],
+        'shop_name'      => ['Company name', 100, true],
         'shop_address'   => ['Address', 255, false],
         'shop_phone'     => ['Phone', 30, false],
         'receipt_header' => ['Receipt header', 255, false],

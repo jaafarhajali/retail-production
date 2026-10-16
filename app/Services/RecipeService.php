@@ -38,7 +38,7 @@ final class RecipeService
         }
         $name = trim((string) ($in['name'] ?? ''));
         if ($name === '') {
-            $name = 'Standard';
+            throw new \DomainException('Type the flavour, e.g. Strawberry.');   // never "Standard" by itself (2026-10-16)
         }
         if (mb_strlen($name) > 120) {
             throw new \DomainException('The recipe name is at most 120 characters.');

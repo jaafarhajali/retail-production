@@ -307,7 +307,7 @@
     return { list: list, cut: Math.max(0, Math.round((list - t.total) * 100) / 100) };
   }
   // The ceiling applies to every single discount (2026-10-09): the worst line, the invoice discount, and the sale as a whole.
-  // Before, 20 % on a $10 pack hid behind a $120 hookah in the same cart.
+  // Before, 20 % on a $10 jar hid behind a $120 box of 24 in the same cart.
   function discountPct() {
     var list = 0, cut = 0, worst = 0;
     cart.forEach(function (l) { var c = lineCut(l); list += c.list; cut += c.cut; if (c.list > 0) worst = Math.max(worst, c.cut / c.list * 100); });

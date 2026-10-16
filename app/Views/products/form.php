@@ -19,6 +19,8 @@ $base = $isEdit ? (string) $product['base_unit'] : (in_array($text($stash['base_
 if (!$isEdit && $kind === 'intermediate') {
     $base = 'g';   // a mix is always weighed (2026-10-15)
 }
+// Shown only for the kinds listed; the page script switches them when "What is it?" changes.
+$only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' . (in_array($kind, explode(' ', $kinds), true) ? '' : ' hidden');
 $big = ['g' => 'kg', 'ml' => 'L'];
 $selectedCategory = isset($stash['category_id']) ? (int) $text($stash['category_id']) : (int) ($product['category_id'] ?? 0);
 $unitsById = array_column($units, null, 'id');
@@ -88,7 +90,7 @@ $typeOptions = static function (string $selected, ?array $unit) use ($unitTypes)
     return $html;
 };
 
-$renderRow = static function (string $key, array $row, ?array $unit) use ($typeOptions, $main, $locked, $usedUnits, $canPrice, $showCost, $dis, $readonly): string {
+$renderRow = static function (string $key, array $row, ?array $unit) use ($typeOptions, $main, $locked, $usedUnits, $canPrice, $showCost, $dis, $readonly, $only): string {
     $name = 'units[' . $key . ']';
     $isLocked = $unit !== null && $locked;
     $isUsed = $unit !== null && ($usedUnits[(int) $unit['id']] ?? false);
@@ -111,7 +113,7 @@ $renderRow = static function (string $key, array $row, ?array $unit) use ($typeO
       <td class="pf-price" data-finished-only><div class="input-group"><span class="input-group-text">$</span><input class="form-control" name="<?= $name ?>[retail]" inputmode="decimal" value="<?= e($row['retail']) ?>" data-retail aria-label="Retail price" placeholder="not sold" <?= $canPrice && !$readonly ? '' : 'disabled' ?>></div>
         <?php if ($showCost): ?><div class="pf-profit" data-profit></div><?php endif; ?></td>
       <td class="pf-price" data-finished-only><div class="input-group"><span class="input-group-text">$</span><input class="form-control" name="<?= $name ?>[wholesale]" inputmode="decimal" value="<?= e($row['wholesale']) ?>" aria-label="Wholesale price" placeholder="not sold" <?= $canPrice && !$readonly ? '' : 'disabled' ?>></div></td>
-      <td class="pf-codes"><input class="form-control" name="<?= $name ?>[barcodes]" value="<?= e($row['barcodes']) ?>" data-barcodes autocomplete="off" spellcheck="false" aria-label="Barcodes" placeholder="scan or type" <?= $dis ?>></td>
+      <td class="pf-codes" <?= $only('finished material') ?>><input class="form-control" name="<?= $name ?>[barcodes]" value="<?= e($row['barcodes']) ?>" data-barcodes autocomplete="off" spellcheck="false" aria-label="Barcodes" placeholder="scan or type" <?= $dis ?>></td>
       <td class="pf-remove">
         <?php if (!$readonly): ?>
           <button class="btn btn-sm btn-outline-danger" type="button" data-remove <?= $isUsed ? 'disabled' : '' ?>
@@ -123,8 +125,6 @@ $renderRow = static function (string $key, array $row, ?array $unit) use ($typeO
 };
 $unitPick = static fn (string $field, string $selected): string => '<select class="form-select" name="' . $field . '" data-unit-pick data-selected="' . e($selected) . '" aria-label="Unit" ' . ($readonly ? 'disabled' : '') . '></select>';
 $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$base];
-// Shown only for the kinds listed; the page script switches them when "What is it?" changes.
-$only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' . (in_array($kind, explode(' ', $kinds), true) ? '' : ' hidden');
 ?>
 <?php if (isset($_SESSION['_errors']['same_name'])): ?>
   <div class="alert alert-warning same-name"><div class="form-check m-0">
@@ -146,11 +146,12 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
           <span class="form-label d-block">What is it?</span>
           <div class="btn-group" role="group">
             <?php foreach (ProductService::KINDS as $k => $label): ?>
+              <?php if ($k === 'intermediate' && $mixExists && $kind !== 'intermediate') { continue; }   // the mix exists; a new one starts from the Flavours page (2026-10-16) ?>
               <input type="radio" class="btn-check" name="kind" id="kind-<?= $k ?>" value="<?= $k ?>" <?= $kind === $k ? 'checked' : '' ?> <?= $dis ?>>
               <label class="btn btn-outline-primary" for="kind-<?= $k ?>"><?= e($label) ?></label>
             <?php endforeach; ?>
           </div>
-          <div class="form-text" data-kind-hint data-finished="Sold on the till, with retail and wholesale prices." data-intermediate="The pot in the kitchen: Production fills it from its flavour recipes, Packing empties it into finished products. Never sold." data-material="Bought from suppliers and consumed by production: honey, sugar, colouring, boxes, labels. Never sold."></div>
+          <div class="form-text" data-kind-hint data-finished="Sold on the till, with retail and wholesale prices." data-intermediate="Made by Production from its flavour recipes, used by Packing to make finished products. Never sold." data-material="Bought from suppliers and consumed by production: honey, sugar, colouring, boxes, labels. Never sold."></div>
         </div>
         <div class="row g-3">
           <div class="col-md-8">
@@ -191,7 +192,7 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
         <div class="table-responsive">
           <table class="table align-middle pf-table">
             <thead><tr>
-              <th class="pf-main" data-finished-only title="The till shows this price on the product's button and offers this way first">Till button</th><th><span data-finished-only>Sold as</span><span data-not-finished>Unit</span></th><th>Holds</th><th data-finished-only>Retail</th><th data-finished-only>Wholesale</th><th>Barcodes</th><th></th>
+              <th class="pf-main" data-finished-only title="The till shows this price on the product's button and offers this way first">Till button</th><th><span data-finished-only>Sold as</span><span data-not-finished>Unit</span></th><th>Holds</th><th data-finished-only>Retail</th><th data-finished-only>Wholesale</th><th <?= $only('finished material') ?>>Barcodes</th><th></th>
             </tr></thead>
             <tbody data-rows>
               <?php foreach ($rows as $key => $row): ?><?= $renderRow((string) $key, $row, $unitsById[$row['id']] ?? null) ?><?php endforeach; ?>
@@ -213,18 +214,21 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
         <div class="pf-three">
           <?php if ($showCost): ?>
             <div id="cost-card">
-              <?php if ($isEdit && (float) $product['cost_per_base'] > 0): ?>
+              <?php $hasCost = $isEdit && (float) $product['cost_per_base'] > 0; ?>
+              <?php if ($hasCost): ?>
                 <h2 class="form-label">What it costs you</h2>
                 <p class="pf-now">Now <strong><?= usd(Pricing::unitCost($product['cost_per_base'], $natural[1])) ?></strong> per <?= e($natural[0]) ?>
                   <?php foreach ($units as $u): if ((int) $u['factor'] !== $natural[1]): ?><span class="text-muted d-block"><?= usd(Pricing::unitCost($product['cost_per_base'], (int) $u['factor'])) ?> per <?= e($u['name']) ?></span><?php endif; endforeach; ?></p>
-                <label class="form-label" for="cost">New cost</label>
-              <?php else: ?>
-                <label class="form-label" for="cost">What it costs you</label>
+                <p class="form-text" <?= $only('intermediate') ?>>Set by Make, from the ingredients of each flavour.</p>
               <?php endif; ?>
-              <div class="input-group"><span class="input-group-text">$</span>
-                <input class="form-control" id="cost" name="cost" inputmode="decimal" value="<?= old('cost') ?>" placeholder="<?= $isEdit ? 'unchanged' : '0.00' ?>" <?= $dis ?>>
-                <span class="input-group-text">per</span><?= $unitPick('cost_unit', $text($stash['cost_unit'] ?? null)) ?></div>
-              <?php if ($isEdit): ?><div class="form-text">Purchases update the cost by themselves. Type here only to correct it.</div><?php endif; ?>
+              <?php // a mix's cost comes from Make only (2026-10-16): nothing to type ?>
+              <div data-cost-new <?= $only('finished material') ?>>
+                <label class="form-label" for="cost"><?= $hasCost ? 'New cost' : 'What it costs you' ?></label>
+                <div class="input-group"><span class="input-group-text">$</span>
+                  <input class="form-control" id="cost" name="cost" inputmode="decimal" value="<?= old('cost') ?>" placeholder="<?= $isEdit ? 'unchanged' : '0.00' ?>" <?= $dis ?>>
+                  <span class="input-group-text">per</span><?= $unitPick('cost_unit', $text($stash['cost_unit'] ?? null)) ?></div>
+                <?php if ($isEdit): ?><div class="form-text">Purchases update the cost by themselves. Type here only to correct it.</div><?php endif; ?>
+              </div>
             </div>
           <?php endif; ?>
           <div>
@@ -234,11 +238,15 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
               <?php if ($canStock): ?><a class="btn btn-outline-primary" href="<?= url('stock/adjust', ['product_id' => $pid]) ?>"><i class="bi bi-plus-slash-minus"></i> Add or correct stock</a><?php endif; ?>
               <a class="btn btn-link" href="<?= url('stock', ['product_id' => $pid]) ?>">History</a>
             <?php else: ?>
-              <label class="form-label" for="opening_qty">Stock now</label>
-              <div class="input-group">
-                <input class="form-control" id="opening_qty" name="opening_qty" inputmode="decimal" value="<?= old('opening_qty') ?>" placeholder="0" <?= $canStock && !$readonly ? '' : 'disabled' ?>>
-                <?= $unitPick('opening_unit', $text($stash['opening_unit'] ?? null)) ?></div>
-              <div class="form-text"><?= $isEdit ? 'Only for a product that has no stock history yet. ' : '' ?><span <?= $only('finished') ?>>Later, stock comes from Packing.</span><span <?= $only('intermediate') ?>>Later, stock comes from Production.</span><span <?= $only('material') ?>>Later, stock comes from purchases.</span></div>
+              <?php // a mix's stock comes from Make only (2026-10-16): no opening stock ?>
+              <div data-opening <?= $only('finished material') ?>>
+                <label class="form-label" for="opening_qty">Stock now</label>
+                <div class="input-group">
+                  <input class="form-control" id="opening_qty" name="opening_qty" inputmode="decimal" value="<?= old('opening_qty') ?>" placeholder="0" <?= $canStock && !$readonly ? '' : 'disabled' ?>>
+                  <?= $unitPick('opening_unit', $text($stash['opening_unit'] ?? null)) ?></div>
+                <div class="form-text"><?= $isEdit ? 'Only for a product that has no stock history yet. ' : '' ?><span <?= $only('finished') ?>>Later, stock comes from Packing.</span><span <?= $only('material') ?>>Later, stock comes from purchases.</span></div>
+              </div>
+              <p class="form-text mt-0" <?= $only('intermediate') ?>><strong>Stock and cost</strong> come from Make: each batch adds its weight, at the cost of its ingredients.</p>
             <?php endif; ?>
           </div>
           <div>
@@ -290,7 +298,23 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
       <template id="packaging-tpl">
         <tr>
           <td><select class="form-select form-select-sm" name="packaging[IDX][material_id]" <?= $dis ?>><option value="">— choose —</option>
-            <?php foreach ($packMaterials as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(\App\Services\ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?><?= $m['kind'] === 'intermediate' ? ' (mix)' : '' ?></option><?php endforeach; ?></select></td>
+            <?php
+            // Grouped by the material's category (2026-10-16): the owner decides what is packaging and what is an ingredient.
+            // Groups made mostly of items counted by piece (boxes, labels, jars) come first, then the owner's category order; "No category" last.
+            $packGroups = [];
+            foreach ($packMaterials as $m) {
+                $packGroups[$m['category_name'] ?? ''][] = $m;
+            }
+            uksort($packGroups, static function (string $a, string $b) use ($packGroups): int {
+                $byPiece = static fn (array $g): int => (int) (count(array_filter($g, static fn (array $m): bool => $m['base_unit'] === 'piece')) * 2 >= count($g));
+                return [$a === '', $byPiece($packGroups[$b]), array_search($a, array_keys($packGroups), true)] <=> [$b === '', $byPiece($packGroups[$a]), array_search($b, array_keys($packGroups), true)];
+            });
+            ?>
+            <?php foreach ($packGroups as $groupLabel => $inGroup): ?>
+              <optgroup label="<?= e($groupLabel === '' ? 'No category' : $groupLabel) ?>">
+                <?php foreach ($inGroup as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(\App\Services\ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?>
+              </optgroup>
+            <?php endforeach; ?></select></td>
           <td><input class="form-control form-control-sm" name="packaging[IDX][qty]" inputmode="decimal" placeholder="1" <?= $dis ?>></td>
           <td><select class="form-select form-select-sm" name="packaging[IDX][unit_id]" aria-label="Unit" <?= $dis ?>></select></td>
           <td class="text-nowrap text-muted small stock"></td>
@@ -320,7 +344,8 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
     </div>
 
     <div class="col-xxl-3"><div class="pf-side">
-      <div class="card"><div class="card-body">
+      <?php // a mix is never on the till: no photo, no barcode, no target profit (2026-10-16) ?>
+      <div class="card" data-photo-card <?= $only('finished material') ?>><div class="card-body">
         <h2 class="h5">Photo</h2>
         <?php $photo = $isEdit ? \App\Services\ProductImageService::url($product['image_file']) : null; ?>
         <div class="pf-photo-row">
@@ -389,14 +414,14 @@ $only = static fn (string $kinds): string => 'data-kind-only="' . $kinds . '"' .
         <div>
           <label class="form-label" for="internal_code">Code</label>
           <input class="form-control" id="internal_code" name="internal_code" maxlength="30" autocomplete="off" value="<?= old('internal_code', $product['internal_code'] ?? '') ?>" placeholder="automatic" <?= $dis ?>>
-          <div class="form-text">Typed at the till when there is no barcode.</div>
+          <div class="form-text"><span <?= $only('finished material') ?>>Typed at the till when there is no barcode.</span><span <?= $only('intermediate') ?>>Its code in lists and reports.</span></div>
         </div>
         <div>
           <label class="form-label" for="description">Note</label>
           <input class="form-control" id="description" name="description" dir="auto" maxlength="1000" value="<?= old('description', $product['description'] ?? '') ?>" <?= $dis ?>>
         </div>
         <?php if ($showCost): ?>
-          <div>
+          <div data-target-card <?= $only('finished') ?>>
             <label class="form-label" for="target_margin_pct">Profit I aim for</label>
             <div class="input-group pf-pct"><input class="form-control" id="target_margin_pct" name="target_margin_pct" inputmode="decimal" value="<?= old('target_margin_pct', $product['target_margin_pct'] ?? '') ?>" placeholder="40" data-target <?= $dis ?>><span class="input-group-text">%</span></div>
             <div class="form-text">Only suggests a price under each retail price.</div>

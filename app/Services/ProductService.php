@@ -191,8 +191,9 @@ final class ProductService
             }
             $factorOf = fn (string $key): ?int => isset($ids[$key]) ? (int) $this->units->find($ids[$key])['factor'] : null;
 
+            $isMix = $product['kind'] === 'intermediate';   // a mix's cost and stock come from Make only (2026-10-16)
             $cost = trim((string) ($in['cost'] ?? ''));
-            if ($cost !== '' && Gate::allows('product.view_cost')) {
+            if ($cost !== '' && !$isMix && Gate::allows('product.view_cost')) {
                 $this->setCost($id, $cost, $factorOf((string) ($in['cost_unit'] ?? '')) ?? 1);
             }
 
@@ -206,7 +207,7 @@ final class ProductService
             }
 
             $opening = trim((string) ($in['opening_qty'] ?? ''));
-            if ($opening !== '' && (float) str_replace(',', '.', $opening) > 0) {
+            if ($opening !== '' && !$isMix && (float) str_replace(',', '.', $opening) > 0) {
                 if ((new \App\Models\StockMovement())->hasMovements($id)) {
                     throw new \DomainException('This product already has stock history. Use "Add or correct stock" instead of an opening stock.');
                 }
@@ -236,7 +237,10 @@ final class ProductService
             }
             $m = $this->products->find((int) ($l['material_id'] ?? 0)) ?? throw new \DomainException('Choose the packaging on every line.');
             if ($m['kind'] === 'finished') {
-                throw new \DomainException($m['name'] . ' is a finished product: packaging is a raw material or a mix.');
+                throw new \DomainException($m['name'] . ' is a finished product: packaging is a raw material.');
+            }
+            if ($m['kind'] === 'intermediate') {   // the mix is typed on the Pack page each time, never fixed per piece (2026-10-16)
+                throw new \DomainException($m['name'] . ' is the mix: how much of it goes into a packing is typed on the Pack page each time, not fixed per piece.');
             }
             if (isset($clean[(int) $m['id']])) {
                 throw new \DomainException($m['name'] . ' is listed twice in the packaging. Add the quantities on one line.');
@@ -677,7 +681,7 @@ final class ProductService
             throw new \DomainException('Choose what it is: a finished product, a mix, or a raw material.');
         }
         if ($kind === 'intermediate' && $baseUnit !== 'g') {
-            throw new \DomainException('A mix is counted by weight, in grams: it is the pot that Production fills and Packing empties.');   // 2026-10-15
+            throw new \DomainException('A mix is counted by weight, in grams.');   // 2026-10-15
         }
 
         $categoryId = null;

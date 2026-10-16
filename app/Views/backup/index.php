@@ -28,7 +28,7 @@
           <button class="btn btn-outline-primary" type="submit">Save</button>
         </div>
         <?php if (form_error('backup_copy_dir') !== ''): ?><div class="invalid-feedback d-block"><?= form_error('backup_copy_dir') ?></div><?php endif; ?>
-        <div class="form-text">Empty switches the copy off. A folder on another PC of the shop (<code>\\OFFICE-PC\backups</code>) or a Google Drive folder works the same way.</div>
+        <div class="form-text">Empty switches the copy off. A folder on another PC of the factory (<code>\\OFFICE-PC\backups</code>) or a Google Drive folder works the same way.</div>
       </form>
     </div></div>
     <div class="card"><div class="card-body">

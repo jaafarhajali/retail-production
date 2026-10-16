@@ -8,7 +8,7 @@ $cols = ($single ? 5 : 6) + ($showCost ? 2 : 0);
 <div class="toolbar">
   <div class="toolbar-note">
     <?php foreach ($mixes as $m): ?>
-      <div dir="auto"><i class="bi bi-box2"></i> <?= e($m['name']) ?> in stock: <strong><?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?></strong></div>
+      <div dir="auto"><i class="bi bi-box2"></i> <?= \App\Core\Gate::allows('product.view') ? '<a href="' . url('products/edit', ['id' => $m['id']]) . '">' . e($m['name']) . '</a>' : e($m['name']) ?> in stock: <strong><?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?></strong></div>
     <?php endforeach; ?>
     <div class="text-muted small">Each flavour says what one batch is made of. <strong>Make</strong> adds it to the stock<?= $single ? '' : ' of its mix' ?>; Packing turns that stock into jars and boxes.</div>
   </div>
@@ -38,3 +38,6 @@ $cols = ($single ? 5 : 6) + ($showCost ? 2 : 0);
     </tbody>
   </table>
 </div></div>
+<?php if ($canAddMix): ?>
+  <p class="text-muted small mt-3">Making something that must be counted apart from <?= $mixes === [] ? 'the flavours' : e($mixes[0]['name']) ?>, for example a chocolate coating? <a href="<?= url('products/create', ['kind' => 'intermediate']) ?>">Add a new mix</a>: it gets its own stock and its own flavours.</p>
+<?php endif; ?>

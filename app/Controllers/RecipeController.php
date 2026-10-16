@@ -34,7 +34,7 @@ final class RecipeController extends Controller
         }
         unset($r);
         $mixes = (new Product())->forPrint('intermediate');
-        $this->render('recipes/index', ['recipes' => $recipes, 'mixes' => $mixes, 'showCost' => $showCost, 'canManage' => Gate::allows('production.manage')], 'Flavours');
+        $this->render('recipes/index', ['recipes' => $recipes, 'mixes' => $mixes, 'showCost' => $showCost, 'canManage' => Gate::allows('production.manage'), 'canAddMix' => Gate::allows('product.manage')], 'Flavours');
     }
 
     public function edit(): void

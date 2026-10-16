@@ -273,7 +273,7 @@ final class SaleService
             $warnings[] = $name . ' was sold below cost.';
         }
         // The allowed percentage is a ceiling on every single discount (bug of 2026-10-09: measured on the whole cart, 20 % on a $10
-        // pack hid behind a $120 hookah). It is checked on each line (a lowered price counts as a discount), on the invoice
+        // jar hid behind a $120 box of 24). It is checked on each line (a lowered price counts as a discount), on the invoice
         // discount, and on the sale as a whole; the first one over the ceiling needs the administrator.
         if (!Gate::allows('sale.discount')) {
             $maxPct = (float) Settings::get('max_cashier_discount_pct', '0');

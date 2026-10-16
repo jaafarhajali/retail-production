@@ -51,7 +51,7 @@ $madeRows = $rows('made');
     </div>
     <div class="col-lg-5">
       <div class="card"><div class="card-header">What it does</div>
-        <div class="card-body" id="preview-empty"><p class="text-muted mb-0">Choose the mix and the products: the stock, the packaging taken out and the cost show here before anything is written.</p></div>
+        <div class="card-body" id="preview-empty"><p class="text-muted mb-0">Type how much was used and what came out: the stock, the packaging taken out and the cost show here before anything is written.</p></div>
         <div id="preview-body" hidden>
           <div class="table-responsive"><table class="table table-sm align-middle m-0">
             <thead><tr><th>Out of stock</th><th class="text-end">Quantity</th><?php if ($showCost): ?><th class="text-end">Cost</th><?php endif; ?></tr></thead>

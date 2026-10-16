@@ -6,10 +6,10 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
 <form method="post" action="<?= url('settings/save') ?>" class="card" style="max-width: 820px">
   <div class="card-body">
     <?= csrf_field() ?>
-    <h2 class="h5">Shop</h2>
+    <h2 class="h5">Company</h2>
     <div class="row g-3 mb-4">
       <div class="col-md-6">
-        <label class="form-label" for="shop_name">Shop name</label>
+        <label class="form-label" for="shop_name">Company name</label>
         <input class="form-control" id="shop_name" name="shop_name" dir="auto" required maxlength="100" value="<?= $field('shop_name') ?>">
       </div>
       <div class="col-md-6">
@@ -94,7 +94,7 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
   <h2 class="h5">Logo</h2>
   <p class="text-muted small mb-3">Shown on the menu, the sign-in page and at the top of every printout: receipts, X/Z reports and printed reports. Best is an <strong>SVG</strong> (vector: sharp at any size on the receipt printer) with a dark drawing on a transparent background; PNG or JPG also work.</p>
   <div class="d-flex gap-4 align-items-start flex-wrap">
-    <div class="logo-preview"><?php if ($logo !== null): ?><img src="<?= e($logo) ?>" alt="Shop logo"><?php else: ?><span class="text-muted">No logo yet</span><?php endif; ?></div>
+    <div class="logo-preview"><?php if ($logo !== null): ?><img src="<?= e($logo) ?>" alt="Company logo"><?php else: ?><span class="text-muted">No logo yet</span><?php endif; ?></div>
     <div class="flex-fill" style="min-width: 260px">
       <form method="post" action="<?= url('settings/logo') ?>" enctype="multipart/form-data" class="mb-2">
         <?= csrf_field() ?>
