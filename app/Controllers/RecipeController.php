@@ -11,21 +11,30 @@ use App\Core\HttpException;
 use App\Models\Product;
 use App\Models\ProductUnit;
 use App\Models\Recipe;
+use App\Services\ProductionService;
 use App\Services\RecipeService;
 
-/** Recipes (F2): one page lists them by product, one form writes a recipe and its lines. */
+/**
+ * Recipes (F2): one page lists them by product, one form writes a recipe and its lines.
+ * Since 2026-10-15 the screens call them "Flavours": each recipe is one flavour of the mix. With a single mix the
+ * mix is never asked for; a second mix brings the choice back.
+ */
 final class RecipeController extends Controller
 {
     public function index(): void
     {
-        $recipes = (new Recipe())->all();
+        $model = new Recipe();
+        $recipes = $model->all();
         $svc = new RecipeService();
         $showCost = Gate::allows('product.view_cost');
         foreach ($recipes as &$r) {
             $r['estimate'] = $showCost ? $svc->estimate((int) $r['id']) : null;
+            // what goes into one batch, in a line: "450 g Sugar, 30 g Gelatin"
+            $r['summary'] = implode(', ', array_map(static fn (array $l): string => ProductionService::baseText((int) $l['qty_base'], $l['base_unit']) . ' ' . $l['material_name'], $model->lines((int) $r['id'])));
         }
         unset($r);
-        $this->render('recipes/index', ['recipes' => $recipes, 'showCost' => $showCost, 'canManage' => Gate::allows('production.manage')], 'Recipes');
+        $mixes = (new Product())->forPrint('intermediate');
+        $this->render('recipes/index', ['recipes' => $recipes, 'mixes' => $mixes, 'showCost' => $showCost, 'canManage' => Gate::allows('production.manage')], 'Flavours');
     }
 
     public function edit(): void
@@ -41,7 +50,7 @@ final class RecipeController extends Controller
             'recipe' => $recipe, 'lines' => $recipe === null ? [] : $recipes->lines($id), 'made' => $made, 'materials' => $materials,
             'unitsById' => (new ProductUnit())->forProducts(array_values(array_unique($ids))),
             'productId' => $recipe === null ? $this->queryInt('product_id') : (int) $recipe['product_id'],
-        ], $recipe === null ? 'New recipe' : $recipe['product_name'] . ' · ' . $recipe['name']);
+        ], $recipe === null ? 'Add a flavour' : (count($made) === 1 ? $recipe['name'] : $recipe['product_name'] . ' · ' . $recipe['name']));
     }
 
     public function save(): void
@@ -57,7 +66,7 @@ final class RecipeController extends Controller
         } catch (\DomainException $e) {
             $this->failBack('recipes/edit', $id > 0 ? ['id' => $id] : ['product_id' => (int) $in['product_id']], ['form' => $e->getMessage()]);
         }
-        Flash::set('success', 'Recipe saved.');
+        Flash::set('success', 'Flavour saved.');
         redirect('recipes');
     }
 
@@ -69,7 +78,7 @@ final class RecipeController extends Controller
         } catch (\DomainException $e) {
             $this->failBack('recipes/edit', ['id' => $id], ['form' => $e->getMessage()]);
         }
-        Flash::set('success', 'Recipe removed.');
+        Flash::set('success', 'Flavour removed.');
         redirect('recipes');
     }
 }

@@ -21,6 +21,7 @@ $madeRows = $rows('made');
 <?php if ($mixes === []): ?>
   <div class="card"><div class="card-body"><p class="mb-2">Nothing to pack yet: no mix exists. Make the mix first.</p><a class="btn btn-primary" href="<?= url('production/new') ?>">Make</a></div></div>
 <?php else: ?>
+<?php require APP_PATH . '/Views/partials/mix-stock.php'; ?>
 <form method="post" action="<?= url('packing/store') ?>" id="pack-form" data-preview="<?= e(url('packing/preview')) ?>">
   <?= csrf_field() ?>
   <div class="row g-3">

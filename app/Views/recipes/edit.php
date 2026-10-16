@@ -2,6 +2,7 @@
 use App\Services\ProductionService;
 
 $isEdit = $recipe !== null;
+$single = count($made) === 1;   // one mix (2026-10-15): it is never asked for
 $unitOptions = [];
 foreach ($unitsById as $pid => $units) {
     $unitOptions[$pid] = array_map(static fn (array $u): array => ['id' => (int) $u['id'], 'name' => $u['name'], 'factor' => (int) $u['factor']], $units);
@@ -51,6 +52,9 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
   <input type="hidden" name="id" value="<?= $isEdit ? (int) $recipe['id'] : 0 ?>">
   <div class="card mb-3"><div class="card-body">
     <div class="row g-3">
+      <?php if ($single): ?>
+        <input type="hidden" name="product_id" value="<?= $isEdit ? (int) $recipe['product_id'] : (int) $made[0]['id'] ?>">
+      <?php else: ?>
       <div class="col-md-5">
         <label class="form-label" for="product_id">What does it make?</label>
         <?php if ($isEdit): ?>
@@ -63,17 +67,18 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
           </select>
         <?php endif; ?>
       </div>
-      <div class="col-md-3">
+      <?php endif; ?>
+      <div class="<?= $single ? 'col-md-5' : 'col-md-3' ?>">
         <label class="form-label" for="name">Flavour</label>
         <input class="form-control" id="name" name="name" dir="auto" maxlength="120" value="<?= old('name', $recipe['name'] ?? '') ?>" placeholder="e.g. Strawberry">
       </div>
-      <div class="col-md-4">
+      <div class="<?= $single ? 'col-md-7' : 'col-md-4' ?>">
         <label class="form-label" for="output_qty">One batch makes</label>
         <div class="input-group">
           <input class="form-control" id="output_qty" name="output_qty" inputmode="decimal" placeholder="1" value="<?= e($outputQty) ?>" required>
           <select class="form-select" id="output_unit_id" name="output_unit_id" data-selected="<?= $outputUnit ?>" aria-label="Unit"></select>
         </div>
-        <div class="form-text">For example 5 kg of mix. Production counts in batches of this; the mix then becomes products on the Packing page, with the quantities typed each time.</div>
+        <div class="form-text">For example 5 kg. Make counts in batches of this, or in kg; Packing then turns the stock into jars and boxes.</div>
       </div>
     </div>
   </div></div>
@@ -82,20 +87,20 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
     <div class="table-responsive"><table class="table align-middle" id="lines">
       <thead><tr><th style="width:44%">Goes in, per batch</th><th style="width:18%">Quantity</th><th style="width:22%">Unit</th><th class="text-nowrap">In stock now</th><th></th></tr></thead>
       <tbody></tbody>
-      <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2">Raw materials, or another mix.</span></td></tr></tfoot>
+      <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2"><?= $single ? 'Raw materials and packaging.' : 'Raw materials, or another mix.' ?></span></td></tr></tfoot>
     </table></div>
   </div>
 
   <div class="card mb-3"><div class="card-body row g-3 align-items-end">
     <div class="col-md-8"><label class="form-label" for="notes">Notes</label><input class="form-control" id="notes" name="notes" dir="auto" maxlength="255" value="<?= old('notes', $recipe['notes'] ?? '') ?>" placeholder="e.g. cook at 118 °C, rest 12 h"></div>
-    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="is_default" name="is_default" value="1" <?= (isset($stash['name']) ? isset($stash['is_default']) : (!$isEdit || (int) $recipe['is_default'] === 1)) ? 'checked' : '' ?>><label class="form-check-label" for="is_default">The usual recipe for this product</label></div></div>
+    <div class="col-md-4"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="is_default" name="is_default" value="1" <?= (isset($stash['name']) ? isset($stash['is_default']) : (!$isEdit || (int) $recipe['is_default'] === 1)) ? 'checked' : '' ?>><label class="form-check-label" for="is_default">Shown first on the Make page</label></div></div>
   </div></div>
   <button class="btn btn-primary btn-lg" type="submit"><i class="bi bi-check-lg"></i> Save recipe</button>
   <a class="btn btn-link" href="<?= url('recipes') ?>">Cancel</a>
   <?php if ($isEdit): ?><button class="btn btn-outline-danger float-end" type="submit" form="recipe-delete"><?= (int) $recipe['run_count'] > 0 ? 'Switch off' : 'Delete' ?></button><?php endif; ?>
 </form>
 <?php if ($isEdit): ?>
-  <form method="post" action="<?= url('recipes/delete') ?>" id="recipe-delete" data-confirm="<?= (int) $recipe['run_count'] > 0 ? 'Switch this recipe off? Its runs stay in the history.' : 'Delete this recipe?' ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $recipe['id'] ?>"></form>
+  <form method="post" action="<?= url('recipes/delete') ?>" id="recipe-delete" data-confirm="<?= (int) $recipe['run_count'] > 0 ? 'Switch this flavour off? What was made with it stays in the history.' : 'Delete this flavour?' ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $recipe['id'] ?>"></form>
 <?php endif; ?>
 <template id="line-tpl">
   <tr>
@@ -117,7 +122,7 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
   }
   var productSel = document.getElementById('product_id'), outUnit = document.getElementById('output_unit_id');
   function outputUnits() {
-    var pid = productSel ? parseInt(productSel.value, 10) : <?= $isEdit ? (int) $recipe['product_id'] : 0 ?>;
+    var pid = productSel ? parseInt(productSel.value, 10) : <?= $isEdit ? (int) $recipe['product_id'] : ($single ? (int) $made[0]['id'] : 0) ?>;
     fillUnits(outUnit, pid, parseInt(outUnit.dataset.selected || '0', 10));
   }
   if (productSel) productSel.addEventListener('change', outputUnits);

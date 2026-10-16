@@ -18,17 +18,23 @@ foreach ($byProduct as $pid => $p) {
 <?php if ($byProduct === []): ?>
   <div class="card"><div class="card-body"><p class="mb-2">Nothing can be made yet: no recipe exists. A recipe says what one batch of a mix is made of.</p><a class="btn btn-primary" href="<?= url('recipes/edit') ?>">Write the first recipe</a></div></div>
 <?php else: ?>
+<?php require APP_PATH . '/Views/partials/mix-stock.php'; ?>
 <form method="post" action="<?= url('production/store') ?>" id="make-form" data-preview="<?= e(url('production/preview')) ?>">
   <?= csrf_field() ?>
   <div class="row g-3">
     <div class="col-lg-5">
       <div class="card mb-3"><div class="card-body">
+        <?php if (count($byProduct) === 1): ?>
+          <input type="hidden" id="product_id" value="<?= (int) array_key_first($byProduct) ?>">
+          <label class="form-label" for="recipe_id">Flavour</label>
+        <?php else: ?>
         <label class="form-label" for="product_id">What did you make?</label>
         <select class="form-select form-select-lg" id="product_id">
           <option value="">— choose —</option>
           <?php foreach ($byProduct as $pid => $p): ?><option value="<?= (int) $pid ?>" <?= (int) $pid === $selectedProduct ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?>
         </select>
         <label class="form-label mt-3" for="recipe_id">Flavour</label>
+        <?php endif; ?>
         <select class="form-select" id="recipe_id" name="recipe_id" data-selected="<?= $selectedRecipe ?>"></select>
         <label class="form-label mt-3" for="qty">How much?</label>
         <div class="input-group input-group-lg">
@@ -44,7 +50,7 @@ foreach ($byProduct as $pid => $p) {
     </div>
     <div class="col-lg-7">
       <div class="card"><div class="card-header">What it takes</div>
-        <div class="card-body" id="preview-empty"><p class="text-muted mb-0">Choose the product and the quantity: the materials, the stock and the cost show here before anything is written.</p></div>
+        <div class="card-body" id="preview-empty"><p class="text-muted mb-0">Choose the flavour and how much: the materials, the stock and the cost show here before anything is written.</p></div>
         <div class="table-responsive" id="preview-table" hidden><table class="table align-middle m-0">
           <thead><tr><th>Material</th><th class="text-end">Needed</th><th class="text-end">In stock</th><?php if ($showCost): ?><th class="text-end">Cost</th><?php endif; ?></tr></thead>
           <tbody id="preview-lines"></tbody>

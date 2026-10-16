@@ -23,7 +23,7 @@ $navGroups = [
         ['stock', 'boxes', 'Stock', 'stock.view'],
         ['production', 'gear', 'Production', 'production.view'],
         ['packing', 'box2', 'Packing', 'production.manage'],
-        ['recipes', 'journal-text', 'Recipes', 'production.view'],
+        ['recipes', 'journal-text', 'Flavours', 'production.view'],   // the recipes of the mix (2026-10-15)
         ['purchases', 'truck', 'Purchases', 'purchase.manage'],
         ['suppliers', 'building', 'Suppliers', 'supplier.manage'],
         ['counts', 'clipboard-check', 'Stocktaking', 'stocktake.manage'],

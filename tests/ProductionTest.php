@@ -151,7 +151,7 @@ return [
         assert_same(0, (int) Database::pdo()->query("SELECT COUNT(*) FROM recipes WHERE name = 'Packing'")->fetchColumn());
         // Make: the preview and the run
         $page = $client->get('production/new', ['recipe_id' => $recipe])->body;
-        assert_contains('What did you make?', $page);
+        assert_contains('>Flavour</label>', $page, 'one mix: Make asks only the flavour and the quantity (2026-10-15)');
         $r = $client->postJson('production/preview', ['recipe_id' => $recipe, 'qty' => '2', 'unit_id' => $k['mix']['units'][0]]);
         assert_same(200, $r->status, $r->body);
         $j = json_decode($r->body, true);

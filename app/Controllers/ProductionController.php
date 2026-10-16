@@ -9,6 +9,7 @@ use App\Core\Flash;
 use App\Core\Gate;
 use App\Core\HttpException;
 use App\Models\Packing;
+use App\Models\Product;
 use App\Models\ProductionRun;
 use App\Models\ProductUnit;
 use App\Models\Recipe;
@@ -33,6 +34,7 @@ final class ProductionController extends Controller
         }
         $this->render('production/new', [
             'byProduct' => $byProduct, 'unitsById' => (new ProductUnit())->forProducts(array_keys($byProduct)),
+            'mixes' => (new Product())->forPrint('intermediate'),
             'recipeId' => $this->queryInt('recipe_id'), 'showCost' => Gate::allows('product.view_cost'),
         ], 'Make');
     }

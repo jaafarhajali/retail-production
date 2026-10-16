@@ -90,7 +90,7 @@ return [
         assert_contains('>Vanilla<', $page);
         assert_contains('Add a flavour', $page);
         assert_contains('href="index.php?r=recipes/edit&product_id=' . $k['mix']['id'] . '"', $page);
-        assert_not_contains('Flavours', $client->get('products/edit', ['id' => $k['sugar']['id']])->body, 'a raw material has none');
+        assert_not_contains('<h2 class="h5">Flavours</h2>', $client->get('products/edit', ['id' => $k['sugar']['id']])->body, 'a raw material has none');
 
         $recipe = $client->get('recipes/edit', ['product_id' => $k['mix']['id']])->body;
         assert_contains('>Flavour</label>', $recipe);
@@ -98,5 +98,41 @@ return [
         assert_not_contains('value="Standard"', $recipe, 'a new recipe does not start as "Standard"');
         assert_contains('<th>Flavour</th>', $client->get('recipes')->body);
         assert_contains('>Flavour</label>', $client->get('production/new')->body);
+    },
+
+    'with one mix the user sees flavours only: Flavours page with the stock, Make asks flavour and quantity, no Mixes tab; a second mix brings the choice back' => function () use ($pot, $plain): void {
+        $k = $pot();
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        $products = $plain($client->get('products')->body);
+        assert_not_contains('r=products&kind=intermediate', $products, 'no Mixes tab for a single mix');
+        assert_contains('r=products&kind=material', $products);
+        assert_contains('<span>Flavours</span>', $products, 'the menu says Flavours');
+
+        $list = $plain($client->get('recipes')->body);
+        assert_contains('Marshmallow mix in stock: <strong>0 g</strong>', $list);
+        assert_contains('Add a flavour', $list);
+        assert_contains('500 g Sugar', $list, 'each flavour lists what goes into one batch');
+        assert_not_contains('<th>Makes</th>', $list);
+
+        $new = $plain($client->get('recipes/edit')->body);
+        assert_not_contains('What does it make?', $new);
+        assert_contains('name="product_id" value="' . $k['mix']['id'] . '"', $new, 'the single mix is chosen without asking');
+        assert_contains('Raw materials and packaging.', $new);
+
+        $make = $client->get('production/new')->body;
+        assert_not_contains('What did you make?', $make);
+        assert_contains('Marshmallow mix in stock: <strong>0 g</strong>', $make);
+        assert_contains('Marshmallow mix in stock: <strong>0 g</strong>', $client->get('packing/new')->body);
+
+        // a second mix (a chocolate coating): the questions and the tab come back
+        $svc = new ProductService();
+        $choc = $svc->create(['name' => 'Chocolate coating', 'category_id' => '', 'base_unit' => 'g', 'internal_code' => '', 'description' => '', 'target_margin_pct' => '', 'kind' => 'intermediate']);
+        $unit = $svc->addUnit($choc, 'kg', '1000', true, false);
+        (new RecipeService())->save(0, ['product_id' => $choc, 'name' => 'Dark', 'output_qty' => '1', 'output_unit_id' => $unit, 'notes' => '',
+            'lines' => [['material_id' => $k['sugar']['id'], 'qty' => '0.2', 'unit_id' => $k['sugar']['unit']]]], TEST_ADMIN_ID);
+        assert_contains('r=products&kind=intermediate', $plain($client->get('products')->body));
+        assert_contains('<th>Makes</th>', $client->get('recipes')->body);
+        assert_contains('What does it make?', $client->get('recipes/edit')->body);
+        assert_contains('What did you make?', $client->get('production/new')->body);
     },
 ];

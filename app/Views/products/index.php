@@ -9,6 +9,7 @@ $printWith = array_filter(['q' => $filters['q'], 'category_id' => $filters['cate
 ?>
 <ul class="nav nav-pills kind-tabs mb-3">
   <?php foreach (['finished' => 'Finished products', 'intermediate' => 'Mixes', 'material' => 'Raw materials'] as $k => $label): ?>
+    <?php if ($k === 'intermediate' && (int) $kindCounts[$k] <= 1 && $filters['kind'] !== $k) { continue; }   // one mix: its stock shows on Flavours, Make and Pack (2026-10-15) ?>
     <li class="nav-item"><a class="nav-link <?= $filters['kind'] === $k ? 'active' : '' ?>" href="<?= url('products', $k === 'finished' ? [] : ['kind' => $k]) ?>"><?= $label ?> <span class="badge rounded-pill text-bg-light"><?= (int) $kindCounts[$k] ?></span></a></li>
   <?php endforeach; ?>
 </ul>
