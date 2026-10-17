@@ -24,6 +24,6 @@
         </form>
       </div>
     </div>
-    <p class="login-foot">Retail POS</p>
+    <p class="login-foot">Retail Production</p>
   </div>
 </div>
