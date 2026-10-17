@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Core\Audit;
 use App\Core\Database;
 use App\Core\Settings;
+use App\Models\CashSession;
 use App\Models\Customer;
 use App\Models\ExchangeRate;
 
@@ -128,8 +129,17 @@ final class InvoiceService
     {
         $customers = new Customer();
         $customer = $customers->find($customerId) ?? throw new \DomainException('Choose the customer.');
+        if ($method === 'cash') {
+            // Cash on delivery (owner, 2026-10-17): accepted here when the user has a cash session open, so that the money is
+            // counted in a drawer like any other cash; it is the till's own debt collection, from this page.
+            $session = (new CashSession())->openForUser($userId)
+                ?? throw new \DomainException('Cash goes into a cash session. Open one first (Cash sessions → Open a session), then record the cash here.');
+            $r = (new CashService())->collectDebt($customerId, $usd, $lbp, (int) $session['id'], $userId, 'LBP', false);
+
+            return ['paid_usd' => $r['paid_usd'], 'balance' => $r['balance']];
+        }
         if (!in_array($method, ['transfer', 'cheque', 'card'], true)) {
-            throw new \DomainException('Choose how it was paid: bank transfer, cheque or card. Cash is collected at the till.');
+            throw new \DomainException('Choose how it was paid: cash, bank transfer, cheque or card.');
         }
         $rate = (new ExchangeRate())->current();
         $usdIn = Pricing::parse($usd, true) ?? '0.00';

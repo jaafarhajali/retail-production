@@ -1,4 +1,4 @@
-<h2 class="h6 text-muted">Who owes what, by age · <?= e(date('d/m/Y')) ?></h2>
+<h2 class="h6 text-muted">Customer debts, and how late each one is · <?= e(date('d/m/Y')) ?></h2>
 <p class="text-muted small">Every open invoice of every customer, placed by how long it is past its due date. "Not yet due" is owed but still within the terms. Payments are applied to the oldest invoice first.</p>
 <div class="card"><div class="table-responsive"><table class="table table-sm m-0">
   <thead><tr><th>Customer</th><th class="text-end">Not yet due</th><th class="text-end">1–30 days</th><th class="text-end">31–60 days</th><th class="text-end">Over 60 days</th><th class="text-end">Total owed</th><th class="text-end">Oldest</th></tr></thead>

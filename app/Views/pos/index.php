@@ -169,6 +169,7 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
 <div class="modal fade pos-modal" id="m-hold" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
   <div class="modal-header"><h5 class="modal-title">Hold</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
   <div class="modal-body">
+    <?php if (setting('till_delivery_invoices') === '1'): // deliveries have their own page since 2026-10-14; the till flow is a setting (2026-10-17) ?>
     <div class="hold-invoice mb-3" id="hold-invoice-box">
       <div class="hold-title">Delivery invoice</div>
       <p class="hold-hint" id="hold-invoice-hint">The cart becomes a numbered invoice for <b id="hold-invoice-customer" dir="auto"></b>, printed, and goes out with the seller. Nothing is paid and no stock moves until you finish it.</p>
@@ -180,6 +181,7 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
     </div>
     <div class="hold-title">Out with the seller</div>
     <div class="list-group mb-3" id="hold-invoices"></div>
+    <?php endif; ?>
     <div class="hold-title">Parked carts</div>
     <div class="input-group mb-2" id="hold-new"><input class="form-control" id="hold-name" dir="auto" placeholder="Name for this cart (e.g. Ahmad)"><button class="btn btn-outline-primary" id="hold-ok">Park current cart</button></div>
     <div class="list-group" id="hold-list"></div>

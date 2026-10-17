@@ -18,11 +18,11 @@ $badge = ['paid' => 'text-bg-success', 'partly' => 'text-bg-info', 'unpaid' => '
           <div class="col-6"><label class="form-label" for="usd">Received, USD</label><div class="input-group"><span class="input-group-text">$</span><input class="form-control" id="usd" name="usd" inputmode="decimal" value="<?= e($stash['usd'] ?? '') ?>" placeholder="0.00"></div></div>
           <div class="col-6"><label class="form-label" for="lbp">or LBP</label><input class="form-control" id="lbp" name="lbp" inputmode="numeric" value="<?= e($stash['lbp'] ?? '') ?>" placeholder="0"><div class="form-text">at 1 USD = <?= number_format($rate) ?> LBP</div></div>
           <div class="col-6"><label class="form-label" for="method">How</label>
-            <select class="form-select" id="method" name="method"><?php foreach (['transfer' => 'Bank transfer', 'cheque' => 'Cheque', 'card' => 'Card'] as $k => $v): ?><option value="<?= $k ?>" <?= ($stash['method'] ?? 'transfer') === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?></select></div>
-          <div class="col-6"><label class="form-label" for="reference">Reference</label><input class="form-control" id="reference" name="reference" maxlength="80" value="<?= e($stash['reference'] ?? '') ?>" placeholder="cheque or transfer no."></div>
+            <select class="form-select" id="method" name="method"><?php foreach (['cash' => 'Cash', 'card' => 'Card / Whish'] as $k => $v): ?><option value="<?= $k ?>" <?= ($stash['method'] ?? 'cash') === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?></select></div>
+          <div class="col-6"><label class="form-label" for="reference">Reference</label><input class="form-control" id="reference" name="reference" maxlength="80" value="<?= e($stash['reference'] ?? '') ?>" placeholder="Whish or card transaction no."></div>
           <div class="col-12"><label class="form-label" for="note">Note</label><input class="form-control" id="note" name="note" dir="auto" maxlength="255" value="<?= e($stash['note'] ?? '') ?>" placeholder="optional"></div>
         </div>
-        <p class="text-muted small mt-3 mb-3">Cash is collected at the till (Customer → Collect debt) so that it goes into the drawer. Here: what arrives by bank, cheque or card. It is applied to the oldest invoice first.</p>
+        <p class="text-muted small mt-3 mb-3">Applied to the oldest invoice first. <strong>Cash</strong> needs your cash session open (Cash sessions → Open a session): it is counted into that drawer, like at the till.</p>
         <button class="btn btn-primary btn-lg" type="submit" <?= $selected > 0 ? '' : 'disabled' ?>><i class="bi bi-check-lg"></i> Record the payment</button>
         <a class="btn btn-link" href="<?= url('invoices') ?>">Cancel</a>
       </div></div>

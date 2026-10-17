@@ -111,7 +111,10 @@ return [
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $client->get('registers');
         $client->post('registers/bind', ['id' => $s['register']]);
-        $client->get('pos');
+        // deliveries have their own page since 2026-10-14: the till offers Hold as invoice only when Settings says so (2026-10-17)
+        assert_not_contains('id="hold-invoice-box"', $client->get('pos')->body, 'off by default');
+        (new \App\Models\Setting())->setMany(['till_delivery_invoices' => '1']);
+        assert_contains('id="hold-invoice-box"', $client->get('pos')->body, 'on with the setting');
         $lines = [['product_id' => $s['joy'], 'unit_id' => $s['joyU'], 'qty' => '20']];
         $r = $client->postJson('pos/hold-invoice', ['customer_id' => null, 'price_level' => 'wholesale', 'lines' => $lines, 'invoice_discount' => '', 'notes' => '', 'pin' => '']);
         assert_same(422, $r->status);

@@ -60,6 +60,7 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
 
     <h2 class="h5">Cash and POS</h2>
     <div class="row g-3 mb-4">
+      <div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="till_delivery_invoices" name="till_delivery_invoices" value="1" <?= \App\Core\Settings::get('till_delivery_invoices', '') === '1' ? 'checked' : '' ?>><label class="form-check-label" for="till_delivery_invoices">Delivery invoices on the till<small class="d-block text-muted">Off: deliveries are written on the Invoices page only. On: the till's Hold dialog also offers "Hold as invoice and print" and "Finish" for the owner who delivers from the till.</small></label></div></div>
       <div class="col-md-6">
         <label class="form-label" for="lbp_rounding_step">LBP rounding step</label>
         <select class="form-select" id="lbp_rounding_step" name="lbp_rounding_step">

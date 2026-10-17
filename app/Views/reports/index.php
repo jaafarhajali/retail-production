@@ -1,4 +1,4 @@
-<?php $labels = ['sales' => 'Sales', 'payments' => 'Payments', 'profit' => 'Profit', 'credit' => 'Credit', 'stock' => 'Stock', 'purchases' => 'Purchases', 'returns' => 'Returns', 'waste' => 'Waste', 'sessions' => 'Sessions', 'production' => 'Production', 'products' => 'Products by month', 'aging' => 'Who owes, by age']; ?>
+<?php $labels = ['sales' => 'Sales', 'payments' => 'Payments', 'profit' => 'Profit', 'credit' => 'Credit', 'stock' => 'Stock', 'purchases' => 'Purchases', 'returns' => 'Returns', 'waste' => 'Waste', 'sessions' => 'Sessions', 'production' => 'Production', 'products' => 'Products by month', 'aging' => 'Customer debts']; ?>
 <ul class="nav nav-pills mb-3 gap-1">
   <?php foreach ($available as $t): ?><li class="nav-item"><a class="nav-link <?= $t === $type ? 'active' : '' ?>" href="<?= url('reports', ['type' => $t, 'from' => $from, 'to' => $to]) ?>"><?= $labels[$t] ?></a></li><?php endforeach; ?>
 </ul>

@@ -572,10 +572,12 @@
   // ---- hold / resume
   $('btn-hold').addEventListener('click', function () {
     $('hold-new').hidden = !cart.length;
-    $('hold-invoice-box').hidden = !cart.length;
-    $('hold-invoice-customer').textContent = customer ? customer.name : 'a customer (choose one first)';
-    $('hold-invoice-ok').disabled = !customer;
-    loadHeldInvoices();
+    if ($('hold-invoice-box')) {   // delivery invoices on the till: off unless Settings says so (2026-10-17)
+      $('hold-invoice-box').hidden = !cart.length;
+      $('hold-invoice-customer').textContent = customer ? customer.name : 'a customer (choose one first)';
+      $('hold-invoice-ok').disabled = !customer;
+      loadHeldInvoices();
+    }
     api(P.urls.held).then(function (j) {
       var list = $('hold-list'); list.innerHTML = '';
       j.held.forEach(function (h) {
@@ -593,7 +595,7 @@
   // ---- F3: the delivery invoice. Hold = number + print, nothing else; Finish = what came back, what was paid, the rest on the account.
   function loadHeldInvoices() {
     api(P.urls.heldInvoices).then(function (j) {
-      var list = $('hold-invoices'); list.innerHTML = '';
+      var list = $('hold-invoices'); if (!list) return; list.innerHTML = '';
       j.invoices.forEach(function (s) {
         var row = document.createElement('div'); row.className = 'list-group-item hold-inv';
         row.innerHTML = '<span class="li-main"><b></b><small dir="auto"></small></span><span class="li-meta"></span><span class="hold-inv-actions"><a class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-printer"></i></a><button type="button" class="btn btn-sm btn-primary">Finish</button></span>';
@@ -605,7 +607,7 @@
       if (!j.invoices.length) list.innerHTML = '<div class="empty">Nothing out with the seller.</div>';
     }).catch(function () {});
   }
-  $('hold-invoice-ok').addEventListener('click', function () {
+  if ($('hold-invoice-ok')) $('hold-invoice-ok').addEventListener('click', function () {
     var btn = this; if (!customer) { msg('Choose the customer first', true); return; }
     btn.disabled = true;
     api(P.urls.holdInvoice, { customer_id: customer.id, price_level: level, lines: cartLines(), invoice_discount: $('pay-discount').value, notes: $('pay-note').value, pin: approvedPin || $('pay-pin').value, invoice_type: (document.querySelector('input[name="hold_type"]:checked') || {}).value || 'normal' })

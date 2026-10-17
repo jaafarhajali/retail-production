@@ -2,7 +2,7 @@
 <div class="toolbar">
   <p class="toolbar-note"><i class="bi bi-file-earmark-text"></i><?= count($rows) ?> invoice(s) shown · <strong><?= usd($open) ?></strong> still to be paid on this page. Written at the desk; payments are applied to the oldest invoice first.</p>
   <div class="d-flex gap-2">
-    <a class="btn btn-outline-primary" href="<?= url('reports', ['type' => 'aging']) ?>"><i class="bi bi-hourglass-split"></i> Who owes, by age</a>
+    <a class="btn btn-outline-primary" href="<?= url('reports', ['type' => 'aging']) ?>"><i class="bi bi-hourglass-split"></i> Customer debts</a>
     <a class="btn btn-outline-primary" href="<?= url('invoices/pay', $filters['customer_id'] > 0 ? ['customer_id' => $filters['customer_id']] : []) ?>"><i class="bi bi-cash-coin"></i> Record a payment</a>
     <a class="btn btn-primary" href="<?= url('invoices/new') ?>"><i class="bi bi-plus-lg"></i> New invoice</a>
   </div>

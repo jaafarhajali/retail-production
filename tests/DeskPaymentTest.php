@@ -35,7 +35,7 @@ return [
         Auth::login(TEST_ADMIN_ID);
     },
 
-    'a payment at the desk: USD and LBP at the rate, the method and the reference on the ledger, applied to the oldest invoice; cash is refused' => function () use ($setup): void {
+    'a payment at the desk: USD and LBP at the rate, the method and the reference on the ledger, applied to the oldest invoice; cash needs an open session' => function () use ($setup): void {
         $s = $setup();
         $s['issue']($s['market'], '40');   // $100
         $s['issue']($s['market'], '20');   // $50
@@ -54,11 +54,36 @@ return [
         assert_same(2, (int) Database::pdo()->query("SELECT COUNT(*) FROM audit_log WHERE action = 'payment.received'")->fetchColumn());
         // refused: cash (the till), nothing typed, no customer
         $e = assert_throws(DomainException::class, fn () => $svc->recordPayment($s['market'], '5', '', 'cash', '', '', TEST_ADMIN_ID));
-        assert_contains('collected at the till', $e->getMessage());
+        assert_contains('Open one first', $e->getMessage());
         $e = assert_throws(DomainException::class, fn () => $svc->recordPayment($s['market'], '', '', 'transfer', '', '', TEST_ADMIN_ID));
         assert_contains('Type what was received', $e->getMessage());
         assert_throws(DomainException::class, fn () => $svc->recordPayment(0, '5', '', 'transfer', '', '', TEST_ADMIN_ID));
         assert_same('40.00', (new Customer())->balance($s['market']));
+    },
+
+    'cash on delivery (2026-10-17): recorded at the desk when the owner has a cash session open; it goes into that drawer' => function () use ($setup): void {
+        $s = $setup();
+        $s['issue']($s['shop'], '40');   // $100
+        $svc = new InvoiceService();
+        $e = assert_throws(DomainException::class, fn () => $svc->recordPayment($s['shop'], '30', '', 'cash', '', '', TEST_ADMIN_ID));
+        assert_contains('Open one first', $e->getMessage());
+        $register = (new \App\Models\Register())->create('Laptop');
+        $session = (new \App\Services\CashService())->open($register, TEST_ADMIN_ID, '100', '0');
+        $r = $svc->recordPayment($s['shop'], '30', '', 'cash', '', '', TEST_ADMIN_ID);
+        assert_same(['30.00', '70.00'], [$r['paid_usd'], $r['balance']]);
+        $row = Database::pdo()->query("SELECT amount_usd, session_id FROM customer_ledger WHERE type = 'payment'")->fetch(PDO::FETCH_ASSOC);
+        assert_same(['amount_usd' => '-30.00', 'session_id' => $session], ['amount_usd' => $row['amount_usd'], 'session_id' => (int) $row['session_id']], 'the payment belongs to the session');
+        assert_same(['debt_collection', 'USD', '30.00'], Database::pdo()->query("SELECT type, currency, amount FROM cash_movements WHERE type = 'debt_collection'")->fetch(PDO::FETCH_NUM), 'the cash is in the drawer');
+        assert_same('130.00', (new \App\Models\CashSession())->expected($session)['USD']);
+        assert_same('partly', $svc->outstanding($s['shop'])['items'][0]['status']);
+
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        $form = $client->get('invoices/pay', ['customer_id' => $s['shop']])->body;
+        assert_contains('<option value="cash"', $form);
+        assert_contains('>Card / Whish</option>', $form, 'Whish is a card payment in Lebanon');
+        assert_not_contains('collected at the till', $form);
+        assert_not_contains('Cheque', $form, 'cash and card only (2026-10-17)');
+        assert_not_contains('Bank transfer</option>', $form);
     },
 
     'the statement: opening balance, the rows of the period with a running balance, the closing balance, the open invoices' => function () use ($setup): void {
@@ -118,7 +143,7 @@ return [
             assert_contains($needle, $print, $needle);
         }
         $report = $client->get('reports', ['type' => 'aging'])->body;
-        assert_contains('Who owes, by age', $report);
+        assert_contains('Customer debts', $report);
         assert_contains('Al Amiliya', $report);
         assert_contains('$40.00', $report);
         assert_same(200, $client->get('reports', ['type' => 'aging', 'print' => 1])->status);

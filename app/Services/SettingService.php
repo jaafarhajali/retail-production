@@ -22,6 +22,7 @@ final class SettingService
         'company_mof'    => ['MOF number', 30, false],     // F4: the official invoice
         'company_email'  => ['Email', 120, false],
         'invoice_terms_days' => ['Payment terms (days)', 3, false],   // desk invoices (2026-10-14)
+        'till_delivery_invoices' => ['Delivery invoices on the till', 1, false],   // '1' shows Hold as invoice on the till (2026-10-17)
     ];
 
     public function save(array $input): void
