@@ -103,7 +103,7 @@ final class PartyService
         $limit = Pricing::parse((string) ($in['credit_limit_usd'] ?? ''), true);
         $terms = trim((string) ($in['payment_terms_days'] ?? ''));
         if ($terms !== '' && (!ctype_digit($terms) || (int) $terms > 365)) {
-            throw new \DomainException('Payment terms are a number of days (0 to 365), or empty for the company\'s default.');
+            throw new \DomainException('Days to pay is a number from 0 to 365, or empty for the company\'s default.');
         }
         $f = [
             'name' => $name, 'phone' => trim((string) ($in['phone'] ?? '')) === '' ? null : mb_substr(trim((string) $in['phone']), 0, 30),

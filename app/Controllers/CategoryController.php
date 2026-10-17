@@ -19,7 +19,7 @@ final class CategoryController extends Controller
     public function store(): void
     {
         try {
-            (new CategoryService())->create($this->input('name'), $this->input('color'), $this->input('sort_order'));
+            (new CategoryService())->create($this->input('name'), $this->input('color'), $this->input('sort_order'), isset($_POST['on_till']));
         } catch (\DomainException $e) {
             $this->failBack('categories', [], ['name' => $e->getMessage()]);
         }
@@ -37,7 +37,7 @@ final class CategoryController extends Controller
     {
         $id = $this->inputInt('id');
         try {
-            (new CategoryService())->update($id, $this->input('name'), $this->input('color'), $this->input('sort_order'), isset($_POST['is_active']));
+            (new CategoryService())->update($id, $this->input('name'), $this->input('color'), $this->input('sort_order'), isset($_POST['is_active']), isset($_POST['on_till']));
         } catch (\DomainException $e) {
             $this->failBack('categories/edit', ['id' => $id], ['name' => $e->getMessage()]);
         }

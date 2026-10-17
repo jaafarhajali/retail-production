@@ -19,14 +19,15 @@ final class StockController extends Controller
         $type = $this->query('type');
         $filters = [
             'product_id' => $this->queryInt('product_id'),
-            'type' => in_array($type, ['opening', 'purchase', 'sale', 'sale_void', 'return_restock', 'waste', 'adjustment', 'stocktake', 'production_in', 'production_out'], true) ? $type : '',
+            'type' => isset(StockMovement::LABELS[$type]) ? $type : '',
             'from' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('from')) ? $this->query('from') : '',
             'to' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('to')) ? $this->query('to') : '',
             'kind' => isset(\App\Services\ProductService::KINDS[$this->query('kind')]) ? $this->query('kind') : '',
         ];
         $this->render('stock/index', [
             'pg' => (new StockMovement())->search($filters, max(1, $this->queryInt('page', 1))), 'filters' => $filters,
-            'products' => (new Product())->forPrint($filters['kind'] === '' ? null : $filters['kind']), 'showCost' => Gate::allows('product.view_cost'), 'canAdjust' => Gate::allows('stock.adjust'),
+            'products' => (new StockMovement())->productsMoved($filters['kind']), 'types' => (new StockMovement())->typesUsed(),   // only what really happened (2026-10-18)
+            'kindCounts' => (new Product())->kindCounts(), 'showCost' => Gate::allows('product.view_cost'), 'canAdjust' => Gate::allows('stock.adjust'),
         ], 'Stock movements');
     }
 

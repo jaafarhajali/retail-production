@@ -2,7 +2,7 @@
   <div class="col-lg-8">
     <div class="card"><div class="table-responsive">
       <table class="table align-middle m-0">
-        <thead><tr><th>Order</th><th>Colour</th><th>Name</th><th>Products</th><th>Active</th><th></th></tr></thead>
+        <thead><tr><th>Order</th><th>Colour</th><th>Name</th><th>Products</th><th>Active</th><th>On the till</th><th></th></tr></thead>
         <tbody>
         <?php foreach ($categories as $c): ?>
           <tr>
@@ -11,12 +11,13 @@
             <td dir="auto"><?= e($c['name']) ?></td>
             <td><?= (int) $c['product_count'] ?></td>
             <td><?= (int) $c['is_active'] ? 'yes' : '<span class="text-muted">no</span>' ?></td>
+            <td><?= (int) $c['on_till'] ? '<span class="badge text-bg-success">sold</span>' : '<span class="badge text-bg-light">not sold</span>' ?></td>
             <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="<?= url('categories/edit', ['id' => $c['id']]) ?>">Edit</a>
               <?= bin_button('categories/delete', ['id' => $c['id']], 'Delete ' . $c['name'] . '? This cannot be undone.', (int) $c['product_count'] > 0 ? 'This category still has products. Move them first, or switch it off.' : null) ?></td>
           </tr>
         <?php endforeach; ?>
         <?php if ($categories === []): ?>
-          <tr><td colspan="6" class="text-center text-muted py-4">No categories yet. Create the first one on the right.</td></tr>
+          <tr><td colspan="7" class="text-center text-muted py-4">No categories yet. Create the first one on the right.</td></tr>
         <?php endif; ?>
         </tbody>
       </table>
@@ -40,6 +41,10 @@
             <label class="form-label" for="sort_order">Order</label>
             <input class="form-control" id="sort_order" name="sort_order" inputmode="numeric" value="<?= old('sort_order', '0') ?>">
           </div>
+        </div>
+        <div class="form-check form-switch mb-3">
+          <input class="form-check-input" type="checkbox" role="switch" id="on_till" name="on_till" value="1" <?= old('name') === '' || old('on_till') !== '' ? 'checked' : '' ?>>
+          <label class="form-check-label" for="on_till">Sold on the till<small class="d-block text-muted">Off for ingredients and packaging: they are bought and packed, never sold.</small></label>
         </div>
         <button class="btn btn-primary w-100" type="submit">Create category</button>
       </form>

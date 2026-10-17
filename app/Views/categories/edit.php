@@ -18,7 +18,11 @@
     </div>
     <div class="form-check form-switch mb-3">
       <input class="form-check-input" type="checkbox" role="switch" id="is_active" name="is_active" value="1" <?= (int) $category['is_active'] ? 'checked' : '' ?>>
-      <label class="form-check-label" for="is_active">Active (shown on the POS grid)</label>
+      <label class="form-check-label" for="is_active">Active<small class="d-block text-muted">Off: it cannot be chosen for new products.</small></label>
+    </div>
+    <div class="form-check form-switch mb-3">
+      <input class="form-check-input" type="checkbox" role="switch" id="on_till" name="on_till" value="1" <?= (int) $category['on_till'] ? 'checked' : '' ?>>
+      <label class="form-check-label" for="on_till">Sold on the till<small class="d-block text-muted">Off for ingredients and packaging: they are bought and packed, never sold, so the till does not show them as a tab.</small></label>
     </div>
     <button class="btn btn-primary" type="submit">Save</button>
     <a class="btn btn-link" href="<?= url('categories') ?>">Back to categories</a>

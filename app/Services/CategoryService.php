@@ -18,25 +18,25 @@ final class CategoryService
         $this->categories = new Category();
     }
 
-    public function create(string $name, string $color, string $sortOrder): int
+    public function create(string $name, string $color, string $sortOrder, bool $onTill = true): int
     {
         $name = $this->cleanName($name, 0);
         $color = $this->cleanColor($color);
         $order = $this->cleanOrder($sortOrder);
-        $id = $this->categories->create($name, $color, $order);
-        Audit::log('category.created', 'category', $id, ['name' => $name, 'color' => $color]);
+        $id = $this->categories->create($name, $color, $order, $onTill);
+        Audit::log('category.created', 'category', $id, ['name' => $name, 'color' => $color, 'on_till' => $onTill]);
 
         return $id;
     }
 
-    public function update(int $id, string $name, string $color, string $sortOrder, bool $active): void
+    public function update(int $id, string $name, string $color, string $sortOrder, bool $active, bool $onTill = true): void
     {
         $this->categories->find($id) ?? throw new \DomainException('Category not found.');
         $name = $this->cleanName($name, $id);
         $color = $this->cleanColor($color);
         $order = $this->cleanOrder($sortOrder);
-        $this->categories->update($id, $name, $color, $order, $active);
-        Audit::log('category.updated', 'category', $id, ['name' => $name, 'color' => $color, 'sort_order' => $order, 'is_active' => $active]);
+        $this->categories->update($id, $name, $color, $order, $active, $onTill);
+        Audit::log('category.updated', 'category', $id, ['name' => $name, 'color' => $color, 'sort_order' => $order, 'is_active' => $active, 'on_till' => $onTill]);
     }
 
     public function delete(int $id): void

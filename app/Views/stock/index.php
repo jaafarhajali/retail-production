@@ -2,6 +2,7 @@
   <input type="hidden" name="r" value="stock">
   <ul class="nav nav-pills kind-tabs mb-3">
     <?php foreach (['' => 'Everything', 'finished' => 'Finished products', 'intermediate' => 'Mixes', 'material' => 'Raw materials'] as $k => $label): ?>
+      <?php if ($k === 'intermediate' && (int) $kindCounts[$k] <= 1 && $filters['kind'] !== $k) { continue; }   // one mix: its moves are under Everything, as on Products (2026-10-18) ?>
       <li class="nav-item"><a class="nav-link <?= $filters['kind'] === $k ? 'active' : '' ?>" href="<?= url('stock', $k === '' ? [] : ['kind' => $k]) ?>"><?= $label ?></a></li>
     <?php endforeach; ?>
   </ul>
@@ -10,7 +11,7 @@
     <div><label class="form-label">Product</label><select class="form-select" name="product_id" style="max-width: 18rem"><option value="0">All</option>
       <?php foreach ($products as $p): ?><option value="<?= (int) $p['id'] ?>" <?= (int) $p['id'] === $filters['product_id'] ? 'selected' : '' ?> dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select></div>
     <div><label class="form-label">Type</label><select class="form-select" name="type"><option value="">All</option>
-      <?php foreach (['opening', 'purchase', 'sale', 'sale_void', 'return_restock', 'waste', 'adjustment', 'stocktake', 'production_in', 'production_out'] as $t): ?><option value="<?= $t ?>" <?= $filters['type'] === $t ? 'selected' : '' ?>><?= str_replace('_', ' ', $t) ?></option><?php endforeach; ?></select></div>
+      <?php foreach ($types as $t): ?><option value="<?= $t ?>" <?= $filters['type'] === $t ? 'selected' : '' ?>><?= e(\App\Models\StockMovement::LABELS[$t]) ?></option><?php endforeach; ?></select></div>
     <div><label class="form-label">From</label><input class="form-control" type="date" name="from" value="<?= e($filters['from']) ?>"></div>
     <div><label class="form-label">To</label><input class="form-control" type="date" name="to" value="<?= e($filters['to']) ?>"></div>
     <button class="btn btn-outline-primary" type="submit">Filter</button>
@@ -25,7 +26,7 @@
       <tr>
         <td class="text-nowrap"><?= e(date('d/m/Y H:i', strtotime($m['created_at']))) ?></td>
         <td dir="auto"><?= e($m['product_name']) ?><span class="cell-sub"><code><?= e($m['internal_code']) ?></code></span></td>
-        <td class="text-nowrap"><?= e(ucfirst(str_replace('_', ' ', $m['type']))) ?></td>
+        <td class="text-nowrap"><?= e(\App\Models\StockMovement::LABELS[$m['type']] ?? ucfirst(str_replace('_', ' ', $m['type']))) ?></td>
         <td class="text-end text-nowrap <?= (int) $m['base_qty'] < 0 ? 'text-danger' : 'text-success' ?>"><?= (int) $m['base_qty'] > 0 ? '+' : '' ?><?= number_format((int) $m['base_qty']) ?> <?= e($m['base_unit']) ?></td>
         <td dir="auto"><?= e($m['reason'] ?? '') ?><?= $m['ref_type'] ? ' <span class="text-muted">' . e($m['ref_type'] . ' #' . $m['ref_id']) . '</span>' : '' ?></td>
         <?php if ($showCost): ?><td class="text-end">$<?= e($m['cost_per_base']) ?></td><?php endif; ?>

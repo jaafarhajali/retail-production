@@ -90,10 +90,10 @@ $out('Customers: 2');
 // ---------------------------------------------------------------- categories
 $categories = new Category();
 $cat = [];
-foreach ([['Marshmallow', '#c084a8'], ['Ingredients', '#d8a200'], ['Packaging', '#3fa39a']] as $i => [$name, $color]) {
+foreach ([['Marshmallow', '#c084a8', true], ['Ingredients', '#d8a200', false], ['Packaging', '#3fa39a', false]] as $i => [$name, $color, $onTill]) {   // only Marshmallow is sold on the till (2026-10-18)
     $cat[$name] = $categories->nameExists($name)
         ? (int) Database::pdo()->query('SELECT id FROM categories WHERE name = ' . Database::pdo()->quote($name))->fetchColumn()
-        : $categories->create($name, $color, $i + 1);
+        : $categories->create($name, $color, $i + 1, $onTill);
 }
 
 // ---------------------------------------------------------------- products

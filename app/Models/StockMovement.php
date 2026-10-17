@@ -36,6 +36,30 @@ final class StockMovement extends Model
         $this->execute('UPDATE products SET cost_per_base = :c WHERE id = :p', ['c' => $costPerBase, 'p' => $productId]);
     }
 
+    /** Every kind of movement, in the owner's words (2026-10-18). The Stock page offers only those that happened. */
+    public const LABELS = [
+        'opening' => 'Opening stock', 'purchase' => 'Purchase', 'sale' => 'Sale', 'sale_void' => 'Cancelled sale',
+        'return_restock' => 'Returned to stock', 'waste' => 'Thrown away', 'adjustment' => 'Correction', 'stocktake' => 'Stocktaking',
+        'production_in' => 'Made', 'production_out' => 'Used in production',
+    ];
+
+    /** @return list<string> the movement types that really occurred, in LABELS order */
+    public function typesUsed(): array
+    {
+        $used = array_column($this->fetchAll('SELECT DISTINCT type FROM stock_movements'), 'type');
+
+        return array_values(array_filter(array_keys(self::LABELS), static fn (string $t): bool => in_array($t, $used, true)));
+    }
+
+    /** @return list<array{id: int, name: string}> the products that have stock history, of one kind or all, by name */
+    public function productsMoved(string $kind = ''): array
+    {
+        return $this->fetchAll(
+            'SELECT p.id, p.name FROM products p WHERE EXISTS (SELECT 1 FROM stock_movements m WHERE m.product_id = p.id)' . ($kind !== '' ? ' AND p.kind = :k' : '') . ' ORDER BY p.name',
+            $kind !== '' ? ['k' => $kind] : []
+        );
+    }
+
     public function hasMovements(int $productId): bool
     {
         return (bool) $this->fetchValue('SELECT COUNT(*) FROM stock_movements WHERE product_id = :p', ['p' => $productId]);

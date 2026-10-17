@@ -20,7 +20,7 @@
             </select></div>
           <div class="col-6"><label class="form-label" for="credit_limit_usd">Credit limit (USD)</label><input class="form-control" id="credit_limit_usd" name="credit_limit_usd" inputmode="decimal" placeholder="no limit" value="<?= old('credit_limit_usd', $customer['credit_limit_usd'] ?? '') ?>"></div>
         </div>
-        <div class="mb-3"><label class="form-label" for="payment_terms_days">Payment terms (days)</label><input class="form-control" id="payment_terms_days" name="payment_terms_days" inputmode="numeric" placeholder="company default: <?= (int) (new \App\Services\InvoiceService())->termsDays(null) ?>" value="<?= old('payment_terms_days', $customer['payment_terms_days'] ?? '') ?>"><div class="form-text">A desk invoice is due this many days after its date.</div></div>
+        <div class="mb-3"><label class="form-label" for="payment_terms_days">Days to pay</label><input class="form-control" id="payment_terms_days" name="payment_terms_days" inputmode="numeric" placeholder="<?= (int) (new \App\Services\InvoiceService())->termsDays(null) ?> (the company default)" value="<?= old('payment_terms_days', $customer['payment_terms_days'] ?? '') ?>"><div class="form-text">How many days after an invoice this customer has to pay it. Empty: the company default, set on Settings.</div></div>
         <div class="mb-3"><label class="form-label" for="notes">Notes</label><textarea class="form-control" id="notes" name="notes" dir="auto" rows="2"><?= old('notes', $customer['notes'] ?? '') ?></textarea></div>
         <?php if ($customer !== null): ?>
           <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" <?= (int) $customer['is_active'] ? 'checked' : '' ?>><label class="form-check-label" for="is_active">Active</label></div>
@@ -57,7 +57,7 @@
           <div class="col-5"><label class="form-label" for="adjust-note">Reason</label><input class="form-control" id="adjust-note" name="note" dir="auto" placeholder="e.g. old debt" required></div>
           <div class="col-3"><button class="btn btn-outline-primary w-100" type="submit">Adjust</button></div>
         </form>
-        <div class="form-text mt-2">+ adds to what they owe, − reduces it. Cash they pay back is collected at the till (Customer → Collect debt), so it goes into the drawer.</div>
+        <div class="form-text mt-2">+ adds to what they owe, − reduces it. Money they pay back is recorded on Invoices → Record a payment (cash into your open session, or card), never here.</div>
       </div></div>
     <?php endif; ?>
   </div>
