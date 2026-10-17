@@ -108,6 +108,7 @@ return [
         $id = (int) Database::pdo()->query("SELECT id FROM sales WHERE origin = 'desk'")->fetchColumn();
         assert_same('192.50', Database::pdo()->query("SELECT total_usd FROM sales WHERE id = {$id}")->fetchColumn(), '3 × $67.50 − $10');
         $view = $client->get('sales/view', ['id' => $id])->body;
+        assert_not_contains('Change given', $view, 'a desk invoice has no drawer, so no change row (2026-10-17)');
         assert_contains('Desk invoice', $view);
         assert_contains('Due', $view);
         assert_contains(date('d/m/Y', strtotime('+30 days')), $view);

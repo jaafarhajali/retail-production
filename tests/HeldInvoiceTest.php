@@ -135,6 +135,7 @@ return [
         assert_same(['50.00', '5.00', '45.00', '45.00', '0.00'], [$f['original_usd'], $f['returned_usd'], $f['net_usd'], $f['paid_usd'], $f['balance_usd']]);
         assert_same([], json_decode($client->get('pos/held-invoices')->body, true)['invoices']);
         $page = $client->get('sales/view', ['id' => $j['id']])->body;
+        assert_contains('Change given', $page, 'a till sale keeps its change row');
         assert_contains('Came back', $page);
         assert_contains('$5.00', $page);
         $page = $client->get('customers/edit', ['id' => $s['customer']])->body;
