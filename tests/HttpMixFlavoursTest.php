@@ -214,6 +214,11 @@ return [
         assert_true($at('>Jar 100g</option>') < $at('<optgroup label="Ingredients">') && $at('>stickers</option>') < $at('<optgroup label="Ingredients">'), 'the jar and the stickers are under Packaging');
         assert_true($at('<optgroup label="Ingredients">') < $at('>Cocoa powder</option>') && $at('>Cocoa powder</option>') < $at('<optgroup label="No category">'), 'the cocoa is under Ingredients');
         assert_true($at('<optgroup label="No category">') < $at('>Sugar</option>'), 'the sugar is under No category');
+        // the purchase form groups its products the same way (2026-10-17)
+        $buy = $client->get('purchases/create')->body;
+        $at2 = static fn (string $s): int => (int) strpos($buy, $s);
+        assert_true($at2('<optgroup label="Packaging">') > 0 && $at2('<optgroup label="Packaging">') < $at2('<optgroup label="Ingredients">') && $at2('<optgroup label="Ingredients">') < $at2('<optgroup label="No category">'), 'purchases: packaging, ingredients, no category');
+        assert_true($at2('>Jar 100g (P-') < $at2('<optgroup label="Ingredients">') && $at2('<optgroup label="Ingredients">') < $at2('>Cocoa powder (P-'), 'each under its group');
         assert_not_contains('Marshmallow mix</option>', $page, 'the mix is not offered as packaging');
         assert_not_contains('(mix)', $page);
 

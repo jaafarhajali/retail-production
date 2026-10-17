@@ -35,7 +35,8 @@ foreach ($unitsById as $pid => $units) {
 <template id="line-tpl">
   <tr>
     <td><select class="form-select form-select-sm" name="lines[IDX][product_id]" required><option value="">— choose —</option>
-      <?php foreach ($products as $p): ?><option value="<?= (int) $p['id'] ?>" dir="auto"><?= e($p['name']) ?> (<?= e($p['internal_code']) ?>)</option><?php endforeach; ?></select></td>
+      <?php foreach (\App\Services\ProductService::groupedByCategory($products) as $groupLabel => $inGroup): // packaging first, then the ingredients (2026-10-17) ?><optgroup label="<?= e($groupLabel) ?>">
+        <?php foreach ($inGroup as $p): ?><option value="<?= (int) $p['id'] ?>" dir="auto"><?= e($p['name']) ?> (<?= e($p['internal_code']) ?>)</option><?php endforeach; ?></optgroup><?php endforeach; ?></select></td>
     <td><select class="form-select form-select-sm" name="lines[IDX][unit_id]"></select></td>
     <td><input class="form-control form-control-sm" name="lines[IDX][qty]" inputmode="decimal" required></td>
     <td><input class="form-control form-control-sm" name="lines[IDX][unit_cost]" inputmode="decimal" required></td>

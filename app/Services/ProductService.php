@@ -452,6 +452,32 @@ final class ProductService
 
     /** How the page calls the three base units. */
     public const HOW_SOLD = ['piece' => 'by piece', 'g' => 'by weight', 'ml' => 'by volume'];
+
+    /**
+     * Products grouped for a long <select> (2026-10-16/17: the packaging per piece, the purchase lines): by the
+     * owner's category, groups made mostly of items counted by piece (jars, boxes, labels) first, then the owner's
+     * category order, "No category" last.
+     *
+     * @param list<array> $products rows with category_name and base_unit
+     * @return array<string, list<array>> label => products
+     */
+    public static function groupedByCategory(array $products): array
+    {
+        $groups = [];
+        foreach ($products as $p) {
+            $groups[(string) ($p['category_name'] ?? '')][] = $p;
+        }
+        $order = array_keys($groups);
+        $byPiece = static fn (array $g): int => (int) (count(array_filter($g, static fn (array $m): bool => $m['base_unit'] === 'piece')) * 2 >= count($g));
+        $rank = static fn (string $k) => [$k === '', -$byPiece($groups[$k]), array_search($k, $order, true)];
+        uksort($groups, static fn (string $a, string $b): int => $rank($a) <=> $rank($b));
+        $out = [];
+        foreach ($groups as $k => $g) {
+            $out[$k === '' ? 'No category' : $k] = $g;
+        }
+
+        return $out;
+    }
     /** The first unit of a product becomes its default sale and purchase unit. */
     public function addUnit(int $productId, string $name, string $factor, bool $allowsFraction, bool $isDisplay): int
     {

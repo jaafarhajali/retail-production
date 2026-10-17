@@ -298,20 +298,8 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
       <template id="packaging-tpl">
         <tr>
           <td><select class="form-select form-select-sm" name="packaging[IDX][material_id]" <?= $dis ?>><option value="">— choose —</option>
-            <?php
-            // Grouped by the material's category (2026-10-16): the owner decides what is packaging and what is an ingredient.
-            // Groups made mostly of items counted by piece (boxes, labels, jars) come first, then the owner's category order; "No category" last.
-            $packGroups = [];
-            foreach ($packMaterials as $m) {
-                $packGroups[$m['category_name'] ?? ''][] = $m;
-            }
-            uksort($packGroups, static function (string $a, string $b) use ($packGroups): int {
-                $byPiece = static fn (array $g): int => (int) (count(array_filter($g, static fn (array $m): bool => $m['base_unit'] === 'piece')) * 2 >= count($g));
-                return [$a === '', $byPiece($packGroups[$b]), array_search($a, array_keys($packGroups), true)] <=> [$b === '', $byPiece($packGroups[$a]), array_search($b, array_keys($packGroups), true)];
-            });
-            ?>
-            <?php foreach ($packGroups as $groupLabel => $inGroup): ?>
-              <optgroup label="<?= e($groupLabel === '' ? 'No category' : $groupLabel) ?>">
+            <?php foreach (ProductService::groupedByCategory($packMaterials) as $groupLabel => $inGroup): // packaging first, then what is added at packing ?>
+              <optgroup label="<?= e($groupLabel) ?>">
                 <?php foreach ($inGroup as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(\App\Services\ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?>
               </optgroup>
             <?php endforeach; ?></select></td>
