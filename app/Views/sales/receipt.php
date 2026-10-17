@@ -8,7 +8,7 @@
   <div class="rule"></div>
   <?php if ($copy): ?><div class="c big">*** COPY ***</div><?php endif; ?>
   <?php if ($s['status'] === 'voided'): ?><div class="c big">*** VOIDED ***</div><?php endif; ?>
-  <?php if ($s['status'] === 'on_hold'): ?><div class="c big">DELIVERY NOTE</div><div class="c">Not paid yet · goods out with the seller</div><?php endif; ?>
+  <?php if ($s['status'] === 'on_hold'): ?><div class="c big"><?= ($s['invoice_type'] ?? 'normal') === 'official' ? 'OFFICIAL INVOICE' : 'REGULAR INVOICE' ?> · ON HOLD</div><div class="c">Not paid yet · goods out with the seller</div><?php endif; ?>
   <table>
     <tr><td>Invoice</td><td class="r"><b><?= e($s['invoice_no']) ?></b></td></tr>
     <tr><td>Date</td><td class="r"><?= e(date('d/m/Y H:i', strtotime($s['created_at']))) ?></td></tr>

@@ -22,7 +22,7 @@
     <tbody>
     <?php foreach ($rows as $s): ?>
       <tr>
-        <td class="text-nowrap"><code><?= e($s['invoice_no']) ?></code><?= ($s['invoice_type'] ?? 'normal') === 'official' ? ' <span class="badge text-bg-dark">official</span>' : '' ?></td>
+        <td class="text-nowrap"><code><?= e($s['invoice_no']) ?></code> <?= ($s['invoice_type'] ?? 'normal') === 'official' ? '<span class="badge text-bg-dark">Official invoice</span>' : '<span class="badge text-bg-light">Regular invoice</span>' ?></td>
         <td class="text-nowrap"><?= e(date('d/m/Y', strtotime($s['created_at']))) ?></td>
         <td dir="auto"><?= e($s['customer_name'] ?? '') ?></td>
         <td class="text-nowrap <?= $s['pay_status'] === 'overdue' ? 'text-danger fw-semibold' : '' ?>"><?= $s['due_date'] ? e(date('d/m/Y', strtotime($s['due_date']))) : '' ?></td>
@@ -30,7 +30,7 @@
         <td class="text-end"><?= usd($s['paid']) ?></td>
         <td class="text-end <?= (float) $s['remaining'] > 0 ? 'fw-semibold' : '' ?>"><?= usd($s['remaining']) ?></td>
         <td><span class="badge <?= $badge[$s['pay_status']] ?>"><?= $label[$s['pay_status']] ?></span></td>
-        <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="<?= url('sales/print', ['id' => $s['id'], 'type' => 'official']) ?>" target="_blank" title="Print the invoice"><i class="bi bi-printer"></i></a> <a class="btn btn-sm btn-outline-primary" href="<?= url('sales/view', ['id' => $s['id']]) ?>">Open</a></td>
+        <td class="text-end text-nowrap"><a class="btn btn-sm btn-outline-secondary" href="<?= url('sales/print', ['id' => $s['id']]) ?>" target="_blank" title="<?= ($s['invoice_type'] ?? 'normal') === 'official' ? 'Print the official invoice' : 'Print the regular invoice' ?>"><i class="bi bi-printer"></i></a> <a class="btn btn-sm btn-outline-primary" href="<?= url('sales/view', ['id' => $s['id']]) ?>">Open</a></td>
       </tr>
     <?php endforeach; ?>
     <?php if ($rows === []): ?><tr><td colspan="9" class="empty">No invoices here. Press New invoice to write one for a customer.</td></tr><?php endif; ?>

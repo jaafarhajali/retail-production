@@ -1,5 +1,5 @@
 <?php
-/** The normal invoice (F4): the "Invoice & Delivery Note" the seller carries, after the owner's paper form, without the delivery charge. */
+/** The regular invoice (F4): the one the seller carries, after the owner's paper form, without the delivery charge. Called "Regular invoice" everywhere since 2026-10-17. */
 $s = $sale;
 ?>
 <div class="inv inv-note">
@@ -9,7 +9,7 @@ $s = $sale;
       <?php if (setting('company_mof') !== ''): ?><div class="inv-mof">MOF: <?= e(setting('company_mof')) ?></div><?php endif; ?>
     </div>
     <div class="inv-no">№ <b><?= e($s['invoice_no']) ?></b></div>
-    <div class="inv-note-title">INVOICE<br><small>&amp; Delivery Note</small></div>
+    <div class="inv-note-title">INVOICE<br><small>Regular Invoice</small></div>
   </header>
   <?php if ($s['status'] === 'on_hold'): ?><div class="inv-flag">Not paid yet · goods out with the seller</div><?php endif; ?>
   <?php if ($s['status'] === 'voided'): ?><div class="inv-flag">VOIDED</div><?php endif; ?>

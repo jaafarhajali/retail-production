@@ -69,7 +69,7 @@ return [
         assert_contains('$65.00', $page);
         // the same sale can also be printed as a delivery note, and the other way round
         $note = $client->get('sales/print', ['id' => $r['id'], 'type' => 'normal'])->body;
-        assert_contains('Delivery Note', $note);
+        assert_contains('Regular Invoice', $note);
         assert_contains('Shipping full address', $note);
         assert_not_contains('Due Date', $note);
     },
@@ -82,13 +82,13 @@ return [
         assert_same('normal', Database::pdo()->query("SELECT invoice_type FROM sales WHERE id = {$r['id']}")->fetchColumn());
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $page = $client->get('sales/print', ['id' => $r['id']])->body;
-        foreach (['INVOICE', 'Delivery Note', $r['invoice_no'], 'Invoice to', '07/225999', 'Location', 'Shipping full address', 'Marshmallow Stick', '$0.80', '$8.00', 'Sub Total', 'MOF: 3900717'] as $needle) {
+        foreach (['INVOICE', 'Regular Invoice', $r['invoice_no'], 'Invoice to', '07/225999', 'Location', 'Shipping full address', 'Marshmallow Stick', '$0.80', '$8.00', 'Sub Total', 'MOF: 3900717'] as $needle) {
             assert_contains($needle, $page, $needle);
         }
         assert_not_contains('Delivery charge', $page);
         $view = $client->get('sales/view', ['id' => $r['id']])->body;
         assert_contains('Official invoice', $view);
-        assert_contains('Delivery note', $view);
+        assert_contains('Regular invoice', $view);
     },
 
     'the Settings page saves the MOF number and the email; the till passes the type chosen on Hold' => function () use ($setup): void {

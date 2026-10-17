@@ -597,7 +597,7 @@
       j.invoices.forEach(function (s) {
         var row = document.createElement('div'); row.className = 'list-group-item hold-inv';
         row.innerHTML = '<span class="li-main"><b></b><small dir="auto"></small></span><span class="li-meta"></span><span class="hold-inv-actions"><a class="btn btn-sm btn-outline-secondary" target="_blank"><i class="bi bi-printer"></i></a><button type="button" class="btn btn-sm btn-primary">Finish</button></span>';
-        row.querySelector('b').textContent = s.invoice_no + ' · ' + (s.customer || 'Walk-in'); row.querySelector('small').textContent = (s.type === 'official' ? 'official invoice · ' : '') + 'held ' + s.held_at + ' by ' + s.by;
+        row.querySelector('b').textContent = s.invoice_no + ' · ' + (s.customer || 'Walk-in'); row.querySelector('small').textContent = (s.type === 'official' ? 'Official invoice' : 'Regular invoice') + ' · held ' + s.held_at + ' by ' + s.by;
         row.querySelector('.li-meta').textContent = money(s.total); row.querySelector('a').href = s.receipt + '&auto=1';
         row.querySelector('button').addEventListener('click', function () { modals['m-hold'].hide(); settleOpen(s.id); });
         list.appendChild(row);

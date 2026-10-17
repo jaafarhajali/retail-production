@@ -42,7 +42,7 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
             <label class="form-label d-block">Print as</label>
             <div class="btn-group" role="group">
               <input type="radio" class="btn-check" name="invoice_type" id="type-official" value="official" <?= ($stash['invoice_type'] ?? 'official') === 'official' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="type-official">Official invoice</label>
-              <input type="radio" class="btn-check" name="invoice_type" id="type-normal" value="normal" <?= ($stash['invoice_type'] ?? '') === 'normal' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="type-normal">Delivery note</label>
+              <input type="radio" class="btn-check" name="invoice_type" id="type-normal" value="normal" <?= ($stash['invoice_type'] ?? '') === 'normal' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="type-normal">Regular invoice</label>
             </div>
           </div>
         </div>

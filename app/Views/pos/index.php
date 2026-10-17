@@ -118,7 +118,7 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
         <div><label class="form-label" for="pay-note">Note</label><input class="form-control" id="pay-note" dir="auto"></div>
         <div class="mt-2"><span class="form-label d-block">Invoice</span>
           <div class="inv-type" role="group" aria-label="Invoice type">
-            <input type="radio" class="btn-check" name="pay_type" id="pay-type-normal" value="normal" checked><label class="btn btn-outline-light" for="pay-type-normal">Receipt / delivery note</label>
+            <input type="radio" class="btn-check" name="pay_type" id="pay-type-normal" value="normal" checked><label class="btn btn-outline-light" for="pay-type-normal">Regular invoice</label>
             <input type="radio" class="btn-check" name="pay_type" id="pay-type-official" value="official"><label class="btn btn-outline-light" for="pay-type-official">Official invoice</label>
           </div></div>
       </div>
@@ -173,7 +173,7 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
       <div class="hold-title">Delivery invoice</div>
       <p class="hold-hint" id="hold-invoice-hint">The cart becomes a numbered invoice for <b id="hold-invoice-customer" dir="auto"></b>, printed, and goes out with the seller. Nothing is paid and no stock moves until you finish it.</p>
       <div class="inv-type mb-2" role="group" aria-label="Invoice type">
-        <input type="radio" class="btn-check" name="hold_type" id="hold-type-normal" value="normal" checked><label class="btn btn-outline-light" for="hold-type-normal">Delivery note</label>
+        <input type="radio" class="btn-check" name="hold_type" id="hold-type-normal" value="normal" checked><label class="btn btn-outline-light" for="hold-type-normal">Regular invoice</label>
         <input type="radio" class="btn-check" name="hold_type" id="hold-type-official" value="official"><label class="btn btn-outline-light" for="hold-type-official">Official invoice</label>
       </div>
       <button class="pos-btn primary w-100" id="hold-invoice-ok"><i class="bi bi-receipt"></i> Hold as invoice and print</button>

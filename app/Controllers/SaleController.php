@@ -66,7 +66,7 @@ final class SaleController extends Controller
             ? ['usd' => $onCredit, 'balance' => (new \App\Models\Customer())->balanceAfterSale((int) $sale['customer_id'], (int) $sale['id'])]
             : null;
         View::render($type === 'official' ? 'sales/invoice' : 'sales/delivery-note', [
-            'pageTitle' => ($type === 'official' ? 'Invoice ' : 'Delivery note ') . $sale['invoice_no'], 'sale' => $sale, 'items' => $items, 'barcodes' => $barcodes, 'credit' => $credit,
+            'pageTitle' => ($type === 'official' ? 'Official invoice ' : 'Regular invoice ') . $sale['invoice_no'], 'sale' => $sale, 'items' => $items, 'barcodes' => $barcodes, 'credit' => $credit,
             'customer' => $sale['customer_id'] === null ? null : (new \App\Models\Customer())->find((int) $sale['customer_id']), 'dueDate' => $sale['due_date'] ?? (new \App\Services\InvoiceService())->dueDate($sale['customer_id'] === null ? null : (new \App\Models\Customer())->find((int) $sale['customer_id']), '', $sale['created_at']), 'auto' => $this->query('auto') === '1',
         ], 'layouts/print');
     }

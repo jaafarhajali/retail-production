@@ -119,7 +119,7 @@ return [
         assert_same(200, $r->status, $r->body);
         $j = json_decode($r->body, true);
         assert_same('INV-000001', $j['invoice_no']);
-        assert_contains('DELIVERY NOTE', $client->get('sales/receipt', ['id' => $j['id']])->body);
+        assert_contains('REGULAR INVOICE · ON HOLD', $client->get('sales/receipt', ['id' => $j['id']])->body);
         assert_contains('on hold', $client->get('sales')->body);
         $held = json_decode($client->get('pos/held-invoices')->body, true)['invoices'];
         assert_same(['INV-000001', 'Spinneys Saida', '50.00'], [$held[0]['invoice_no'], $held[0]['customer'], $held[0]['total']]);

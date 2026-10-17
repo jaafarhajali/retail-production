@@ -23,7 +23,7 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
       <div class="col-md-6">
         <label class="form-label" for="company_mof">MOF number</label>
         <input class="form-control" id="company_mof" name="company_mof" maxlength="30" value="<?= $field('company_mof') ?>">
-        <div class="form-text">Printed on the official invoice and the delivery note.</div>
+        <div class="form-text">Printed on the regular and the official invoice.</div>
       </div>
       <div class="col-md-6">
         <label class="form-label" for="company_email">Email</label>
