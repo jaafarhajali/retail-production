@@ -47,6 +47,10 @@ return [
         assert_same($before['products'], $count('products'));
         // the factory seed makes no sale and opens no session: the numbering itself is back at 1
         assert_same([1, 1], array_map('intval', Database::pdo()->query("SELECT next_value FROM counters WHERE name IN ('invoice', 'session') ORDER BY name")->fetchAll(PDO::FETCH_COLUMN)));
+        // every counter is still there, the factory's too: Make and Pack failed with "Unknown counter 'production'" (2026-10-18)
+        $counters = Database::pdo()->query("SELECT name, next_value FROM counters WHERE name <> 'product' ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
+        assert_same(['count', 'invoice', 'packing', 'production', 'purchase', 'return', 'session', 'z'], array_keys($counters));
+        assert_same([1], array_values(array_unique(array_map('intval', $counters))));
         assert_same('P-000001', Database::pdo()->query('SELECT MIN(internal_code) FROM products')->fetchColumn());
 
         // Kept: people, PIN, registers and their device links, settings.

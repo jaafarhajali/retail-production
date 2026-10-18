@@ -46,7 +46,8 @@ $madeRows = $rows('made');
         <label class="form-label" for="notes">Notes</label>
         <input class="form-control" id="notes" name="notes" dir="auto" maxlength="255" value="<?= old('notes') ?>" placeholder="optional">
       </div></div>
-      <button class="btn btn-primary btn-lg" type="submit" id="pack-ok" disabled><i class="bi bi-check-lg"></i> Confirm: it is packed</button>
+      <input type="hidden" name="confirm_gap" id="confirm-gap" value="">
+      <button class="btn btn-primary btn-lg" type="submit" id="pack-ok" disabled><i class="bi bi-check-lg"></i> <span id="pack-ok-label">Confirm: it is packed</span></button>
       <a class="btn btn-link" href="<?= url('production') ?>">Cancel</a>
     </div>
     <div class="col-lg-5">
@@ -137,6 +138,16 @@ $madeRows = $rows('made');
   function cell(tr, i, text, cls) { tr.children[i].textContent = text; if (cls) tr.children[i].className = cls; }
   // What the products hold (2026-10-18): each product's marshmallow per piece × the pieces typed; it fills "used" on the
   // mix line until someone types there, and says when a product has no weight on its page.
+  // A gap over 5% (2026-10-18): the button says "Confirm anyway", and its first click only asks for a second one
+  var gapOn = false, gapArmed = false;
+  function gapState(on) {
+    gapOn = on; if (!on) { gapArmed = false; }
+    document.getElementById('confirm-gap').value = on && gapArmed ? '1' : '';
+    document.getElementById('pack-ok-label').textContent = !on ? 'Confirm: it is packed' : (gapArmed ? 'Click again to confirm anyway' : 'Confirm anyway');
+  }
+  form.addEventListener('submit', function (ev) {
+    if (gapOn && !gapArmed) { ev.preventDefault(); ev.stopPropagation(); gapArmed = true; gapState(true); document.getElementById('preview-gap').scrollIntoView({ block: 'center' }); }   // stopped here: the page's submit-once guard must not lock the button
+  });
   function kgText(g) { return g >= 1000 ? (Math.round(g) / 1000).toLocaleString('en-US', { maximumFractionDigits: 3 }) + ' kg' : Math.round(g) + ' g'; }
   function updateHeld() {
     var grams = 0, unknown = [];
@@ -188,8 +199,11 @@ $madeRows = $rows('made');
           var cost = document.getElementById('preview-cost'); if (cost && showCost) cost.textContent = money(res.j.cost);
           var note = document.getElementById('preview-note'); if (note && showCost) note.textContent = res.j.by_value ? 'The cost is shared between the products in proportion to their selling price, so a $6 product takes twice the cost of a $3 one.' : 'No product has a price yet, so the cost is shared per piece.';
           var gap = document.getElementById('preview-gap'); gap.hidden = !res.j.mismatch; gap.textContent = res.j.mismatch || '';
-          shortBox.hidden = res.j.short.length === 0; shortBox.textContent = res.j.short.length ? 'Not enough in stock: ' + res.j.short.join('; ') + '. Make or buy the missing part first.' : '';
-          document.getElementById('pack-ok').disabled = res.j.short.length > 0;
+          // more than the mix in stock: a hard stop, shown like a shortage (2026-10-18)
+          var stop = res.j.over || (res.j.short.length ? 'Not enough in stock: ' + res.j.short.join('; ') + '. Make or buy the missing part first.' : '');
+          shortBox.hidden = stop === ''; shortBox.textContent = stop;
+          document.getElementById('pack-ok').disabled = stop !== '';
+          gapState(!!res.j.mismatch);
         }).catch(function () {});
     }, 250);
   }

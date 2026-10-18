@@ -73,6 +73,8 @@ try {
 $out('   ' . basename($zip) . ' in storage/backups: the old data is in there.');
 
 $out('2. Empty the tables');
+// Every counter the migrations made is put back, the factory's (production, packing) and any added later, not a fixed list.
+$counterNames = array_values(array_unique([...['invoice', 'session', 'z', 'return', 'purchase', 'count'], ...$pdo->query("SELECT name FROM counters WHERE name <> 'product'")->fetchAll(PDO::FETCH_COLUMN)]));
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
 try {
     foreach ($wipe as $t) {
@@ -82,7 +84,7 @@ try {
         $pdo->exec('UPDATE products SET stock_base = 0');
     }
     // Numbering starts again: INV-000001, S-000001... Product codes go on unless products were wiped too.
-    $pdo->exec("INSERT INTO counters (name, next_value) VALUES ('invoice', 1), ('session', 1), ('z', 1), ('return', 1), ('purchase', 1), ('count', 1), ('product', " . ($keepProducts ? (int) $pdo->query('SELECT COALESCE(MAX(id), 0) + 1 FROM products')->fetchColumn() : 1) . ')'
+    $pdo->exec('INSERT INTO counters (name, next_value) VALUES ' . implode(', ', array_map(static fn (string $n): string => '(' . $pdo->quote($n) . ', 1)', $counterNames)) . ", ('product', " . ($keepProducts ? (int) $pdo->query('SELECT COALESCE(MAX(id), 0) + 1 FROM products')->fetchColumn() : 1) . ')'
         . ' ON DUPLICATE KEY UPDATE next_value = VALUES(next_value)');
 } finally {
     $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');

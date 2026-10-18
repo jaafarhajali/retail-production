@@ -142,7 +142,7 @@ return [
         assert_contains('twice', $e->getMessage());
     },
 
-    'what the products hold: each one\'s marshmallow per piece added up and compared with the mix used; a gap over 5% is pointed out, never refused' => function () use ($kitchen, $use): void {
+    'what the products hold: each one\'s marshmallow per piece added up and compared with the mix used; a gap over 5% needs a second click; more than the pot holds is refused' => function () use ($kitchen, $use): void {
         $k = $kitchen();
         $db = \App\Core\Database::pdo();
         $db->exec('UPDATE products SET fill_base = 100 WHERE id IN (' . $k['joy']['id'] . ', ' . $k['gold']['id'] . ')');   // Joy 100g and Gold 100g hold 100 g each
@@ -151,8 +151,19 @@ return [
         assert_same([3000, '3 kg', [], null], [$p['held'], $p['held_text'], $p['unknown'], $p['mismatch']], '30 × 100 g = 3 kg: it agrees');
         $p = $svc->preview([$use($k['mix'], '3.1')], [$use($k['joy'], '20'), $use($k['gold'], '10')]);
         assert_same(null, $p['mismatch'], '100 g of crumbs is within 5%');
+        $p = $svc->preview([$use($k['mix'], '3')], [$use($k['joy'], '30'), $use($k['gold'], '10')]);
+        assert_same(['You used 3 kg of mix but these products hold 4 kg: check the numbers.', null], [$p['mismatch'], $p['over']], '4 kg from the 5 kg in stock: possible, so a warning');
+        // more than the 5 kg in stock cannot have been packed, whatever was typed: a hard stop, even confirmed
         $p = $svc->preview([$use($k['mix'], '3')], [$use($k['joy'], '200'), $use($k['gold'], '70')]);
-        assert_same('You used 3 kg of mix but these products hold 27 kg: check the numbers.', $p['mismatch']);
+        assert_same(['These products hold 27 kg but only 5 kg of mix is in stock. Make more first.', null], [$p['over'], $p['mismatch']]);
+        $e = assert_throws(DomainException::class, fn () => $svc->pack([$use($k['mix'], '3')], [$use($k['joy'], '200'), $use($k['gold'], '70')], '', TEST_ADMIN_ID, true));
+        assert_contains('only 5 kg of mix is in stock', $e->getMessage());
+        assert_same(0, (int) $db->query('SELECT COUNT(*) FROM packings')->fetchColumn(), 'nothing written');
+        // such a gap is packed only when confirmed on purpose (the page's second click)
+        $e = assert_throws(DomainException::class, fn () => $svc->pack([$use($k['mix'], '1')], [$use($k['joy'], '20')], '', TEST_ADMIN_ID));
+        assert_contains('press Confirm anyway', $e->getMessage());
+        $r = $svc->pack([$use($k['mix'], '1')], [$use($k['joy'], '15')], '', TEST_ADMIN_ID, true);
+        assert_true($r['id'] > 0, '1 kg for 1.5 kg of products, confirmed: packed');
         $r = $svc->pack([$use($k['mix'], '3')], [$use($k['joy'], '20'), $use($k['gold'], '10')], '', TEST_ADMIN_ID);
         assert_true($r['id'] > 0, 'packed');
         // a product with no weight on its page: named, and no gap is claimed
@@ -164,8 +175,24 @@ return [
         assert_contains('data-grams="100" dir="auto">Joy 100g', $page);
         assert_contains('id="pack-held"', $page);
         assert_contains('id="preview-gap"', $page);
-        $j = json_decode($client->postJson('packing/preview', ['used' => [$use($k['mix'], '1')], 'made' => [$use($k['joy'], '30')]])->body, true);
-        assert_same(['3 kg', 'You used 1 kg of mix but these products hold 3 kg: check the numbers.'], [$j['held_text'], $j['mismatch']]);
+        // 1 kg of mix is left now: 10 Joy (1 kg) against 500 g typed is a warning, 30 Joy (3 kg) a stop
+        $j = json_decode($client->postJson('packing/preview', ['used' => [$use($k['mix'], '0.5')], 'made' => [$use($k['joy'], '10')]])->body, true);
+        assert_same(['1 kg', 'You used 500 g of mix but these products hold 1 kg: check the numbers.', null], [$j['held_text'], $j['mismatch'], $j['over']]);
+        $j = json_decode($client->postJson('packing/preview', ['used' => [$use($k['mix'], '0.5')], 'made' => [$use($k['joy'], '30')]])->body, true);
+        assert_same(['These products hold 3 kg but only 1 kg of mix is in stock. Make more first.', null], [$j['over'], $j['mismatch']]);
+        assert_contains('name="confirm_gap"', $page);
+        // the form: refused without the confirmation, packed with it
+        $post = static fn (array $extra) => $client->post('packing/store', $extra + ['used[0][product_id]' => (string) $k['mix']['id'], 'used[0][qty]' => '0.5', 'used[0][unit_id]' => (string) $k['mix']['units'][0],
+            'made[0][product_id]' => (string) $k['joy']['id'], 'made[0][qty]' => '10', 'made[0][unit_id]' => (string) $k['joy']['units'][0], 'notes' => '']);
+        $before = (int) \App\Core\Database::pdo()->query('SELECT COUNT(*) FROM packings')->fetchColumn();
+        $post([]);
+        assert_same($before, (int) \App\Core\Database::pdo()->query('SELECT COUNT(*) FROM packings')->fetchColumn(), 'not packed without the confirmation');
+        assert_contains('press Confirm anyway', $client->get('packing/new')->body);
+        $post(['confirm_gap' => '1', 'made[0][qty]' => '30']);
+        assert_same($before, (int) \App\Core\Database::pdo()->query('SELECT COUNT(*) FROM packings')->fetchColumn(), 'more than the pot holds: refused even when confirmed');
+        assert_contains('only 1 kg of mix is in stock', $client->get('packing/new')->body);
+        $post(['confirm_gap' => '1']);
+        assert_same($before + 1, (int) \App\Core\Database::pdo()->query('SELECT COUNT(*) FROM packings')->fetchColumn(), 'packed when confirmed');
     },
 
     'the pages: Pack with its preview, the packing in the production list and its detail, the report and the dashboard count it; a cashier may not' => function () use ($kitchen, $use): void {

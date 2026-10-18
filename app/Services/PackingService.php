@@ -116,8 +116,13 @@ final class PackingService
             }
         }
         $mixUsed = array_sum(array_map(static fn (array $u): int => $u['kind'] === 'intermediate' ? (int) $u['qty_base'] : 0, $usedLines));
+        $mixStock = array_sum(array_map(static fn (array $u): int => $u['kind'] === 'intermediate' ? (int) $u['stock_base'] : 0, $usedLines));
         $mismatch = null;
-        if ($unknown === [] && $held > 0 && abs($mixUsed - $held) > 0.05 * max($mixUsed, $held)) {
+        $over = null;
+        if ($unknown === [] && $held > $mixStock) {
+            // more than the pot holds cannot have been packed, whatever was typed: a hard stop, no second click (2026-10-18)
+            $over = 'These products hold ' . ProductionService::baseText($held, 'g') . ' but only ' . ProductionService::baseText($mixStock, 'g') . ' of mix is in stock. Make more first.';
+        } elseif ($unknown === [] && $held > 0 && abs($mixUsed - $held) > 0.05 * max($mixUsed, $held)) {
             $mismatch = 'You used ' . ProductionService::baseText($mixUsed, 'g') . ' of mix but these products hold ' . ProductionService::baseText($held, 'g') . ': check the numbers.';
         }
         // what the used lines cost, which are short
@@ -156,15 +161,21 @@ final class PackingService
         }
 
         return ['used' => array_values($usedLines), 'made' => array_values($madeLines), 'short' => $short, 'cost' => Money::fmt($total), 'by_value' => $byValue,
-            'held' => $held, 'held_text' => ProductionService::baseText($held, 'g'), 'unknown' => $unknown, 'mismatch' => $mismatch];
+            'held' => $held, 'held_text' => ProductionService::baseText($held, 'g'), 'unknown' => $unknown, 'mismatch' => $mismatch, 'over' => $over];
     }
 
     /** @return array{id: int, pack_no: string, made_text: string, cost: string} */
-    public function pack(array $used, array $made, string $notes, int $userId): array
+    public function pack(array $used, array $made, string $notes, int $userId, bool $gapConfirmed = false): array
     {
         $p = $this->preview($used, $made);
+        if ($p['over'] !== null) {
+            throw new \DomainException($p['over']);
+        }
         if ($p['short'] !== []) {
             throw new \DomainException('Not enough in stock. ' . implode('; ', $p['short']) . '. Make or buy the missing part first.');
+        }
+        if ($p['mismatch'] !== null && !$gapConfirmed) {   // a gap over 5% is confirmed on purpose, with a second click (2026-10-18)
+            throw new \DomainException($p['mismatch'] . ' If these numbers are right, press Confirm anyway.');
         }
         $notes = mb_substr(trim($notes), 0, 255);
 

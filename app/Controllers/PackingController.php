@@ -41,7 +41,7 @@ final class PackingController extends Controller
         $showCost = Gate::allows('product.view_cost');
         $this->json([
             'short' => $p['short'], 'by_value' => $p['by_value'], 'cost' => $showCost ? $p['cost'] : null,
-            'held' => $p['held'], 'held_text' => $p['held_text'], 'unknown' => $p['unknown'], 'mismatch' => $p['mismatch'],   // what the products hold (2026-10-18)
+            'held' => $p['held'], 'held_text' => $p['held_text'], 'unknown' => $p['unknown'], 'mismatch' => $p['mismatch'], 'over' => $p['over'],   // what the products hold (2026-10-18)
             'used' => array_map(static fn (array $l): array => ['name' => $l['name'], 'qty' => $l['qty_text'], 'stock' => $l['stock_text'], 'short' => $l['short'], 'auto' => $l['auto'], 'for' => $l['for'], 'cost' => $showCost ? $l['cost_usd'] : null], $p['used']),
             'made' => array_map(static fn (array $l): array => ['name' => $l['name'], 'qty' => $l['qty_text'], 'share' => $l['share_pct'], 'cost' => $showCost ? $l['cost_usd'] : null, 'per_unit' => $showCost ? $l['cost_per_unit'] : null, 'unit' => $l['unit_name']], $p['made']),
         ]);
@@ -52,7 +52,7 @@ final class PackingController extends Controller
         $used = is_array($_POST['used'] ?? null) ? array_values($_POST['used']) : [];
         $made = is_array($_POST['made'] ?? null) ? array_values($_POST['made']) : [];
         try {
-            $r = (new PackingService())->pack($used, $made, $this->input('notes'), Auth::id());
+            $r = (new PackingService())->pack($used, $made, $this->input('notes'), Auth::id(), $this->input('confirm_gap') === '1');
         } catch (\DomainException $e) {
             $this->failBack('packing/new', [], ['form' => $e->getMessage()]);
         }
