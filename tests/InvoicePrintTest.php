@@ -59,9 +59,10 @@ return [
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $page = $client->get('sales/print', ['id' => $r['id']])->body;
         foreach (['Malika For Trading', 'MOF: 3900717', 'malikamarshmallow@gmail.com', 'Bill To', '2941978-601', 'صيدا - الغازية', '07/225999', 'Invoice No.', 'Due Date',
-                  date('Y-m-d', strtotime('+45 days')), '850009611772', 'Total Qty', 'Recipient : المستلم', 'Deliverer : المسلّم', 'Thank you for your business!', 'out with the seller'] as $needle) {
+                  date('Y-m-d', strtotime('+45 days')), '850009611772', 'Total Qty', 'Recipient : المستلم', 'Deliverer : المسلّم', 'Thank you for your business!'] as $needle) {
             assert_contains($needle, $page, $needle);
         }
+        assert_not_contains('out with the seller', $page, 'the paper the customer keeps says nothing about being on hold (Aya, 2026-10-19)');
         // 1 box of 100 at $65 (wholesale $0.65 a stick): Box 1, Qty in Box 100, Total Qty 100, unit price $0.65, amount $65.00
         assert_contains('<td>1</td>', $page);
         assert_contains('<td>100</td>', $page);
@@ -72,6 +73,7 @@ return [
         assert_contains('Regular Invoice', $note);
         assert_contains('Shipping full address', $note);
         assert_not_contains('Due Date', $note);
+        assert_not_contains('out with the seller', $note);
     },
 
     'the delivery note: number, date, invoice to, location, lines, totals, no delivery charge' => function () use ($setup): void {

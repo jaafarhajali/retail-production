@@ -18,7 +18,6 @@ $issued = strtotime($s['created_at']);
     </div>
   </header>
   <div class="inv-title"><i></i><span>Invoice</span><i></i></div>
-  <?php if ($s['status'] === 'on_hold'): ?><div class="inv-flag">Not paid yet · goods out with the seller</div><?php endif; ?>
   <?php if ($s['status'] === 'voided'): ?><div class="inv-flag">VOIDED</div><?php endif; ?>
   <section class="inv-parties">
     <table class="inv-billto">
