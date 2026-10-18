@@ -16,7 +16,7 @@ final class SettingService
     private const TEXT_FIELDS = [
         'shop_name'      => ['Company name', 100, true],
         'shop_address'   => ['Address', 255, false],
-        'shop_phone'     => ['Phone', 30, false],
+        'shop_phone'     => ['Phone', 60, false],   // room for two numbers (2026-10-19)
         'receipt_header' => ['Receipt header', 255, false],
         'receipt_footer' => ['Receipt footer', 255, false],
         'company_mof'    => ['MOF number', 30, false],     // F4: the official invoice

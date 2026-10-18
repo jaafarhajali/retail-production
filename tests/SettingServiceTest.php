@@ -41,6 +41,13 @@ return [
         assert_throws(DomainException::class, fn () => (new SettingService())->save($valid(['shop_name' => '  '])));
     },
 
+    'the phone holds two numbers: 60 characters, not 30 (the company has two lines, 2026-10-19)' => function () use ($valid): void {
+        (new SettingService())->save($valid(['shop_phone' => '+961 70 316 708 · +961 76 564 645']));
+        assert_same('+961 70 316 708 · +961 76 564 645', Settings::get('shop_phone'));
+        $e = assert_throws(DomainException::class, fn () => (new SettingService())->save($valid(['shop_phone' => str_repeat('1', 61)])));
+        assert_same('Phone must be at most 60 characters.', $e->getMessage());
+    },
+
     'the cashier discount must be a whole number from 0 to 100' => function () use ($valid): void {
         foreach (['101', '-1', '5.5', 'abc', ''] as $bad) {
             assert_throws(DomainException::class, fn () => (new SettingService())->save($valid(['max_cashier_discount_pct' => $bad])));

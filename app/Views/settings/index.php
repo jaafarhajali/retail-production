@@ -14,7 +14,7 @@ $step = is_string($stashedStep) ? $stashedStep : (string) ($values['lbp_rounding
       </div>
       <div class="col-md-6">
         <label class="form-label" for="shop_phone">Phone</label>
-        <input class="form-control" id="shop_phone" name="shop_phone" maxlength="30" value="<?= $field('shop_phone') ?>">
+        <input class="form-control" id="shop_phone" name="shop_phone" maxlength="60" placeholder="one or two numbers" value="<?= $field('shop_phone') ?>">
       </div>
       <div class="col-12">
         <label class="form-label" for="shop_address">Address</label>
