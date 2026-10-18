@@ -117,6 +117,7 @@ return [
     ['POST', 'production/store',   [ProductionController::class, 'store'],  'production.manage'],
     ['GET',  'production/view',    [ProductionController::class, 'view'],   'production.view'],
     // Packing (2026-10-14) — the mix becomes finished products, the split typed each time
+    ['GET',  'packing',            [PackingController::class, 'index'],   'production.manage'],
     ['GET',  'packing/new',        [PackingController::class, 'create'],  'production.manage'],
     ['POST', 'packing/preview',    [PackingController::class, 'preview'], 'production.manage'],
     ['POST', 'packing/store',      [PackingController::class, 'store'],   'production.manage'],

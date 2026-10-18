@@ -198,6 +198,10 @@ return [
     'the pages: Pack with its preview, the packing in the production list and its detail, the report and the dashboard count it; a cashier may not' => function () use ($kitchen, $use): void {
         $k = $kitchen();
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        // "?r=packing" typed by hand lands on Pack, not on a 404 (2026-10-18)
+        $r = $client->get('packing');
+        assert_same(302, $r->status, $r->body);
+        assert_contains('r=packing/new', $r->location());
         $page = $client->get('packing/new')->body;
         assert_contains('Confirm: it is packed', $page);
         assert_contains('Raspberry mix', $page);

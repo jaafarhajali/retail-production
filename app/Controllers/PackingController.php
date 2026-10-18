@@ -16,6 +16,12 @@ use App\Services\PackingService;
 /** Packing (2026-10-14): the mix becomes finished products, the split typed each time; the list lives on the Production page. */
 final class PackingController extends Controller
 {
+    /** "?r=packing" typed by hand: the Pack page, not a 404 (the list is on the Production page). */
+    public function index(): void
+    {
+        redirect('packing/new');
+    }
+
     public function create(): void
     {
         $products = new Product();
