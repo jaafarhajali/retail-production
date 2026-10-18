@@ -142,6 +142,32 @@ return [
         assert_contains('twice', $e->getMessage());
     },
 
+    'what the products hold: each one\'s marshmallow per piece added up and compared with the mix used; a gap over 5% is pointed out, never refused' => function () use ($kitchen, $use): void {
+        $k = $kitchen();
+        $db = \App\Core\Database::pdo();
+        $db->exec('UPDATE products SET fill_base = 100 WHERE id IN (' . $k['joy']['id'] . ', ' . $k['gold']['id'] . ')');   // Joy 100g and Gold 100g hold 100 g each
+        $svc = new PackingService();
+        $p = $svc->preview([$use($k['mix'], '3')], [$use($k['joy'], '20'), $use($k['gold'], '10')]);
+        assert_same([3000, '3 kg', [], null], [$p['held'], $p['held_text'], $p['unknown'], $p['mismatch']], '30 × 100 g = 3 kg: it agrees');
+        $p = $svc->preview([$use($k['mix'], '3.1')], [$use($k['joy'], '20'), $use($k['gold'], '10')]);
+        assert_same(null, $p['mismatch'], '100 g of crumbs is within 5%');
+        $p = $svc->preview([$use($k['mix'], '3')], [$use($k['joy'], '200'), $use($k['gold'], '70')]);
+        assert_same('You used 3 kg of mix but these products hold 27 kg: check the numbers.', $p['mismatch']);
+        $r = $svc->pack([$use($k['mix'], '3')], [$use($k['joy'], '20'), $use($k['gold'], '10')], '', TEST_ADMIN_ID);
+        assert_true($r['id'] > 0, 'packed');
+        // a product with no weight on its page: named, and no gap is claimed
+        $p = $svc->preview([$use($k['mix'], '1')], [$use($k['joy'], '5'), $use($k['bag'], '50')]);
+        assert_same([['Party bag'], null, 500], [$p['unknown'], $p['mismatch'], $p['held']]);
+        // the page carries each product's weight for the running total
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        $page = $client->get('packing/new')->body;
+        assert_contains('data-grams="100" dir="auto">Joy 100g', $page);
+        assert_contains('id="pack-held"', $page);
+        assert_contains('id="preview-gap"', $page);
+        $j = json_decode($client->postJson('packing/preview', ['used' => [$use($k['mix'], '1')], 'made' => [$use($k['joy'], '30')]])->body, true);
+        assert_same(['3 kg', 'You used 1 kg of mix but these products hold 3 kg: check the numbers.'], [$j['held_text'], $j['mismatch']]);
+    },
+
     'the pages: Pack with its preview, the packing in the production list and its detail, the report and the dashboard count it; a cashier may not' => function () use ($kitchen, $use): void {
         $k = $kitchen();
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
@@ -149,6 +175,13 @@ return [
         assert_contains('Confirm: it is packed', $page);
         assert_contains('Raspberry mix', $page);
         assert_contains('Gold 100g', $page);
+        // one mix (2026-10-18): its line asks only how much; the extras offer packaging and ingredients, never the mix
+        assert_contains('<template id="mix-tpl">', $page);
+        assert_contains('name="used[IDX][product_id]" value="' . $k['mix']['id'] . '"', $page);
+        $extras = substr($page, (int) strpos($page, '<template id="used-tpl">'));
+        $extras = substr($extras, 0, (int) strpos($extras, '</template>'));
+        assert_not_contains('Raspberry mix', $extras, 'the extras never offer the mix');
+        assert_not_contains('<optgroup label="Mix">', $extras);
         assert_not_contains('Customized Box', $page, 'keeps no stock, so it is not offered');
         $r = $client->postJson('packing/preview', ['used' => [$use($k['mix'], '2')], 'made' => [$use($k['joy'], '10'), $use($k['gold'], '10')]]);
         assert_same(200, $r->status, $r->body);

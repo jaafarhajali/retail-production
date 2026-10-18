@@ -120,7 +120,9 @@ foreach ($finished as [$name, $unitDefs, $cost, $opening, $min, $override]) {
         continue;
     }
     $id = $products->create(['name' => $name, 'category_id' => (string) $cat['Marshmallow'], 'base_unit' => 'piece', 'internal_code' => '', 'description' => $override ? 'Weight, flavours and price typed at the sale' : '',
-        'target_margin_pct' => '', 'show_on_pos_grid' => true, 'allow_price_override' => $override, 'kind' => 'finished', 'track_stock' => !$override]);
+        'target_margin_pct' => '', 'show_on_pos_grid' => true, 'allow_price_override' => $override, 'kind' => 'finished', 'track_stock' => !$override,
+        // marshmallow per piece from the name: "Joy 100g" → 100, "… 0.5 kg" → 500 (2026-10-18)
+        'fill_grams' => preg_match('/(\d+(?:\.\d+)?)\s?kg\b/i', $name, $kgM) ? (string) (int) round((float) $kgM[1] * 1000) : (preg_match('/(\d+)\s?g\b/i', $name, $gM) ? $gM[1] : '')]);
     $unitIds = [];
     $piece = $unitDefs[0];
     foreach ($unitDefs as $u) {
@@ -204,8 +206,12 @@ $hasRecipe = static fn (int $productId): bool => (int) Database::pdo()->query("S
 $line = static fn (string $name, string $qty, string $type): array => ['material_id' => $pid($name), 'qty' => $qty, 'unit_id' => $unitOf($pid($name), $type)];
 $made = 0;
 $mixId = $pid('Marshmallow mix');
+// the Customized Box is filled at the sale from the mix, its weight typed each time (2026-10-18)
+if ($mixId > 0 && $pid('Customized Box') > 0) {
+    Database::pdo()->exec('UPDATE products SET fill_mix_id = ' . $mixId . ', track_stock = 0 WHERE id = ' . $pid('Customized Box') . ' AND fill_mix_id IS NULL');
+}
 if ($mixId > 0 && !$hasRecipe($mixId)) {
-    $recipes->save(0, ['product_id' => $mixId, 'name' => 'Standard', 'output_qty' => '1', 'output_unit_id' => $unitOf($mixId, 'kg'), 'notes' => 'One kilo of plain mix; flavour and colour are added per product',
+    $recipes->save(0, ['product_id' => $mixId, 'name' => 'Raspberry', 'output_qty' => '1', 'output_unit_id' => $unitOf($mixId, 'kg'), 'notes' => 'One kilo of raspberry marshmallow; flavour and colour are added per product',
         'lines' => [$line('Sugar', '0.45', 'kg'), $line('Glucose syrup', '0.25', 'kg'), $line('Honey', '0.2', 'kg'), $line('Gelatin', '0.03', 'kg'), $line('Food colouring', '0.005', 'kg'), $line('Raspberry flavour', '0.015', 'L')]], $admin);
     $made++;
 }

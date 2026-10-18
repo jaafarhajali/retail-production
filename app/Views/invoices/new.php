@@ -2,7 +2,7 @@
 $stash = is_array($_SESSION['_old'] ?? null) ? $_SESSION['_old'] : [];
 $rows = [];
 foreach (is_array($stash['lines'] ?? null) ? $stash['lines'] : [] as $l) {
-    $rows[] = ['product_id' => (int) ($l['product_id'] ?? 0), 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'pct' => (string) ($l['pct'] ?? ''), 'note' => (string) ($l['note'] ?? '')];
+    $rows[] = ['product_id' => (int) ($l['product_id'] ?? 0), 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'pct' => (string) ($l['pct'] ?? ''), 'note' => (string) ($l['note'] ?? ''), 'fill' => (string) ($l['fill'] ?? '')];
 }
 $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
 ?>
@@ -76,7 +76,9 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
 </form>
 <template id="line-tpl">
   <tr>
-    <td><select class="form-select form-select-sm" name="lines[IDX][product_id]" required><option value="">— choose —</option><?php foreach ($catalogue as $p): ?><option value="<?= (int) $p['id'] ?>" dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select><div class="form-text stock"></div></td>
+    <td><select class="form-select form-select-sm" name="lines[IDX][product_id]" required><option value="">— choose —</option><?php foreach ($catalogue as $p): ?><option value="<?= (int) $p['id'] ?>" dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select><div class="form-text stock"></div>
+      <div class="input-group input-group-sm mt-1 line-fill" hidden><input class="form-control" name="lines[IDX][fill]" inputmode="numeric" placeholder="grams" aria-label="Grams of marshmallow in one"><span class="input-group-text">g of marshmallow each</span></div>
+      <input class="form-control form-control-sm mt-1" name="lines[IDX][note]" dir="auto" maxlength="255" placeholder="note on this line (flavours…)" aria-label="Note on this line"></td>
     <td><select class="form-select form-select-sm" name="lines[IDX][unit_id]" aria-label="Sold as"></select></td>
     <td><input class="form-control form-control-sm" name="lines[IDX][qty]" inputmode="decimal" value="1" required></td>
     <td class="text-end text-nowrap price"></td>
@@ -118,12 +120,18 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
   function addLine(row) {
     tbody.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/IDX/g, String(idx++)));
     var tr = tbody.lastElementChild, prod = tr.querySelector('[name$="[product_id]"]'), unit = tr.querySelector('[name$="[unit_id]"]');
-    function onProduct(selected) { var p = byId[parseInt(prod.value, 10)]; fillUnits(unit, p, selected); tr.querySelector('.stock').textContent = p ? 'in stock: ' + p.stock.toLocaleString() : ''; recalc(); }
+    function onProduct(selected) {
+      var p = byId[parseInt(prod.value, 10)], box = tr.querySelector('.line-fill'), grams = tr.querySelector('[name$="[fill]"]');
+      fillUnits(unit, p, selected);
+      tr.querySelector('.stock').textContent = p ? (p.filled ? 'filled at the sale: weigh it' : 'in stock: ' + p.stock.toLocaleString()) : '';
+      box.hidden = !(p && p.filled); grams.required = !!(p && p.filled); if (p && p.filled && !grams.value && p.fill) { grams.value = p.fill; }   // filled at the sale (2026-10-18)
+      recalc();
+    }
     prod.addEventListener('change', function () { onProduct(0); });
     ['[name$="[qty]"]', '[name$="[pct]"]'].forEach(function (s) { tr.querySelector(s).addEventListener('input', recalc); });
     unit.addEventListener('change', recalc);
     tr.querySelector('.remove').addEventListener('click', function () { tr.remove(); recalc(); });
-    if (row) { prod.value = String(row.product_id); tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('[name$="[pct]"]').value = row.pct; onProduct(row.unit_id); } else { prod.focus(); }
+    if (row) { prod.value = String(row.product_id); tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('[name$="[pct]"]').value = row.pct; tr.querySelector('[name$="[fill]"]').value = row.fill || ''; tr.querySelector('[name$="[note]"]').value = row.note || ''; onProduct(row.unit_id); } else { prod.focus(); }
   }
   function onCustomer() {
     var o = customer.selectedOptions[0];

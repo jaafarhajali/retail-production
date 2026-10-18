@@ -136,6 +136,10 @@
   // ---- cart
   function addLine(p, u, qty) {
     if (unitPrice(u) === null) { msg(p.name + ' (' + u.name + ') is not sold at the ' + level + ' price', true); return; }
+    if (p.filled) {   // filled at the sale (2026-10-18): each box is weighed, so it is a line of its own
+      cart.push({ p: p.id, u: u.id, qty: qty || 1, mode: 'qty', amount: 0, price: null, discount: 0, fill: p.fill || null }); selected = cart.length - 1;
+      renderCart(); if (!p.fill) { openLine(); } return;
+    }
     var same = cart.findIndex(function (l) { return l.p === p.id && l.u === u.id && l.mode === 'qty' && !l.price && !l.discount; });
     if (same >= 0) { cart[same].qty += (qty || 1); selected = same; } else { cart.push({ p: p.id, u: u.id, qty: qty || 1, mode: 'qty', amount: 0, price: null, discount: 0 }); selected = cart.length - 1; }
     renderCart();
@@ -165,7 +169,7 @@
       d.querySelector('.q small').textContent = t.u.name;
       d.querySelector('.n').textContent = t.p.name;
       d.querySelector('.t').textContent = money(t.total);
-      d.querySelector('.d').textContent = '× ' + money(t.price) + (l.mode === 'amount' ? ', sold by amount' : '') + (l.price !== null ? ', price changed' : '') + (l.note ? ' · ' + l.note : '') + (under ? ' · BELOW COST' : '');
+      d.querySelector('.d').textContent = '× ' + money(t.price) + (l.mode === 'amount' ? ', sold by amount' : '') + (l.price !== null ? ', price changed' : '') + (l.fill ? ' · ' + l.fill + ' g' : (t.p.filled ? ' · weight missing' : '')) + (l.note ? ' · ' + l.note : '') + (under ? ' · BELOW COST' : '');
       d.querySelector('.x').textContent = l.discount ? '-' + money(l.discount) : '';
       d.addEventListener('click', function () { selected = i; renderCart(); });
       d.querySelector('.line-del').addEventListener('click', function (ev) { ev.stopPropagation(); removeLine(i); });
@@ -184,7 +188,7 @@
 
   // ---- below cost: the server says which lines are under their cost; the till never learns the cost itself
   function cartLines() {
-    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '' }; });
+    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '', fill: l.fill ? String(l.fill) : '' }; });
   }
   function probeCost() {   // the cart as it is right now
     if (!cart.length) return Promise.resolve([]);
@@ -212,6 +216,7 @@
     $('line-qty').value = l.mode === 'qty' ? l.qty : ''; $('line-amount').value = l.mode === 'amount' ? l.amount : ''; $('line-amount-lbp').value = '';
     $('line-price').value = l.price !== null ? l.price : ''; $('line-price').placeholder = money(unitPrice(t.u)); $('line-price').disabled = !t.p.override;
     $('line-note').value = l.note || '';
+    $('line-fill-row').hidden = !t.p.filled; $('line-fill').value = l.fill || '';
     amountBoxes(t.u);
     discMode.line = l.dmode || discMode.line; syncModes();
     $('line-discount').value = l.discount ? (discMode.line === 'pct' ? trimNum(t.gross > 0 ? l.discount / t.gross * 100 : 0) : l.discount) : '';
@@ -237,6 +242,7 @@
     else { if (qty <= 0) { msg('Enter a quantity', true); return; } if (!u.fraction && qty % 1 !== 0) { msg(u.name + ' is sold in whole numbers', true); return; } l.mode = 'qty'; l.qty = qty; }
     var pr = $('line-price').value.trim(); l.price = pr === '' || !p.override ? null : num(pr);
     l.note = $('line-note').value.trim();
+    if (p.filled) { var g = parseInt($('line-fill').value, 10); if (!(g > 0)) { msg('Type the grams of marshmallow in one box', true); $('line-fill').focus(); return; } l.fill = g; }
     var before = l.discount || 0; l.discount = 0;
     var d = discountUsd('line', lineTotals(l).gross);
     l.discount = d; var over = needsApproval(), cutNow = lineCut(l).cut; l.discount = before;   // the line as it would be

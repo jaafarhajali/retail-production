@@ -70,9 +70,9 @@ return [
         $s = $setup();
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $page = $client->get('products/edit', ['id' => $s['box']])->body;
-        assert_contains('id="no_stock" name="no_stock" value="1" checked', $page);
+        assert_contains('for="fill_on">Filled at the sale', $page, 'the switch is now "Filled at the sale" (2026-10-18)');
         $page = $client->get('products/edit', ['id' => $s['joy']])->body;
-        assert_contains('id="no_stock" name="no_stock" value="1"  ', $page);
+        assert_not_contains('name="no_stock"', $page);
         $client->get('registers');
         $client->post('registers/bind', ['id' => $s['register']]);
         assert_contains('id="line-note"', $client->get('pos')->body);

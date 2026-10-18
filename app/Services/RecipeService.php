@@ -59,7 +59,7 @@ final class RecipeService
             if (isset($lines[(int) $material['id']])) {
                 throw new \DomainException($material['name'] . ' is on the recipe twice. Add the quantities on one line.');
             }
-            $lines[(int) $material['id']] = ['material_id' => (int) $material['id'], 'qty_base' => $this->toBase($material, (string) ($l['qty'] ?? ''), (int) ($l['unit_id'] ?? 0), $material['name'])];
+            $lines[(int) $material['id']] = ['material_id' => (int) $material['id'], 'qty_base' => $this->toBase($material, (string) ($l['qty'] ?? ''), (int) ($l['unit_id'] ?? 0), $material['name'], true)];
         }
         if ($lines === []) {
             throw new \DomainException('A recipe needs at least one line: what goes into one batch.');
@@ -119,9 +119,12 @@ final class RecipeService
     }
 
     /** A quantity typed in one of the product's units, as base units; fractions are fine for weight and volume. */
-    private function toBase(array $product, string $qty, int $unitId, string $what): int
+    private function toBase(array $product, string $qty, int $unitId, string $what, bool $baseAllowed = false): int
     {
-        $unit = $this->units->find($unitId);
+        // An ingredient can be written in its own base unit (g, ml, piece) without a unit of that name (2026-10-18): unit 0
+        $unit = $unitId === 0 && $baseAllowed
+            ? ['product_id' => $product['id'], 'name' => $product['base_unit'], 'factor' => 1, 'allows_fraction' => 0]
+            : $this->units->find($unitId);
         if ($unit === null || (int) $unit['product_id'] !== (int) $product['id']) {
             throw new \DomainException("Choose the unit for {$what}.");
         }

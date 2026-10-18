@@ -763,6 +763,29 @@ final class ProductService
             $target = number_format((float) $rawTarget, 2, '.', '');
         }
 
+        // Filled at the sale (2026-10-18): a finished product counted by piece, filled from a mix weighed at the sale; it keeps no stock of its own
+        $fillMix = null;
+        $fillBase = null;
+        $rawMix = (int) ($in['fill_mix_id'] ?? 0);
+        if ($rawMix > 0 && $kind === 'finished') {
+            $mix = $this->products->find($rawMix);
+            if ($mix === null || $mix['kind'] !== 'intermediate') {
+                throw new \DomainException('A box is filled from a mix. Choose the mix.');
+            }
+            if ($baseUnit !== 'piece') {
+                throw new \DomainException('A box filled at the sale is sold by piece.');
+            }
+            $fillMix = (int) $mix['id'];
+        }
+        // Marshmallow per piece (2026-10-18): what one piece holds; Packing adds it up, a box filled at the sale offers it
+        $rawGrams = trim((string) ($in['fill_grams'] ?? ''));
+        if ($rawGrams !== '' && $kind === 'finished' && $baseUnit === 'piece') {
+            if (!ctype_digit($rawGrams) || (int) $rawGrams < 1 || (int) $rawGrams > 100000) {
+                throw new \DomainException('Marshmallow per piece is a number of grams, from 1 to 100,000, or empty.');
+            }
+            $fillBase = (int) $rawGrams;
+        }
+
         return [
             'category_id'          => $categoryId,
             'name'                 => $name,
@@ -772,7 +795,9 @@ final class ProductService
             'kind'                 => $kind,
             'allow_price_override' => $kind === 'finished' && (bool) ($in['allow_price_override'] ?? false),
             'price_floats'         => $kind === 'finished' && (bool) ($in['price_floats'] ?? false),
-            'track_stock'          => $kind !== 'finished' || (bool) ($in['track_stock'] ?? true),   // F6: only a finished product can be sold without counting stock
+            'track_stock'          => $fillMix === null && ($kind !== 'finished' || (bool) ($in['track_stock'] ?? true)),   // F6: only a finished product can be sold without counting stock
+            'fill_mix_id'          => $fillMix,
+            'fill_base'            => $fillBase,
             'show_on_pos_grid'     => $kind === 'finished' && (bool) ($in['show_on_pos_grid'] ?? true),
             'target_margin_pct'    => $target,
         ];

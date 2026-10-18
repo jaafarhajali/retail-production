@@ -101,6 +101,9 @@
     }
     form.querySelectorAll('input[name="kind"]').forEach(function (r) { r.addEventListener('change', applyKind); });
     applyKind();
+    // Filled at the sale (2026-10-18): its mix and usual weight show with the switch
+    var fillSwitch = form.querySelector('[data-fill-switch]'), fillFields = form.querySelector('[data-fill-fields]');
+    if (fillSwitch && fillFields) { fillSwitch.addEventListener('change', function () { fillFields.hidden = !fillSwitch.checked; }); }
     var body = form.querySelector('[data-rows]'), template = document.getElementById('unit-row-template');
     var costBase = parseFloat(form.dataset.costBase || '0') || 0, showCost = form.dataset.showCost === '1';
     var BIG = { g: 'kg', ml: 'L' }, counter = 0, dirty = false, leaving = false;

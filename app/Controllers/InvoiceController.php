@@ -52,7 +52,8 @@ final class InvoiceController extends Controller
                            'retail' => $u['retail_price'], 'wholesale' => $u['wholesale_price'], 'main' => (int) $u['is_default_sale'] === 1];
             }
             if ($list !== []) {
-                $catalogue[] = ['id' => (int) $p['id'], 'name' => $p['name'], 'stock' => (int) $p['stock_base'], 'units' => $list];
+                $catalogue[] = ['id' => (int) $p['id'], 'name' => $p['name'], 'stock' => (int) $p['stock_base'], 'units' => $list,
+                    'filled' => $p['fill_mix_id'] !== null, 'fill' => $p['fill_base'] !== null ? (int) $p['fill_base'] : null];   // filled at the sale (2026-10-18)
             }
         }
         $svc = new InvoiceService();
@@ -68,7 +69,7 @@ final class InvoiceController extends Controller
             if (!is_array($l) || (int) ($l['product_id'] ?? 0) === 0) {
                 continue;
             }
-            $lines[] = ['product_id' => (int) $l['product_id'], 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'discount' => (string) ($l['discount'] ?? ''), 'note' => (string) ($l['note'] ?? '')];
+            $lines[] = ['product_id' => (int) $l['product_id'], 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'discount' => (string) ($l['discount'] ?? ''), 'note' => (string) ($l['note'] ?? ''), 'fill' => (string) ($l['fill'] ?? '')];
         }
         try {
             $r = (new SaleService())->issue([

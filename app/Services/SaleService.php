@@ -54,6 +54,9 @@ final class SaleService
                 if ($l['track_stock'] && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
+                if ($l['fill_mix_id'] !== null && $l['fill_stock'] - $l['fill_base'] * $l['base_qty'] < 0) {
+                    $warnings[] = $l['fill_name'] . ' is now below zero stock.';   // filled at the sale (2026-10-18)
+                }
             }
             $this->fulfil($saleId, $no, $p['lines'], $pay, $p['customer'], $p['rate'], (int) $in['session_id'], (int) $in['user_id']);
             Audit::log('sale.completed', 'sale', $saleId, ['no' => $no, 'lines' => count($p['lines']), 'level' => $p['level']], (float) $p['total'], 'USD');
@@ -128,6 +131,9 @@ final class SaleService
                 if ($l['track_stock'] && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
+                if ($l['fill_mix_id'] !== null && $l['fill_stock'] - $l['fill_base'] * $l['base_qty'] < 0) {
+                    $warnings[] = $l['fill_name'] . ' is now below zero stock.';   // filled at the sale (2026-10-18)
+                }
             }
             $this->fulfil($saleId, $no, $p['lines'], $pay, $p['customer'], $p['rate'], null, (int) $in['user_id']);
             Audit::log('invoice.issued', 'sale', $saleId, ['no' => $no, 'customer' => $p['customer']['name'], 'lines' => count($p['lines']), 'due' => $dueDate], (float) $p['total'], 'USD');
@@ -183,6 +189,7 @@ final class SaleService
                 'qty' => Quantity::unitQty($netBase, (int) $i['factor']), 'line_total_usd' => $lineTotal, 'line_discount_usd' => Money::fmt((float) $i['line_discount_usd'] * $ratio),
                 'cost_per_base' => $i['cost_per_base'], 'line_cost_usd' => Money::fmt($netBase * (float) $i['cost_per_base']), 'stock_base' => (int) ($product['stock_base'] ?? 0),
                 'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
+                'fill_mix_id' => $i['fill_mix_id'] !== null ? (int) $i['fill_mix_id'] : null, 'fill_base' => $i['fill_base'] !== null ? (int) $i['fill_base'] : null,
             ];
             if ($retBase > 0) {
                 $back[] = ['sale_item_id' => (int) $i['id'], 'qty' => Quantity::unitQty($retBase, (int) $i['factor']), 'base_qty' => $retBase, 'value_usd' => $value, 'product_name' => $i['product_name']];
@@ -398,9 +405,19 @@ final class SaleService
     private function fulfil(int $saleId, string $no, array $lines, array $pay, ?array $customer, int $rate, ?int $sessionId, int $userId): void
     {
         $stock = new StockService();
+        $products = new Product();
         foreach ($lines as $l) {
+            if (!empty($l['fill_mix_id']) && (int) $l['base_qty'] > 0) {
+                // filled at the sale (2026-10-18): the grams of mix and the packaging leave the stock; the box has none of its own
+                $mix = $products->find((int) $l['fill_mix_id']);
+                $stock->move((int) $l['fill_mix_id'], -((int) $l['fill_base'] * (int) $l['base_qty']), 'sale', null, $mix['cost_per_base'] ?? null, 'sale', $saleId, $userId, $sessionId);
+                foreach ($products->packaging((int) $l['product_id']) as $pk) {
+                    $stock->move((int) $pk['material_id'], -((int) $pk['qty_base'] * (int) $l['base_qty']), 'sale', null, null, 'sale', $saleId, $userId, $sessionId);
+                }
+                continue;
+            }
             if (!($l['track_stock'] ?? true)) {
-                continue;   // F6: assembled on the spot (the Customized Box), no stock of its own
+                continue;   // F6: assembled on the spot, no stock of its own
             }
             $stock->move($l['product_id'], -$l['base_qty'], 'sale', null, $l['cost_per_base'], 'sale', $saleId, $userId, $sessionId);
         }
@@ -534,12 +551,31 @@ final class SaleService
             if ($atList > 0 && $cut / $atList * 100 > $worst['pct']) {
                 $worst = ['pct' => $cut / $atList * 100, 'name' => $product['name']];
             }
+            // Filled at the sale (2026-10-18): the grams of mix weighed into each piece (the product's usual weight unless
+            // typed); the piece costs that mix plus its packaging, and the sale takes both out of stock (fulfil()).
+            $costPerBase = (string) $product['cost_per_base'];
+            $fill = null;
+            if ($product['fill_mix_id'] !== null) {
+                $typed = trim((string) ($l['fill'] ?? ''));
+                $grams = $typed === '' ? (int) ($product['fill_base'] ?? 0) : (ctype_digit($typed) ? (int) $typed : -1);
+                if ($grams < 1 || $grams > 100000) {
+                    throw new \DomainException("Type how many grams of marshmallow go into one {$product['name']}.");
+                }
+                $mix = $products->find((int) $product['fill_mix_id']) ?? throw new \DomainException('The mix of ' . $product['name'] . ' no longer exists.');
+                $packCost = 0.0;
+                foreach ($products->packaging((int) $product['id']) as $pk) {
+                    $packCost += (int) $pk['qty_base'] * (float) (($products->find((int) $pk['material_id']) ?? [])['cost_per_base'] ?? 0);
+                }
+                $costPerBase = number_format($grams * (float) $mix['cost_per_base'] + $packCost, 6, '.', '');
+                $fill = ['mix_id' => (int) $mix['id'], 'grams' => $grams, 'name' => $mix['name'], 'stock' => (int) $mix['stock_base']];
+            }
             $lines[] = [
                 'product_id' => (int) $product['id'], 'product_unit_id' => (int) $unit['id'], 'product_name' => $product['name'], 'unit_name' => $unit['name'],
                 'qty' => $qty, 'base_qty' => $base, 'unit_price_usd' => $price, 'line_discount_usd' => $discount, 'line_total_usd' => $lineTotal,
-                'cost_per_base' => $product['cost_per_base'], 'line_cost_usd' => Money::fmt($base * (float) $product['cost_per_base']),
+                'cost_per_base' => $costPerBase, 'line_cost_usd' => Money::fmt($base * (float) $costPerBase),
                 'entry_mode' => $mode, 'price_overridden' => $overridden, 'stock_base' => (int) $product['stock_base'],
                 'note' => mb_substr(trim((string) ($l['note'] ?? '')), 0, 255) ?: null, 'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
+                'fill_mix_id' => $fill['mix_id'] ?? null, 'fill_base' => $fill['grams'] ?? null, 'fill_name' => $fill['name'] ?? null, 'fill_stock' => $fill['stock'] ?? 0,
             ];
         }
         if ($lines === []) {

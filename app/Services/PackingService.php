@@ -103,6 +103,23 @@ final class PackingService
         if (!in_array('intermediate', array_column($usedLines, 'kind'), true)) {
             throw new \DomainException('Packing starts from a mix. Add the mix that was packed on the first line.');
         }
+        // What the products hold (2026-10-18): each piece's marshmallow per piece, added up and compared with the mix used.
+        // Never refused: a packing with crumbs or a different fill is real; only a gap over 5% is pointed out.
+        $held = 0;
+        $unknown = [];
+        foreach ($madeLines as $id => $l) {
+            $perPiece = (int) ($this->products->find($id)['fill_base'] ?? 0);
+            if ($perPiece > 0) {
+                $held += $perPiece * $l['qty_base'];
+            } else {
+                $unknown[] = $l['name'];
+            }
+        }
+        $mixUsed = array_sum(array_map(static fn (array $u): int => $u['kind'] === 'intermediate' ? (int) $u['qty_base'] : 0, $usedLines));
+        $mismatch = null;
+        if ($unknown === [] && $held > 0 && abs($mixUsed - $held) > 0.05 * max($mixUsed, $held)) {
+            $mismatch = 'You used ' . ProductionService::baseText($mixUsed, 'g') . ' of mix but these products hold ' . ProductionService::baseText($held, 'g') . ': check the numbers.';
+        }
         // what the used lines cost, which are short
         $short = [];
         $total = 0.0;
@@ -138,7 +155,8 @@ final class PackingService
             $madeLines[$id]['share_pct'] = (int) round($weights[$id] / $sumWeights * 100);
         }
 
-        return ['used' => array_values($usedLines), 'made' => array_values($madeLines), 'short' => $short, 'cost' => Money::fmt($total), 'by_value' => $byValue];
+        return ['used' => array_values($usedLines), 'made' => array_values($madeLines), 'short' => $short, 'cost' => Money::fmt($total), 'by_value' => $byValue,
+            'held' => $held, 'held_text' => ProductionService::baseText($held, 'g'), 'unknown' => $unknown, 'mismatch' => $mismatch];
     }
 
     /** @return array{id: int, pack_no: string, made_text: string, cost: string} */

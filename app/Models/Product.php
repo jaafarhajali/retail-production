@@ -81,8 +81,8 @@ final class Product extends Model
     {
         $this->execute(
             'INSERT INTO products (category_id, name, description, internal_code, base_unit,
-                                   kind, allow_price_override, price_floats, track_stock, show_on_pos_grid, target_margin_pct)
-             VALUES (:cat, :n, :d, :code, :bu, :kind, :apo, :pf, :ts, :grid, :tm)',
+                                   kind, allow_price_override, price_floats, track_stock, fill_mix_id, fill_base, show_on_pos_grid, target_margin_pct)
+             VALUES (:cat, :n, :d, :code, :bu, :kind, :apo, :pf, :ts, :fm, :fb, :grid, :tm)',
             [
                 'cat'  => $f['category_id'],
                 'n'    => $f['name'],
@@ -93,6 +93,8 @@ final class Product extends Model
                 'apo'  => (int) $f['allow_price_override'],
                 'pf'   => (int) ($f['price_floats'] ?? 0),
                 'ts'   => (int) ($f['track_stock'] ?? 1),
+                'fm'   => $f['fill_mix_id'] ?? null,
+                'fb'   => $f['fill_base'] ?? null,
                 'grid' => (int) $f['show_on_pos_grid'],
                 'tm'   => $f['target_margin_pct'],
             ]
@@ -105,7 +107,7 @@ final class Product extends Model
     {
         $this->execute(
             'UPDATE products SET category_id = :cat, name = :n, description = :d, internal_code = :code, base_unit = :bu, kind = :kind,
-                                 allow_price_override = :apo, price_floats = :pf, track_stock = :ts, show_on_pos_grid = :grid, target_margin_pct = :tm, is_active = :a
+                                 allow_price_override = :apo, price_floats = :pf, track_stock = :ts, fill_mix_id = :fm, fill_base = :fb, show_on_pos_grid = :grid, target_margin_pct = :tm, is_active = :a
              WHERE id = :id',
             [
                 'cat'  => $f['category_id'],
@@ -117,6 +119,8 @@ final class Product extends Model
                 'apo'  => (int) $f['allow_price_override'],
                 'pf'   => (int) ($f['price_floats'] ?? 0),
                 'ts'   => (int) ($f['track_stock'] ?? 1),
+                'fm'   => $f['fill_mix_id'] ?? null,
+                'fb'   => $f['fill_base'] ?? null,
                 'grid' => (int) $f['show_on_pos_grid'],
                 'tm'   => $f['target_margin_pct'],
                 'a'    => (int) $f['is_active'],

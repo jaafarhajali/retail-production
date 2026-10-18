@@ -139,12 +139,13 @@ final class Sale extends Model
     {
         $this->execute(
             'INSERT INTO sale_items (sale_id, product_id, product_unit_id, product_name, unit_name, note, qty, base_qty, unit_price_usd, line_discount_usd,
-                                     line_total_usd, cost_per_base, line_cost_usd, entry_mode, price_overridden)
-             VALUES (:s, :p, :u, :pn, :un, :nt, :q, :b, :pr, :ld, :lt, :cb, :lc, :em, :po)',
+                                     line_total_usd, cost_per_base, line_cost_usd, entry_mode, price_overridden, fill_mix_id, fill_base)
+             VALUES (:s, :p, :u, :pn, :un, :nt, :q, :b, :pr, :ld, :lt, :cb, :lc, :em, :po, :fm, :fb)',
             [
                 's' => $saleId, 'p' => $l['product_id'], 'u' => $l['product_unit_id'], 'pn' => $l['product_name'], 'un' => $l['unit_name'], 'nt' => $l['note'] ?? null,
                 'q' => $l['qty'], 'b' => $l['base_qty'], 'pr' => $l['unit_price_usd'], 'ld' => $l['line_discount_usd'], 'lt' => $l['line_total_usd'],
                 'cb' => $l['cost_per_base'], 'lc' => $l['line_cost_usd'], 'em' => $l['entry_mode'], 'po' => (int) $l['price_overridden'],
+                'fm' => $l['fill_mix_id'] ?? null, 'fb' => $l['fill_base'] ?? null,
             ]
         );
 

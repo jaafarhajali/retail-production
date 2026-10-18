@@ -323,7 +323,9 @@ final class ProductController extends Controller
             'show_on_pos_grid'     => isset($_POST['show_on_pos_grid']),
             'allow_price_override' => isset($_POST['allow_price_override']),
             'price_floats'         => isset($_POST['price_floats']),
-            'track_stock'          => !isset($_POST['no_stock']),
+            'track_stock'          => !isset($_POST['no_stock']) && !isset($_POST['fill_on']),
+            'fill_mix_id'          => isset($_POST['fill_on']) ? $this->inputInt('fill_mix_id') : 0,   // filled at the sale (2026-10-18)
+            'fill_grams'           => $this->input('fill_grams'),   // marshmallow per piece (2026-10-18)
             'kind'                 => $this->input('kind') ?: 'finished',
         ];
     }
@@ -388,6 +390,7 @@ final class ProductController extends Controller
             'flavours'   => $product !== null && $product['kind'] === 'intermediate' ? ($this->flavours()[$id] ?? []) : [],
             'canRecipe'  => Gate::allows('production.manage'),
             'mixExists'  => (int) (new Product())->kindCounts()['intermediate'] > 0,
+            'mixes'      => (new Product())->forPrint('intermediate'),   // what a box filled at the sale is filled from (2026-10-18)
             'packMaterials' => $packMaterials,
             'packUnits'  => (new ProductUnit())->forProducts(array_map('intval', array_column($packMaterials, 'id'))),
             'canManage'  => Gate::allows('product.manage'),

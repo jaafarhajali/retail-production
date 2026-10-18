@@ -262,6 +262,24 @@ return [
         assert_not_contains('>Label</option>', $edit);
     },
 
+    'an ingredient is written in grams by default: unit 0 is the base unit; an existing line shows in grams' => function () use ($pot): void {
+        $k = $pot();   // Sugar has a kg unit only
+        $id = (new RecipeService())->save(0, ['product_id' => $k['mix']['id'], 'name' => 'Pink', 'output_qty' => '1', 'output_unit_id' => $k['mix']['unit'], 'notes' => '',
+            'lines' => [['material_id' => $k['sugar']['id'], 'qty' => '20', 'unit_id' => '0']]], TEST_ADMIN_ID);
+        assert_same(20, (int) \App\Core\Database::pdo()->query('SELECT qty_base FROM recipe_lines WHERE recipe_id = ' . $id)->fetchColumn(), '20 in unit 0 = 20 g, not 20 kg');
+        $e = assert_throws(DomainException::class, fn () => (new RecipeService())->save(0, ['product_id' => $k['mix']['id'], 'name' => 'Bad', 'output_qty' => '0', 'output_unit_id' => '0', 'notes' => '',
+            'lines' => [['material_id' => $k['sugar']['id'], 'qty' => '20', 'unit_id' => '0']]], TEST_ADMIN_ID));
+        assert_contains('Choose the unit for what one batch makes', $e->getMessage(), 'unit 0 is for ingredients only');
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        $edit = $client->get('recipes/edit', ['id' => $id])->body;
+        assert_contains('data-base="g"', $edit, 'the ingredient tells the form its base unit');
+        assert_contains('"qty":"20","unit_id":0', $edit, 'shown as 20 in grams');
+        assert_contains('class="form-text per"', $edit);
+        // the Strawberry line of 0.5 kg reads back as 500 g
+        $straw = (int) \App\Core\Database::pdo()->query("SELECT id FROM recipes WHERE name = 'Strawberry'")->fetchColumn();
+        assert_contains('"qty":"500","unit_id":0', $client->get('recipes/edit', ['id' => $straw])->body);
+    },
+
     'a flavour needs a name: an empty one is refused, never saved as "Standard"' => function () use ($pot): void {
         $k = $pot();
         $line = [['material_id' => $k['sugar']['id'], 'qty' => '0.5', 'unit_id' => $k['sugar']['unit']]];

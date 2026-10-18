@@ -33,16 +33,8 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
     }
 } else {
     foreach ($lines as $l) {
-        $qty = (string) $l['qty_base'];
-        $unitId = 0;
-        foreach (array_reverse($unitsById[(int) $l['material_id']] ?? []) as $u) {
-            if ((int) $l['qty_base'] % (int) $u['factor'] === 0 || (int) $u['factor'] === 1) {
-                $qty = rtrim(rtrim(number_format((int) $l['qty_base'] / (int) $u['factor'], 3, '.', ''), '0'), '.');
-                $unitId = (int) $u['id'];
-                break;
-            }
-        }
-        $rows[] = ['material_id' => (int) $l['material_id'], 'qty' => $qty, 'unit_id' => $unitId];
+        // shown in grams (ml, pieces) as a recipe is written (2026-10-18); the line says "= 1 kg" when it is one
+        $rows[] = ['material_id' => (int) $l['material_id'], 'qty' => (string) $l['qty_base'], 'unit_id' => 0];
     }
 }
 ?>
@@ -105,9 +97,9 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
 <template id="line-tpl">
   <tr>
     <td><select class="form-select form-select-sm" name="lines[IDX][material_id]" required><option value="">— choose —</option>
-      <?php foreach ($materials as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?><?= $m['kind'] === 'intermediate' ? ' (mix)' : '' ?></option><?php endforeach; ?></select></td>
+      <?php foreach ($materials as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" data-base="<?= e($m['base_unit']) ?>" dir="auto"><?= e($m['name']) ?><?= $m['kind'] === 'intermediate' ? ' (mix)' : '' ?></option><?php endforeach; ?></select></td>
     <td><input class="form-control form-control-sm" name="lines[IDX][qty]" inputmode="decimal" required></td>
-    <td><select class="form-select form-select-sm" name="lines[IDX][unit_id]" aria-label="Unit"></select></td>
+    <td><select class="form-select form-select-sm" name="lines[IDX][unit_id]" aria-label="Unit"></select><div class="form-text per"></div></td>
     <td class="text-nowrap text-muted small stock"></td>
     <td class="text-end"><button class="btn btn-sm btn-outline-danger remove" type="button" title="Remove this line" aria-label="Remove this line"><i class="bi bi-trash3"></i></button></td>
   </tr>
@@ -127,12 +119,30 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
   }
   if (productSel) productSel.addEventListener('change', outputUnits);
   outputUnits();
+  // An ingredient is written in grams (or ml) by default (2026-10-18): its own base unit comes first, then its other
+  // units; under the unit, what the line really is ("= 20 g", "= 2 kg"), so a wrong unit shows before saving.
+  function lineUnits(sel, mat, selected) {
+    sel.innerHTML = '';
+    var o0 = mat.selectedOptions[0], base = o0 && o0.dataset.base ? o0.dataset.base : '';
+    if (!base) return;
+    var first = document.createElement('option'); first.value = '0'; first.dataset.factor = '1'; first.textContent = base === 'piece' ? 'piece' : base; sel.appendChild(first);
+    (units[parseInt(mat.value, 10)] || []).forEach(function (u) { if (u.factor === 1) return; var o = document.createElement('option'); o.value = u.id; o.dataset.factor = u.factor; o.textContent = u.name; if (u.id === selected) o.selected = true; sel.appendChild(o); });
+  }
+  function perText(tr) {
+    var mat = tr.querySelector('[name$="[material_id]"]'), unit = tr.querySelector('[name$="[unit_id]"]'), qty = parseFloat((tr.querySelector('[name$="[qty]"]').value || '').replace(',', '.'));
+    var base = mat.selectedOptions[0] ? mat.selectedOptions[0].dataset.base : '', f = unit.selectedOptions[0] ? parseInt(unit.selectedOptions[0].dataset.factor || '1', 10) : 1, n = qty * f;
+    var out = '';
+    if (base && n > 0) { out = base === 'piece' ? '= ' + Math.round(n) + ' pieces' : (n >= 1000 ? '= ' + (Math.round(n / 1000 * 1000) / 1000) + ' ' + (base === 'g' ? 'kg' : 'L') : '= ' + (Math.round(n * 100) / 100) + ' ' + base); }
+    tr.querySelector('.per').textContent = out;
+  }
   function addLine(row) {
     tbody.insertAdjacentHTML('beforeend', tpl.innerHTML.replace(/IDX/g, String(idx++)));
     var tr = tbody.lastElementChild, mat = tr.querySelector('[name$="[material_id]"]'), unit = tr.querySelector('[name$="[unit_id]"]');
-    mat.addEventListener('change', function () { fillUnits(unit, parseInt(this.value, 10), 0); tr.querySelector('.stock').textContent = this.selectedOptions[0] ? (this.selectedOptions[0].dataset.stock || '') : ''; });
+    mat.addEventListener('change', function () { lineUnits(unit, mat, 0); tr.querySelector('.stock').textContent = this.selectedOptions[0] ? (this.selectedOptions[0].dataset.stock || '') : ''; perText(tr); });
+    unit.addEventListener('change', function () { perText(tr); });
+    tr.querySelector('[name$="[qty]"]').addEventListener('input', function () { perText(tr); });
     tr.querySelector('.remove').addEventListener('click', function () { tr.remove(); });
-    if (row) { mat.value = String(row.material_id); fillUnits(unit, row.material_id, row.unit_id); tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('.stock').textContent = mat.selectedOptions[0] ? (mat.selectedOptions[0].dataset.stock || '') : ''; }
+    if (row) { mat.value = String(row.material_id); lineUnits(unit, mat, row.unit_id); tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('.stock').textContent = mat.selectedOptions[0] ? (mat.selectedOptions[0].dataset.stock || '') : ''; perText(tr); }
     else { mat.focus(); }
   }
   document.getElementById('add-line').addEventListener('click', function () { addLine(null); });

@@ -70,6 +70,9 @@ final class ReturnService
             $stock = new StockService();
             foreach ($lines as $l) {
                 $returns->addItem($id, $l);
+                if (!self::counted((int) $l['product_id'])) {
+                    continue;   // no stock of its own (a box filled at the sale): its content cannot go back into the mix
+                }
                 $stock->move($l['product_id'], $l['base_qty'], 'return_restock', null, $l['cost_per_base'], 'return', $id, $userId, null);
                 if ($l['item_condition'] === 'waste') {
                     $stock->move($l['product_id'], -$l['base_qty'], 'waste', 'returned-damaged', $l['cost_per_base'], 'return', $id, $userId, null);
@@ -306,6 +309,9 @@ final class ReturnService
             $stock = new StockService();
             foreach ($lines as $l) {
                 $returns->addItem($id, $l);
+                if (!self::counted((int) $l['product_id'])) {
+                    continue;   // no stock of its own (a box filled at the sale): its content cannot go back into the mix
+                }
                 $stock->move($l['product_id'], $l['base_qty'], 'return_restock', null, $l['cost_per_base'], 'return', $id, $userId, $sessionId);
                 if ($l['item_condition'] === 'waste') {
                     $stock->move($l['product_id'], -$l['base_qty'], 'waste', 'returned-damaged', $l['cost_per_base'], 'return', $id, $userId, $sessionId);
@@ -331,5 +337,11 @@ final class ReturnService
 
             return ['id' => $id, 'return_no' => $no, 'total_usd' => $totalUsd, 'rounding_usd' => $rounding, 'cash' => $cash, 'cash_parts' => $cashParts, 'debt_reduction' => $debtReduction];
         });
+    }
+
+    /** Whether the product keeps stock of its own; a box filled at the sale does not (2026-10-18). */
+    private static function counted(int $productId): bool
+    {
+        return (int) ((new \App\Models\Product())->find($productId)['track_stock'] ?? 1) === 1;
     }
 }

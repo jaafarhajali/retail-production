@@ -61,6 +61,7 @@ final class PosController extends Controller
             $out[] = [
                 'id' => (int) $p['id'], 'name' => $p['name'], 'code' => $p['internal_code'], 'cat' => (int) ($p['category_id'] ?? 0), 'color' => $p['category_color'],
                 'grid' => (int) $p['show_on_pos_grid'] === 1, 'base' => $p['base_unit'], 'stock' => (int) $p['stock_base'], 'override' => (int) $p['allow_price_override'] === 1,
+                'filled' => $p['fill_mix_id'] !== null, 'fill' => $p['fill_base'] !== null ? (int) $p['fill_base'] : null,   // filled at the sale (2026-10-18)
                 'img' => ProductImageService::url($p['image_file']),
                 'units' => array_values(array_map(static fn (array $u): array => [
                     'id' => (int) $u['id'], 'name' => $u['name'], 'factor' => (int) $u['factor'], 'fraction' => (int) $u['allows_fraction'] === 1,

@@ -39,7 +39,7 @@ $madeRows = $rows('made');
         <div class="table-responsive"><table class="table align-middle m-0" id="made">
           <thead><tr><th style="width:46%">Product</th><th style="width:18%">How many</th><th style="width:22%">Unit</th><th class="text-nowrap">In stock</th><th></th></tr></thead>
           <tbody></tbody>
-          <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary btn-sm" type="button" id="add-made"><i class="bi bi-plus-lg"></i> Add a product</button> <span class="form-text ms-2">Type the real count. Next time the same mix can give a different split.</span></td></tr></tfoot>
+          <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary btn-sm" type="button" id="add-made"><i class="bi bi-plus-lg"></i> Add a product</button> <span class="form-text ms-2">Type the real count. Next time the same mix can give a different split.</span><div class="small mt-2 fw-semibold" id="pack-held"></div></td></tr></tfoot>
         </table></div>
       </div>
       <div class="card mb-3"><div class="card-body">
@@ -61,6 +61,7 @@ $madeRows = $rows('made');
             <?php if ($showCost): ?><tfoot class="totals"><tr class="grand"><td colspan="2">Total cost</td><td class="text-end" id="preview-cost"></td></tr></tfoot><?php endif; ?>
           </table></div>
           <div class="card-body pt-2">
+            <div class="alert alert-warning mb-2" id="preview-gap" hidden></div>
             <div class="alert alert-danger mb-2" id="preview-short" hidden></div>
             <?php if ($showCost): ?><div class="text-muted small" id="preview-note"></div><?php endif; ?>
           </div>
@@ -69,11 +70,25 @@ $madeRows = $rows('made');
     </div>
   </div>
 </form>
+<?php $singleMix = count($mixes) === 1; // one mix (2026-10-18): its line asks only the kilos; the extras never offer it ?>
+<?php if ($singleMix): $mx = $mixes[0]; ?>
+<template id="mix-tpl">
+  <tr class="mix-line">
+    <td><input type="hidden" name="used[IDX][product_id]" value="<?= (int) $mx['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $mx['stock_base'], $mx['base_unit'])) ?>"><strong dir="auto"><?= e($mx['name']) ?></strong> <span class="text-muted small">used</span></td>
+    <td><input class="form-control form-control-sm" name="used[IDX][qty]" inputmode="decimal" required placeholder="how much"></td>
+    <td><select class="form-select form-select-sm" name="used[IDX][unit_id]" aria-label="Unit"></select></td>
+    <td class="text-nowrap text-muted small stock"></td>
+    <td></td>
+  </tr>
+</template>
+<?php endif; ?>
 <template id="used-tpl">
   <tr>
     <td><select class="form-select form-select-sm" name="used[IDX][product_id]" required><option value="">— choose —</option>
-      <optgroup label="Mix"><?php foreach ($mixes as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?></optgroup>
-      <optgroup label="Packaging and raw materials"><?php foreach ($materials as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?></optgroup></select></td>
+      <?php if (!$singleMix): ?><optgroup label="Mix"><?php foreach ($mixes as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?></optgroup><?php endif; ?>
+      <?php foreach (\App\Services\ProductService::groupedByCategory($materials) as $groupLabel => $inGroup): // packaging first, then the ingredients ?>
+        <optgroup label="<?= e($groupLabel) ?>"><?php foreach ($inGroup as $m): ?><option value="<?= (int) $m['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?>" dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?></optgroup>
+      <?php endforeach; ?></select></td>
     <td><input class="form-control form-control-sm" name="used[IDX][qty]" inputmode="decimal" required></td>
     <td><select class="form-select form-select-sm" name="used[IDX][unit_id]" aria-label="Unit"></select></td>
     <td class="text-nowrap text-muted small stock"></td>
@@ -83,7 +98,7 @@ $madeRows = $rows('made');
 <template id="made-tpl">
   <tr>
     <td><select class="form-select form-select-sm" name="made[IDX][product_id]" required><option value="">— choose —</option>
-      <?php foreach ($finished as $p): ?><option value="<?= (int) $p['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $p['stock_base'], $p['base_unit'])) ?>" dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select></td>
+      <?php foreach ($finished as $p): ?><option value="<?= (int) $p['id'] ?>" data-stock="<?= e(ProductionService::baseText((int) $p['stock_base'], $p['base_unit'])) ?>" data-grams="<?= (int) ($p['fill_base'] ?? 0) ?>" dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select></td>
     <td><input class="form-control form-control-sm" name="made[IDX][qty]" inputmode="decimal" required></td>
     <td><select class="form-select form-select-sm" name="made[IDX][unit_id]" aria-label="Unit"></select></td>
     <td class="text-nowrap text-muted small stock"></td>
@@ -102,11 +117,14 @@ $madeRows = $rows('made');
     var tbody = document.querySelector('#' + table + ' tbody');
     tbody.insertAdjacentHTML('beforeend', document.getElementById(tplId).innerHTML.replace(/IDX/g, String(idx++)));
     var tr = tbody.lastElementChild, prod = tr.querySelector('[name$="[product_id]"]'), unit = tr.querySelector('[name$="[unit_id]"]'), qty = tr.querySelector('[name$="[qty]"]');
-    function stockText() { tr.querySelector('.stock').textContent = prod.selectedOptions[0] ? (prod.selectedOptions[0].dataset.stock || '') : ''; }
+    var fixed = prod.type === 'hidden';   // the one mix: no choice to make (2026-10-18)
+    function stockText() { var o = fixed ? prod : prod.selectedOptions[0]; tr.querySelector('.stock').textContent = o ? (o.dataset.stock || '') : ''; }
     prod.addEventListener('change', function () { fillUnits(unit, parseInt(this.value, 10), 0); stockText(); preview(); });
-    unit.addEventListener('change', preview); qty.addEventListener('input', preview);
-    tr.querySelector('.remove').addEventListener('click', function () { tr.remove(); preview(); });
-    if (row) { prod.value = String(row.product_id); fillUnits(unit, row.product_id, row.unit_id); qty.value = row.qty; stockText(); }
+    unit.addEventListener('change', preview);
+    qty.addEventListener('input', function () { if (fixed) { qty.dataset.typed = qty.value.trim() === '' ? '' : '1'; } preview(); });   // typed by hand: no longer filled from the products
+    var rm = tr.querySelector('.remove'); if (rm) { rm.addEventListener('click', function () { tr.remove(); preview(); }); }
+    if (fixed) { fillUnits(unit, parseInt(prod.value, 10), row ? row.unit_id : 0); if (row) { qty.value = row.qty; qty.dataset.typed = row.qty ? '1' : ''; } stockText(); }
+    else if (row) { prod.value = String(row.product_id); fillUnits(unit, row.product_id, row.unit_id); qty.value = row.qty; stockText(); }
     else if (table === 'used' && tbody.children.length === 1 && prod.querySelector('optgroup option')) { prod.value = prod.querySelector('optgroup option').value; fillUnits(unit, parseInt(prod.value, 10), 0); stockText(); }
     else { prod.focus(); }
   }
@@ -117,7 +135,29 @@ $madeRows = $rows('made');
   }
   function money(s) { return '$' + s; }
   function cell(tr, i, text, cls) { tr.children[i].textContent = text; if (cls) tr.children[i].className = cls; }
+  // What the products hold (2026-10-18): each product's marshmallow per piece × the pieces typed; it fills "used" on the
+  // mix line until someone types there, and says when a product has no weight on its page.
+  function kgText(g) { return g >= 1000 ? (Math.round(g) / 1000).toLocaleString('en-US', { maximumFractionDigits: 3 }) + ' kg' : Math.round(g) + ' g'; }
+  function updateHeld() {
+    var grams = 0, unknown = [];
+    document.querySelectorAll('#made tbody tr').forEach(function (tr) {
+      var prod = tr.querySelector('[name$="[product_id]"]'), o = prod.selectedOptions[0], q = parseFloat((tr.querySelector('[name$="[qty]"]').value || '').replace(',', '.')) || 0;
+      if (!o || !o.value || q <= 0) return;
+      var uid = parseInt(tr.querySelector('[name$="[unit_id]"]').value, 10), u = (units[parseInt(o.value, 10)] || []).find(function (x) { return x.id === uid; }), f = u ? u.factor : 1;
+      var per = parseInt(o.dataset.grams || '0', 10);
+      if (per > 0) { grams += per * q * f; } else if (unknown.indexOf(o.textContent) < 0) { unknown.push(o.textContent.trim()); }
+    });
+    var box = document.getElementById('pack-held');
+    box.textContent = (grams > 0 ? 'These products hold ' + kgText(grams) + ' of marshmallow.' : '') + (unknown.length ? ' No "marshmallow per piece" on: ' + unknown.join(', ') + '.' : '');
+    var mixLine = document.querySelector('#used tbody tr.mix-line');
+    if (mixLine && grams > 0) {
+      var mq = mixLine.querySelector('[name$="[qty]"]'), mu = mixLine.querySelector('[name$="[unit_id]"]'), mid = parseInt(mixLine.querySelector('[name$="[product_id]"]').value, 10);
+      var mf = ((units[mid] || []).find(function (x) { return x.id === parseInt(mu.value, 10); }) || { factor: 1 }).factor;
+      if (mq.dataset.typed !== '1') { mq.value = String(Math.round(grams / mf * 1000) / 1000); }
+    }
+  }
   function preview() {
+    updateHeld();
     clearTimeout(timer);
     timer = setTimeout(function () {
       var mine = ++seq, used = rows('used'), made = rows('made');
@@ -147,6 +187,7 @@ $madeRows = $rows('made');
           });
           var cost = document.getElementById('preview-cost'); if (cost && showCost) cost.textContent = money(res.j.cost);
           var note = document.getElementById('preview-note'); if (note && showCost) note.textContent = res.j.by_value ? 'The cost is shared between the products in proportion to their selling price, so a $6 product takes twice the cost of a $3 one.' : 'No product has a price yet, so the cost is shared per piece.';
+          var gap = document.getElementById('preview-gap'); gap.hidden = !res.j.mismatch; gap.textContent = res.j.mismatch || '';
           shortBox.hidden = res.j.short.length === 0; shortBox.textContent = res.j.short.length ? 'Not enough in stock: ' + res.j.short.join('; ') + '. Make or buy the missing part first.' : '';
           document.getElementById('pack-ok').disabled = res.j.short.length > 0;
         }).catch(function () {});
@@ -154,7 +195,10 @@ $madeRows = $rows('made');
   }
   document.getElementById('add-used').addEventListener('click', function () { addLine('used', 'used-tpl', null); });
   document.getElementById('add-made').addEventListener('click', function () { addLine('made', 'made-tpl', null); });
-  if (usedRows.length) { usedRows.forEach(function (r) { addLine('used', 'used-tpl', r); }); } else { addLine('used', 'used-tpl', null); }
+  var mixTpl = document.getElementById('mix-tpl'), mixId = mixTpl ? parseInt(mixTpl.content.querySelector('[name$="[product_id]"]').value, 10) : 0;
+  if (mixTpl && !usedRows.some(function (r) { return r.product_id === mixId; })) { addLine('used', 'mix-tpl', null); }   // the mix line comes first
+  usedRows.forEach(function (r) { addLine('used', mixTpl && r.product_id === mixId ? 'mix-tpl' : 'used-tpl', r); });
+  if (!mixTpl && !usedRows.length) { addLine('used', 'used-tpl', null); }
   if (madeRows.length) { madeRows.forEach(function (r) { addLine('made', 'made-tpl', r); }); } else { addLine('made', 'made-tpl', null); addLine('made', 'made-tpl', null); }
   preview();
 })();
