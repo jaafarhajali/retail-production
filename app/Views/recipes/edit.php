@@ -87,7 +87,7 @@ if (isset($stash['lines']) && is_array($stash['lines'])) {
     <div class="table-responsive"><table class="table align-middle" id="lines">
       <thead><tr><th style="width:44%">Goes in, per batch</th><th style="width:18%">Quantity</th><th style="width:22%">Unit</th><th class="text-nowrap">In stock now</th><th></th></tr></thead>
       <tbody></tbody>
-      <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2"><?= $single ? 'Raw materials and packaging.' : 'Raw materials, or another mix.' ?></span></td></tr></tfoot>
+      <tfoot><tr><td colspan="5"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2">Ingredients only: the packaging comes out on the Packing page.</span></td></tr></tfoot>
     </table></div>
   </div>
 

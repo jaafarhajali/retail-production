@@ -463,6 +463,36 @@ final class ProductService
      */
     public static function groupedByCategory(array $products): array
     {
+        return self::groupByCategory($products);
+    }
+
+    /**
+     * What a flavour may use (Aya, 2026-10-18: "just keep the ingredients"): the raw materials outside the packaging
+     * categories. A category is packaging when most of its items are counted by piece (boxes, labels, stick bags), so a
+     * packaging item bought by weight stays with its category. $keepIds (what the recipe already uses) always stay.
+     *
+     * @param list<array> $materials rows with id, category_name and base_unit
+     * @param list<int> $keepIds
+     * @return list<array>
+     */
+    public static function ingredientsOnly(array $materials, array $keepIds = []): array
+    {
+        $out = [];
+        foreach (self::groupByCategory($materials) as $group) {
+            $packaging = count(array_filter($group, static fn (array $m): bool => $m['base_unit'] === 'piece')) * 2 > count($group);
+            foreach ($group as $m) {
+                if (!$packaging || in_array((int) $m['id'], $keepIds, true)) {
+                    $out[] = $m;
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, list<array>> */
+    private static function groupByCategory(array $products): array
+    {
         $groups = [];
         foreach ($products as $p) {
             $groups[(string) ($p['category_name'] ?? '')][] = $p;

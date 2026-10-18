@@ -117,7 +117,7 @@ return [
         $new = $plain($client->get('recipes/edit')->body);
         assert_not_contains('What does it make?', $new);
         assert_contains('name="product_id" value="' . $k['mix']['id'] . '"', $new, 'the single mix is chosen without asking');
-        assert_contains('Raw materials and packaging.', $new);
+        assert_contains('Ingredients only: the packaging comes out on the Packing page.', $new);
 
         $make = $client->get('production/new')->body;
         assert_not_contains('What did you make?', $make);
@@ -226,6 +226,40 @@ return [
         assert_contains('typed on the Pack page', $e->getMessage());
         $svc->savePackaging($jar, [['material_id' => $box['id'], 'qty' => '1', 'unit_id' => $box['unit']], ['material_id' => $k['sugar']['id'], 'qty' => '5', 'unit_id' => $k['sugar']['unit']]]);
         assert_same(2, count((new \App\Models\Product())->packaging($jar)), 'a jar and 5 g of sugar per piece');
+    },
+
+    'a flavour lists the ingredients only: no packaging, no mix; what a flavour already uses stays' => function () use ($pot, $plain): void {
+        $k = $pot();   // Sugar (no category), the Marshmallow mix, Strawberry and Vanilla
+        $svc = new ProductService();
+        $cats = new \App\Models\Category();
+        $ingredients = $cats->create('Ingredients', '#e0a800', 2, false);
+        $packaging = $cats->create('Packaging', '#2a9d8f', 3, false);
+        $mk = static function (string $name, string $base, int $category) use ($svc): array {
+            $id = $svc->create(['name' => $name, 'category_id' => (string) $category, 'base_unit' => $base, 'internal_code' => '', 'description' => '', 'target_margin_pct' => '', 'kind' => 'material']);
+
+            return ['id' => $id, 'unit' => $svc->addUnit($id, $base === 'piece' ? 'Piece' : 'kg', $base === 'piece' ? '1' : '1000', $base !== 'piece', false)];
+        };
+        $mk('Gelatin', 'g', $ingredients);
+        $box = $mk('Box 100g', 'piece', $packaging);
+        $mk('Label', 'piece', $packaging);
+        $mk('stickers', 'g', $packaging);   // packaging bought by weight: still packaging, because of its category
+
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        $form = $client->get('recipes/edit')->body;
+        foreach (['Gelatin', 'Sugar'] as $shown) {
+            assert_contains('>' . $shown . '</option>', $form, "{$shown} is an ingredient");
+        }
+        foreach (['Box 100g', 'Label', 'stickers', 'Marshmallow mix'] as $hidden) {
+            assert_not_contains('>' . $hidden . '</option>', $form, "{$hidden} is not an ingredient");
+        }
+        assert_contains('Ingredients only: the packaging comes out on the Packing page.', $form);
+
+        // an old flavour that already uses a box keeps showing it, so the line is not lost on edit
+        $old = (new RecipeService())->save(0, ['product_id' => $k['mix']['id'], 'name' => 'Old', 'output_qty' => '1', 'output_unit_id' => $k['mix']['unit'], 'notes' => '',
+            'lines' => [['material_id' => $k['sugar']['id'], 'qty' => '0.5', 'unit_id' => $k['sugar']['unit']], ['material_id' => $box['id'], 'qty' => '1', 'unit_id' => $box['unit']]]], TEST_ADMIN_ID);
+        $edit = $client->get('recipes/edit', ['id' => $old])->body;
+        assert_contains('>Box 100g</option>', $edit, 'already used, kept');
+        assert_not_contains('>Label</option>', $edit);
     },
 
     'a flavour needs a name: an empty one is refused, never saved as "Standard"' => function () use ($pot): void {

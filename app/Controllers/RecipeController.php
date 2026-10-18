@@ -12,6 +12,7 @@ use App\Models\Product;
 use App\Models\ProductUnit;
 use App\Models\Recipe;
 use App\Services\ProductionService;
+use App\Services\ProductService;
 use App\Services\RecipeService;
 
 /**
@@ -44,7 +45,12 @@ final class RecipeController extends Controller
         $recipe = $id > 0 ? ($recipes->find($id) ?? throw new HttpException(404)) : null;
         $products = new Product();
         $made = $products->forPrint('intermediate');   // a recipe makes a mix; products are packed from it
-        $materials = array_merge($products->forPrint('material'), $products->forPrint('intermediate'));   // what it can use
+        // what it can use: the ingredients only (2026-10-18); packaging and the mix stay out unless this flavour already uses them
+        $used = $recipe === null ? [] : array_map('intval', array_column($recipes->lines($id), 'material_id'));
+        $materials = array_merge(
+            ProductService::ingredientsOnly($products->forPrint('material'), $used),
+            array_values(array_filter($products->forPrint('intermediate'), static fn (array $p): bool => in_array((int) $p['id'], $used, true)))
+        );
         $ids = array_map('intval', array_merge(array_column($made, 'id'), array_column($materials, 'id')));
         $this->render('recipes/edit', [
             'recipe' => $recipe, 'lines' => $recipe === null ? [] : $recipes->lines($id), 'made' => $made, 'materials' => $materials,
