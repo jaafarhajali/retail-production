@@ -67,14 +67,14 @@ return [
         assert_same(2, (int) Database::pdo()->query("SELECT COUNT(*) FROM audit_log WHERE action = 'return.credit_note'")->fetchColumn());
     },
 
-    'agreed prices: saved on the customer, used on their desk invoice as the list price, the till untouched' => function () use ($setup): void {
+    'agreed prices: saved on the customer, used on their desk invoice as the list price less a discount (2026-10-20), the till untouched' => function () use ($setup): void {
         $s = $setup();
         $parties = new PartyService();
         $parties->saveAgreedPrices($s['market'], [$s['box'] => '60', $s['piece'] => '']);
         assert_same([$s['box'] => '60.00'], (new Customer())->agreedPrices($s['market']));
         $r = $s['issue']([['product_id' => $s['joy'], 'unit_id' => $s['box'], 'qty' => '2'], ['product_id' => $s['joy'], 'unit_id' => $s['piece'], 'qty' => '10']]);
         assert_same('145.00', $r['total_usd'], '2 boxes at the agreed $60 + 10 pieces at the wholesale $2.50');
-        assert_same([['60.00', '0.00'], ['2.50', '0.00']], Database::pdo()->query("SELECT unit_price_usd, line_discount_usd FROM sale_items WHERE sale_id = {$r['id']} ORDER BY id")->fetchAll(PDO::FETCH_NUM), 'an agreed price is not a discount');
+        assert_same([['67.50', '15.00'], ['2.50', '0.00']], Database::pdo()->query("SELECT unit_price_usd, line_discount_usd FROM sale_items WHERE sale_id = {$r['id']} ORDER BY id")->fetchAll(PDO::FETCH_NUM), 'the agreed $60 is the wholesale $67.50 less $7.50 a box (owner, 2026-10-20)');
         // rules: zero refused; empty clears
         $e = assert_throws(DomainException::class, fn () => $parties->saveAgreedPrices($s['market'], [$s['box'] => '0']));
         assert_contains('more than zero', $e->getMessage());

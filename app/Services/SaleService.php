@@ -470,7 +470,7 @@ final class SaleService
         }
         foreach ($p['lines'] as $l) {
             if ($l['price_overridden']) {
-                Audit::log('sale.price_override', 'sale', $saleId, ['product' => $l['product_name'], 'price' => $l['unit_price_usd']]);
+                Audit::log('sale.price_override', 'sale', $saleId, ['product' => $l['product_name'], 'price' => $l['charged_price_usd'] ?? $l['unit_price_usd'], 'list' => $l['unit_price_usd']]);
             }
         }
     }
@@ -517,6 +517,7 @@ final class SaleService
                 throw new \DomainException($product['name'] . ' is a ' . ($product['kind'] === 'material' ? 'raw material' : 'mix') . ', it is not sold.');
             }
             $listPrice = $level === 'wholesale' ? $unit['wholesale_price'] : $unit['retail_price'];
+            $catalogPrice = $listPrice;   // the price the line shows; anything charged under it is recorded as a discount (2026-10-20)
             if (isset($in['agreed_prices'][(int) $unit['id']])) {
                 $listPrice = $in['agreed_prices'][(int) $unit['id']];   // the price agreed with this customer (desk invoices, 2026-10-14)
             }
@@ -564,6 +565,11 @@ final class SaleService
                 throw new \DomainException('A line discount cannot exceed the line total.');
             }
             $lineTotal = Money::sub($lineGross, $discount);
+            // The price is never lowered on the record (owner, 2026-10-20): a price typed under the list price, or a customer's
+            // agreed price, keeps the list price on the line and the difference becomes part of its discount, so every
+            // reduction is counted in the discounts. A price typed above the list (a bigger custom box) stays a price.
+            $shownPrice = $catalogPrice !== null && (float) $catalogPrice > 0 && Money::cmp($catalogPrice, $price) > 0 ? $catalogPrice : $price;
+            $priceCut = $shownPrice === $price ? '0.00' : Money::fmt(max(0.0, (float) Money::mul($shownPrice, (float) $qty) - (float) $lineGross));
             $gross += (float) $lineGross;
             $lineDiscounts += (float) $discount;
             $atList = (float) Money::mul($listPrice, (float) $qty);
@@ -593,7 +599,8 @@ final class SaleService
             }
             $lines[] = [
                 'product_id' => (int) $product['id'], 'product_unit_id' => (int) $unit['id'], 'product_name' => $product['name'], 'unit_name' => $unit['name'],
-                'qty' => $qty, 'base_qty' => $base, 'unit_price_usd' => $price, 'line_discount_usd' => $discount, 'line_total_usd' => $lineTotal,
+                'qty' => $qty, 'base_qty' => $base, 'unit_price_usd' => $shownPrice, 'line_discount_usd' => Money::add($discount, $priceCut), 'line_total_usd' => $lineTotal,
+                'price_cut_usd' => $priceCut, 'charged_price_usd' => $price,
                 'cost_per_base' => $costPerBase, 'line_cost_usd' => Money::fmt($base * (float) $costPerBase),
                 'entry_mode' => $mode, 'price_overridden' => $overridden, 'stock_base' => (int) $product['stock_base'],
                 'note' => mb_substr(trim((string) ($l['note'] ?? '')), 0, 255) ?: null, 'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
@@ -639,7 +646,7 @@ final class SaleService
         $low = [];
         foreach ($lines as $i => $l) {
             if ((float) $l['line_cost_usd'] > 0 && (float) $l['line_total_usd'] < (float) $l['line_cost_usd'] - 0.004) {
-                $low[] = ['i' => $i, 'name' => (string) $l['product_name'], 'lowered' => (float) $l['line_discount_usd'] > 0.004 || (bool) $l['price_overridden']];
+                $low[] = ['i' => $i, 'name' => (string) $l['product_name'], 'lowered' => (float) $l['line_discount_usd'] - (float) ($l['price_cut_usd'] ?? 0) > 0.004 || (bool) $l['price_overridden']];
             }
         }
 

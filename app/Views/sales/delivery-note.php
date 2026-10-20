@@ -23,25 +23,28 @@ $s = $sale;
     <div class="inv-ship"><div class="inv-ship-title">Shipping full address</div><div dir="auto"><?= nl2br(e($customer['address'] ?? '')) ?></div></div>
   </section>
   <table class="inv-lines">
-    <thead><tr><th>No</th><th class="l">Item Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+    <thead><tr><th>No</th><th class="l">Item Description</th><th>Qty</th><th>Price</th><th>Discount</th><th>Total</th></tr></thead>
     <tbody>
+    <?php // the list price stays on every line, the reduction is its own column (owner, 2026-10-20): Sub Total − Discount = Total
+    $atList = 0.0; $allDiscounts = 0.0; foreach ($items as $i) { $atList += (float) $i['line_total_usd'] + (float) $i['line_discount_usd']; $allDiscounts += (float) $i['line_discount_usd']; } ?>
     <?php $n = 0; foreach ($items as $i): $n++; ?>
       <tr>
         <td><?= $n ?></td>
         <td class="l" dir="auto"><?= e($i['product_name']) ?><?= (int) $i['factor'] > 1 ? ' · ' . e($i['unit_name']) : '' ?><?= !empty($i['note']) ? '<br><small>' . e($i['note']) . '</small>' : '' ?></td>
         <td><?= e(rtrim(rtrim($i['qty'], '0'), '.')) ?></td>
         <td><?= (float) $i['unit_price_usd'] > 0 ? usd($i['unit_price_usd']) : 'Free' ?></td>
+        <td><?= (float) $i['line_discount_usd'] > 0 ? '-' . usd($i['line_discount_usd']) : '' ?></td>
         <td class="amount"><?= (float) $i['line_total_usd'] > 0 ? usd($i['line_total_usd']) : 'Free' ?></td>
       </tr>
     <?php endforeach; ?>
-    <?php for ($k = $n; $k < 8; $k++): ?><tr class="blank"><td colspan="5">&nbsp;</td></tr><?php endfor; ?>
+    <?php for ($k = $n; $k < 8; $k++): ?><tr class="blank"><td colspan="6">&nbsp;</td></tr><?php endfor; ?>
     </tbody>
   </table>
   <?php if (!empty($s['notes'])): ?><p class="inv-notes" dir="auto"><b>Notes:</b> <?= e($s['notes']) ?></p><?php endif; ?>
   <section class="inv-totals">
     <table>
-      <tr><td>Sub Total</td><td><?= usd($s['subtotal_usd']) ?></td></tr>
-      <?php if ((float) $s['discount_usd'] > 0): ?><tr><td>Discount</td><td>-<?= usd($s['discount_usd']) ?></td></tr><?php endif; ?>
+      <tr><td>Sub Total</td><td><?= usd($atList) ?></td></tr>
+      <?php if ($allDiscounts > 0): ?><tr><td>Discount</td><td>-<?= usd($allDiscounts) ?></td></tr><?php endif; ?>
       <tr class="total"><td>Total</td><td><?= usd($s['total_usd']) ?></td></tr>
       <?php if ($credit !== null): ?><tr><td>Balance owed</td><td><?= usd($credit['balance']) ?></td></tr><?php endif; ?>
     </table>

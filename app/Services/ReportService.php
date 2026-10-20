@@ -122,6 +122,30 @@ final class ReportService
                             LEFT JOIN customers c ON c.id = r.customer_id WHERE r.created_at BETWEEN :f AND :t ORDER BY r.id DESC", $this->range($from, $to));
     }
 
+    /**
+     * Discounts given (2026-10-20): every reduction on a completed sale, whether typed as a discount, a lowered price or a
+     * customer's agreed price (all recorded as line discounts against the list price), by customer, by product and by sale.
+     *
+     * @return array{total: array{list: string, discount: string, charged: string, pct: float}, customers: list<array>, products: list<array>, sales: list<array>}
+     */
+    public function discounts(string $from, string $to): array
+    {
+        $base = "FROM sale_items i JOIN sales s ON s.id = i.sale_id LEFT JOIN customers c ON c.id = s.customer_id
+                 WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t";
+        $sums = 'SUM(i.line_total_usd + i.line_discount_usd) AS list, SUM(i.line_discount_usd) AS discount, SUM(i.line_total_usd) AS charged';
+        $t = $this->rows("SELECT {$sums} {$base}", $this->range($from, $to))[0] ?? [];
+        $list = (float) ($t['list'] ?? 0);
+        $discount = (float) ($t['discount'] ?? 0);
+
+        return [
+            'total' => ['list' => Money::fmt($list), 'discount' => Money::fmt($discount), 'charged' => Money::fmt((float) ($t['charged'] ?? 0)), 'pct' => $list > 0 ? round($discount / $list * 100, 1) : 0.0],
+            'customers' => $this->rows("SELECT COALESCE(c.name, 'Walk-in') AS name, {$sums} {$base} GROUP BY s.customer_id, c.name HAVING SUM(i.line_discount_usd) > 0 ORDER BY discount DESC", $this->range($from, $to)),
+            'products' => $this->rows("SELECT i.product_name AS name, {$sums} {$base} GROUP BY i.product_id, i.product_name HAVING SUM(i.line_discount_usd) > 0 ORDER BY discount DESC", $this->range($from, $to)),
+            'sales' => $this->rows("SELECT s.id, s.invoice_no, s.created_at, COALESCE(c.name, 'Walk-in') AS customer, {$sums} {$base} GROUP BY s.id, s.invoice_no, s.created_at, c.name
+                                    HAVING SUM(i.line_discount_usd) > 0 ORDER BY s.id DESC", $this->range($from, $to)),
+        ];
+    }
+
     public function waste(string $from, string $to): array
     {
         return $this->rows("SELECT m.*, p.name AS product_name, p.base_unit, u.username FROM stock_movements m JOIN products p ON p.id = m.product_id LEFT JOIN users u ON u.id = m.user_id

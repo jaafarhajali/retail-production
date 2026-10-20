@@ -108,7 +108,10 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
       var price = u ? priceOf(u) : null, priceCell = tr.querySelector('.price'), totalCell = tr.querySelector('.total');
       if (!u || price === null) { priceCell.textContent = u ? 'no ' + level.value + ' price' : ''; totalCell.textContent = ''; tr.querySelector('[name$="[discount]"]').value = ''; return; }
       var gross = Math.round(price * qty * 100) / 100, disc = Math.round(gross * Math.min(100, Math.max(0, pct)) / 100 * 100) / 100, total = gross - disc;
-      priceCell.textContent = money(price) + (agreed()[u.id] !== undefined ? ' (agreed)' : ''); totalCell.textContent = money(total);
+      var list = level.value === 'wholesale' ? u.wholesale : u.retail; list = list === null || list === undefined ? null : parseFloat(list);
+      // an agreed price under the list is printed as the list price and a discount (2026-10-20)
+      priceCell.textContent = agreed()[u.id] !== undefined && list !== null && list > price ? money(list) + ' − ' + money(list - price) + ' agreed' : money(price) + (agreed()[u.id] !== undefined ? ' (agreed)' : '');
+      totalCell.textContent = money(total);
       tr.querySelector('[name$="[discount]"]').value = disc > 0 ? disc.toFixed(2) : '';
       sub += total; ldisc += disc; if (qty > 0) ok = true;
     });
