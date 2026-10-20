@@ -3,15 +3,18 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Core\Audit;
 use App\Core\Database;
-use App\Core\Settings;
-use App\Models\Customer;
-use App\Models\ProductionRun;
+use App\Models\FixedCost;
 
 /**
- * The factory dashboard (F5, 2026-10-13): the business as a flow, raw materials → production → finished stock →
- * out with the seller → paid or owed, with this month's sales, who owes, production, the two stocks and break-even.
- * Everything is read from the records; nothing here writes.
+ * The dashboard (2026-10-20, owner's requirement through Aya): the break-even and nothing else.
+ * The monthly fixed costs are typed here, one amount per month. The break-even is split between the products
+ * by their share of last month's pieces sold (this month's when last month sold nothing; equal shares before any
+ * sale), each product weighed by what one piece earns, so that the targets together cover the fixed costs exactly.
+ * Example: fixed $1,500; Joy 100g earns $1.80 a piece and is half of the pieces sold, Joy 200g earns $3.60 (20%),
+ * Stick 25g $0.35 (30%): 435 + 174 + 261 pieces cover the month. Sales and returns move "Sold" and "Left" at once.
+ * Everything is read from the records; the only write is the fixed amount.
  */
 final class DashboardService
 {
@@ -21,80 +24,110 @@ final class DashboardService
         $month = $month !== null && preg_match('/^\d{4}-\d{2}$/', $month) ? $month : date('Y-m');
         $from = $month . '-01';
         $to = date('Y-m-t', strtotime($from));
-        $today = date('Y-m-d');
+        $prev = date('Y-m', strtotime($from . ' -1 month'));
         $pdo = Database::pdo();
         $one = static fn (string $sql, array $p = []): array => (static function () use ($pdo, $sql, $p): array { $st = $pdo->prepare($sql); $st->execute($p); return $st->fetch(\PDO::FETCH_ASSOC) ?: []; })();
         $all = static fn (string $sql, array $p = []): array => (static function () use ($pdo, $sql, $p): array { $st = $pdo->prepare($sql); $st->execute($p); return $st->fetchAll(\PDO::FETCH_ASSOC); })();
-        $range = ['f' => $from . ' 00:00:00', 't' => $to . ' 23:59:59'];
+        $range = static fn (string $m): array => ['f' => $m . '-01 00:00:00', 't' => date('Y-m-t', strtotime($m . '-01')) . ' 23:59:59'];
 
-        // ---- sales this month and today
-        $m = $one("SELECT COUNT(*) AS invoices, COALESCE(SUM(total_usd), 0) AS total, COALESCE(SUM(cost_total_usd), 0) AS cost,
-                          COALESCE(SUM(CASE WHEN price_level = 'wholesale' THEN total_usd ELSE 0 END), 0) AS wholesale,
-                          COALESCE(SUM(CASE WHEN price_level = 'retail' THEN total_usd ELSE 0 END), 0) AS retail
-                   FROM sales WHERE status = 'completed' AND created_at BETWEEN :f AND :t", $range);
-        $t = $one("SELECT COUNT(*) AS invoices, COALESCE(SUM(total_usd), 0) AS total FROM sales WHERE status = 'completed' AND created_at BETWEEN :f AND :t", ['f' => $today . ' 00:00:00', 't' => $today . ' 23:59:59']);
-        $pay = $one("SELECT COALESCE(SUM(CASE WHEN p.method = 'credit' THEN p.amount_usd ELSE 0 END), 0) AS credit, COALESCE(SUM(CASE WHEN p.method <> 'credit' THEN p.amount_usd ELSE 0 END), 0) AS paid
-                     FROM sale_payments p JOIN sales s ON s.id = p.sale_id WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t", $range);
-        $paidInvoices = (int) $one("SELECT COUNT(*) AS n FROM sales s WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t
-                                    AND NOT EXISTS (SELECT 1 FROM sale_payments p WHERE p.sale_id = s.id AND p.method = 'credit')", $range)['n'];
-        $units = (int) $one("SELECT COALESCE(SUM(i.base_qty), 0) AS n FROM sale_items i JOIN sales s ON s.id = i.sale_id JOIN products p ON p.id = i.product_id
-                             WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t AND p.base_unit = 'piece'", $range)['n'];
+        // ---- the fixed costs: this month's amount, or the latest earlier one carried forward
+        $fc = (new FixedCost())->forMonth($month);
+        $fixed = $fc === null ? 0.0 : (float) $fc['amount_usd'];
+        $fixedInfo = ['amount' => $fc === null ? null : Money::fmt($fixed), 'from_month' => $fc === null || $fc['month'] === $month ? null : date('F Y', strtotime($fc['month'] . '-01'))];
 
-        // ---- out with the seller, who owes
-        $held = $one("SELECT COUNT(*) AS n, COALESCE(SUM(total_usd), 0) AS total FROM sales WHERE status = 'on_hold'");
-        $debtors = (new Customer())->debtors();
-        usort($debtors, static fn (array $a, array $b): int => (float) $b['balance_usd'] <=> (float) $a['balance_usd']);
-        $owed = array_sum(array_map(static fn (array $c): float => (float) $c['balance_usd'], $debtors));
+        // ---- the month's money: sales minus returns, and what the pieces sold had cost (mix and packaging)
+        $s = $one("SELECT COALESCE(SUM(total_usd), 0) AS total, COALESCE(SUM(cost_total_usd), 0) AS cost FROM sales WHERE status = 'completed' AND created_at BETWEEN :f AND :t", $range($month));
+        $r = $one("SELECT COALESCE(SUM(r.total_usd), 0) AS total, COALESCE((SELECT SUM(i.cost_usd) FROM return_items i JOIN returns r2 ON r2.id = i.return_id WHERE r2.created_at BETWEEN :f2 AND :t2), 0) AS cost
+                   FROM returns r WHERE r.created_at BETWEEN :f AND :t", $range($month) + ['f2' => $range($month)['f'], 't2' => $range($month)['t']]);
+        $revenue = (float) $s['total'] - (float) $r['total'];
+        $variable = (float) $s['cost'] - (float) $r['cost'];
+        $money = ['sales' => Money::fmt($revenue), 'variable' => Money::fmt($variable), 'margin' => Money::fmt($revenue - $variable), 'fixed' => Money::fmt($fixed), 'profit' => Money::fmt($revenue - $variable - $fixed)];
 
-        // ---- production this month, the two stocks
-        $runs = new ProductionRun();
-        $made = $runs->byProduct($from, $to);
-        $consumed = $runs->consumed($from, $to);
-        $stock = [];
-        foreach ($all("SELECT kind, COUNT(*) AS n, COALESCE(SUM(stock_base * cost_per_base), 0) AS value_usd,
-                              SUM(CASE WHEN min_stock_base IS NOT NULL AND stock_base <= min_stock_base THEN 1 ELSE 0 END) AS low
-                       FROM products WHERE is_active = 1 GROUP BY kind") as $r) {
-            $stock[$r['kind']] = ['n' => (int) $r['n'], 'value_usd' => Money::fmt($r['value_usd']), 'low' => (int) $r['low']];
+        // ---- pieces per product: sold (net of returns), what they sold for and had cost
+        $perProduct = function (string $m) use ($all, $range): array {
+            $out = [];
+            foreach ($all("SELECT i.product_id, SUM(i.base_qty) AS qty, SUM(i.line_total_usd) AS total, SUM(i.line_cost_usd) AS cost FROM sale_items i JOIN sales s ON s.id = i.sale_id
+                           WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t GROUP BY i.product_id", $range($m)) as $row) {
+                $out[(int) $row['product_id']] = ['qty' => (int) $row['qty'], 'total' => (float) $row['total'], 'cost' => (float) $row['cost']];
+            }
+            foreach ($all("SELECT i.product_id, SUM(i.base_qty) AS qty, SUM(i.refund_usd) AS total, SUM(i.cost_usd) AS cost FROM return_items i JOIN returns r ON r.id = i.return_id
+                           WHERE r.created_at BETWEEN :f AND :t GROUP BY i.product_id", $range($m)) as $row) {
+                $id = (int) $row['product_id'];
+                $out[$id] ??= ['qty' => 0, 'total' => 0.0, 'cost' => 0.0];
+                $out[$id]['qty'] -= (int) $row['qty'];
+                $out[$id]['total'] -= (float) $row['total'];
+                $out[$id]['cost'] -= (float) $row['cost'];
+            }
+
+            return $out;
+        };
+        $thisMonth = $perProduct($month);
+        $lastMonth = $perProduct($prev);
+
+        // ---- the candidates: finished products sold by the piece, with the list price and cost as a fallback
+        $products = $all("SELECT p.id, p.name, p.cost_per_base, u.retail_price, u.factor FROM products p
+                          LEFT JOIN product_units u ON u.product_id = p.id AND u.is_default_sale = 1
+                          WHERE p.is_active = 1 AND p.kind = 'finished' AND p.base_unit = 'piece' ORDER BY p.name");
+        $sumShare = static fn (array $month, array $ids): int => array_sum(array_map(static fn (int $id): int => max(0, $month[$id]['qty'] ?? 0), $ids));
+        $ids = array_map('intval', array_column($products, 'id'));
+        $shareFrom = $sumShare($lastMonth, $ids) > 0 ? $lastMonth : ($sumShare($thisMonth, $ids) > 0 ? $thisMonth : null);
+        $shareTotal = $shareFrom === null ? count($products) : $sumShare($shareFrom, $ids);
+        $rows = [];
+        foreach ($products as $p) {
+            $id = (int) $p['id'];
+            $share = $shareFrom === null ? 1 / max(1, $shareTotal) : max(0, $shareFrom[$id]['qty'] ?? 0) / $shareTotal;
+            if ($share <= 0) {
+                continue;   // not part of what sells: no target
+            }
+            $sold = $thisMonth[$id] ?? ['qty' => 0, 'total' => 0.0, 'cost' => 0.0];
+            if ($sold['qty'] > 0) {
+                $price = $sold['total'] / $sold['qty'];
+                $cost = $sold['cost'] / $sold['qty'];
+            } else {
+                $price = $p['retail_price'] === null ? 0.0 : (float) $p['retail_price'] / max(1, (int) $p['factor']);
+                $cost = (float) $p['cost_per_base'];
+            }
+            $rows[$id] = ['product_id' => $id, 'name' => $p['name'], 'share' => $share, 'margin' => $price - $cost, 'price' => Money::fmt($price), 'cost' => Money::fmt($cost), 'sold' => max(0, $sold['qty'])];
         }
-        foreach (['finished', 'intermediate', 'material'] as $k) {
-            $stock[$k] ??= ['n' => 0, 'value_usd' => '0.00', 'low' => 0];
+        // the pieces needed: fixed ÷ Σ(share × margin), the products that earn nothing left out of the split
+        $earning = array_filter($rows, static fn (array $r): bool => $r['margin'] > 0);
+        $earningShare = array_sum(array_column($earning, 'share'));
+        $perPiece = $earningShare > 0 ? array_sum(array_map(static fn (array $r): float => $r['share'] / $earningShare * $r['margin'], $earning)) : 0.0;
+        $ready = $fc !== null && $fixed > 0 && $perPiece > 0;
+        $total = $ready ? $fixed / $perPiece : 0.0;
+        foreach ($rows as $id => &$row) {
+            $need = $ready && $row['margin'] > 0 ? (int) ceil($row['share'] / $earningShare * $total) : null;
+            $row['need'] = $need;
+            $row['left'] = $need === null ? null : max(0, $need - $row['sold']);
+            $row['share_pct'] = (int) round($row['share'] * 100);
+            $row['margin_text'] = Money::fmt($row['margin']);
         }
-        $lowList = $all("SELECT name, kind, stock_base, min_stock_base, base_unit FROM products WHERE is_active = 1 AND min_stock_base IS NOT NULL AND stock_base <= min_stock_base ORDER BY kind, name LIMIT 12");
-
-        // ---- this month's products
-        $products = $all("SELECT i.product_id, i.product_name, p.base_unit, SUM(i.base_qty) AS qty_base, SUM(i.line_total_usd) AS total, SUM(i.line_cost_usd) AS cost
-                          FROM sale_items i JOIN sales s ON s.id = i.sale_id JOIN products p ON p.id = i.product_id
-                          WHERE s.status = 'completed' AND s.created_at BETWEEN :f AND :t GROUP BY i.product_id, i.product_name, p.base_unit ORDER BY total DESC LIMIT 10", $range);
-
-        // ---- break-even: fixed costs = this month's expenses in the categories marked fixed; margin = (revenue − cost) ÷ pieces sold
-        $fixedCats = array_values(array_filter(array_map('trim', explode(',', Settings::get('fixed_expense_categories', '')))));
-        $fixed = 0.0;
-        if ($fixedCats !== []) {
-            $in = implode(',', array_map(static fn (string $c): string => $pdo->quote($c), $fixedCats));
-            $fixed = (float) $one("SELECT COALESCE(SUM(amount_usd), 0) AS a FROM expenses WHERE supplier_id IS NULL AND expense_date BETWEEN :f AND :t AND category IN ({$in})", ['f' => $from, 't' => $to])['a'];
-        }
-        $revenue = (float) $m['total'];
-        $margin = $units > 0 ? ($revenue - (float) $m['cost']) / $units : 0.0;
-        $avgPrice = $units > 0 ? $revenue / $units : 0.0;
-        $bepUnits = $margin > 0 ? (int) ceil($fixed / $margin) : null;
-        $breakEven = [
-            'fixed_usd' => Money::fmt($fixed), 'categories' => $fixedCats, 'units_sold' => $units, 'avg_price' => Money::fmt($avgPrice), 'avg_cost' => Money::fmt($units > 0 ? (float) $m['cost'] / $units : 0),
-            'margin' => Money::fmt($margin), 'bep_units' => $bepUnits, 'bep_revenue' => $bepUnits === null ? null : Money::fmt($bepUnits * $avgPrice),
-            'remaining_units' => $bepUnits === null ? null : max(0, $bepUnits - $units), 'revenue' => Money::fmt($revenue),
-            'profit' => Money::fmt($revenue - (float) $m['cost'] - $fixed), 'pct' => $bepUnits === null || $bepUnits === 0 ? null : min(999, (int) round($units / $bepUnits * 100)),
-            'ready' => $fixedCats !== [] && $units > 0,
-        ];
+        unset($row);
+        usort($rows, static fn (array $a, array $b): int => $b['share'] <=> $a['share']);
+        $sum = static fn (string $k): int => array_sum(array_map(static fn (array $r): int => (int) ($r[$k] ?? 0), $rows));
 
         return [
-            'month' => $month, 'from' => $from, 'to' => $to, 'month_label' => date('F Y', strtotime($from)),
-            'today' => ['total' => Money::fmt($t['total']), 'invoices' => (int) $t['invoices']],
-            'month_sales' => ['total' => Money::fmt($m['total']), 'invoices' => (int) $m['invoices'], 'wholesale' => Money::fmt($m['wholesale']), 'retail' => Money::fmt($m['retail']),
-                              'paid' => Money::fmt($pay['paid']), 'credit' => Money::fmt($pay['credit']), 'paid_invoices' => $paidInvoices, 'unpaid_invoices' => (int) $m['invoices'] - $paidInvoices, 'units' => $units],
-            'held' => ['n' => (int) $held['n'], 'total' => Money::fmt($held['total'])],
-            'owed' => ['total' => Money::fmt($owed), 'customers' => count($debtors), 'top' => array_slice($debtors, 0, 5)],
-            'production' => ['runs' => array_sum(array_map(static fn (array $r): int => (int) $r['runs'], $made)), 'made' => $made, 'consumed' => $consumed,
-                             'cost' => Money::fmt(array_sum(array_map(static fn (array $r): float => (float) $r['cost_usd'], $made)))],
-            'stock' => $stock, 'low' => $lowList, 'products' => $products, 'break_even' => $breakEven,
+            'month' => $month, 'month_label' => date('F Y', strtotime($from)), 'prev_label' => date('F Y', strtotime($prev . '-01')),
+            'fixed' => $fixedInfo, 'money' => $money,
+            'targets' => ['ready' => $ready, 'rows' => array_values($rows), 'need' => $sum('need'), 'sold' => $sum('sold'), 'left' => $sum('left'),
+                          'share_from' => $shareFrom === null ? 'equal' : ($shareFrom === $lastMonth ? 'last' : 'this'), 'per_piece' => Money::fmt($perPiece)],
         ];
+    }
+
+    /** The administrator types the month's fixed costs on the dashboard. */
+    public function setFixedCosts(string $month, string $amount, int $userId): string
+    {
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            throw new \DomainException('Choose the month.');
+        }
+        $text = str_replace([',', '$', ' '], '', trim($amount));
+        if ($text === '' || !is_numeric($text) || (float) $text < 0 || (float) $text > 9999999) {
+            throw new \DomainException('Monthly fixed costs: type an amount in dollars, like 1500.');
+        }
+        $value = Money::fmt((float) $text);
+        (new FixedCost())->set($month, $value, $userId);
+        Audit::log('fixed_costs.set', 'fixed_costs', null, ['month' => $month, 'amount' => $value], (float) $value, 'USD');
+
+        return $value;
     }
 }

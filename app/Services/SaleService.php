@@ -115,6 +115,9 @@ final class SaleService
             throw new \DomainException('An invoice needs its customer. Choose the customer first.');
         }
         $pay = $this->payments(['payments' => [['method' => 'credit', 'currency' => 'USD', 'amount' => $p['total']]], 'change_currency' => 'USD'], $p['total'], $p['rate'], $p['step'], $p['customer'], $p['needsPin']);
+        if ($p['short'] !== []) {   // the desk never forces it: the pieces on the invoice were packed, or they do not exist (2026-10-20)
+            throw new \DomainException('Not enough in stock: ' . implode('; ', $p['short']) . '. Pack more first.');
+        }
         if ($p['needsPin'] !== []) {
             throw new \DomainException('Only the administrator may do this: ' . implode(', ', $p['needsPin']) . '.');
         }
@@ -268,6 +271,25 @@ final class SaleService
 
         ['lines' => $lines, 'subtotal' => $subtotal, 'invoiceDiscount' => $invoiceDiscount, 'total' => $total, 'listGross' => $listGross, 'cutTotal' => $cutTotal, 'worst' => $worst]
             = $this->priceLines($in, $level, $needsPin);
+        // More than the stock (2026-10-20): every piece comes from Packing, so the stock is the real one and a sale beyond it
+        // is a mistake, not a lag. The till needs the administrator's PIN to force it (the pieces are on the table, Packing
+        // is late); a desk invoice is refused (issue()). A box filled at the sale is only warned about: its mix is weighed by hand.
+        $asked = [];
+        foreach ($lines as $l) {
+            if ($l['track_stock'] && $l['fill_mix_id'] === null) {
+                $asked[$l['product_id']] = ($asked[$l['product_id']] ?? 0) + $l['base_qty'];
+            }
+        }
+        $short = [];
+        foreach ($lines as $l) {
+            if (isset($asked[$l['product_id']]) && $asked[$l['product_id']] > $l['stock_base']) {
+                $short[] = $l['product_name'] . ' (' . number_format(max(0, $l['stock_base'])) . ' in stock, ' . number_format($asked[$l['product_id']]) . ' asked)';
+                unset($asked[$l['product_id']]);
+            }
+        }
+        if ($short !== []) {
+            $needsPin[] = 'more than the stock: ' . implode(', ', $short);
+        }
         $low = $this->belowCostLines($lines);
         $belowCost = array_values(array_unique(array_column($low, 'name')));
         // A discount or a changed price that takes a line under its cost is the administrator's call, whatever the percentage.
@@ -305,7 +327,7 @@ final class SaleService
         }
 
         return ['rate' => $rate, 'step' => $step, 'level' => $level, 'customer' => $customer, 'lines' => $lines, 'subtotal' => $subtotal, 'invoiceDiscount' => $invoiceDiscount,
-                'total' => $total, 'needsPin' => $needsPin, 'warnings' => $warnings, 'belowCost' => $belowCost];
+                'total' => $total, 'needsPin' => $needsPin, 'warnings' => $warnings, 'belowCost' => $belowCost, 'short' => $short];
     }
 
     /** Payments (§7.1), then the settlement: tolerance, change and rounding (§7.2, §7.3). */

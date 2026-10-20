@@ -55,6 +55,7 @@ return [
 
     'the till sells finished products only; a purchase takes materials only; a return without invoice lists finished only' => function () use ($make): void {
         $joy = $make('Joy 100g', 'finished', 'piece');
+        (new StockService())->adjust($joy['id'], $joy['unit'], '5', 'opening', '', null, TEST_ADMIN_ID);   // a sale beyond the stock needs a PIN (2026-10-20)
         $honey = $make('Honey', 'material');
         (new StockService())->adjust($honey['id'], $honey['unit'], '5', 'opening', '', null, TEST_ADMIN_ID);
         $register = (new Register())->create('Register 01');
@@ -106,9 +107,10 @@ return [
         assert_contains('Sugar', $materials);
         assert_not_contains('Joy 100g', $materials);
         assert_contains('Raw materials', $list);
-        $dash = $client->get('dashboard')->body;
-        assert_contains('Low stock', $dash);
-        assert_contains('Honey', $dash);   // F5: the dashboard lists the low products by name
+        // the dashboard shows the break-even only (2026-10-20); the low products are found with the Products list's stock filter
+        $low = $client->get('products', ['kind' => 'material', 'stock' => 'low'])->body;
+        assert_contains('Honey', $low);
+        assert_not_contains('<td dir="auto">Sugar</td>', $low);
     },
 
     'stocktaking counts one kind' => function () use ($make): void {

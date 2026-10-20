@@ -110,6 +110,6 @@ return [
         $page = $client->get('backup')->body;
         assert_contains('copied to the USB folder', $page);
         assert_contains('<td>manual</td>', $page);
-        assert_contains('USB copy OK', $client->get('dashboard')->body);
+        assert_not_contains('No automatic backup has run yet', $client->get('dashboard')->body, 'all good: the dashboard says nothing about backups (2026-10-20)');
     },
 ];

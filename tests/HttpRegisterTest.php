@@ -18,7 +18,7 @@ return [
         $client->get('registers');
         assert_same(302, $client->post('registers/bind', ['id' => $id])->status);
         assert_true($client->cookie(RegisterDevice::COOKIE) !== null, 'device cookie set');
-        assert_contains('Register 01', $client->get('dashboard')->body);
+        assert_contains('Open a session on <span dir="auto">Register 01</span>', $client->get('sessions/open')->body);   // the dashboard no longer has the device panel for the administrator (2026-10-20)
     },
 
     // Browsers cap cookie lifetimes at 400 days; renewing on every visit keeps a till linked for good.

@@ -37,6 +37,7 @@ return [
         $kg = (new ProductService())->addUnit($p, 'kg', '1000', true, false);
         (new ProductService())->setPrices($kg, '15', '');
         (new ProductService())->addBarcode($kg, '6291041500213');
+        (new StockService())->adjust($p, $kg, '5', 'opening', '', null, TEST_ADMIN_ID);   // a sale beyond the stock needs a PIN (2026-10-20)
         $registerId = (new Register())->create('Register 01');
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $client->get('registers');

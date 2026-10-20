@@ -48,7 +48,7 @@ return [
     'correct credentials open the dashboard' => function (): void {
         $response = login_as('admin', TEST_ADMIN_PASSWORD)->get('dashboard');
         assert_same(200, $response->status);
-        assert_contains('Signed in as', $response->body);
+        assert_contains('Break-even', $response->body);   // the dashboard is the break-even (2026-10-20)
     },
 
     'a wrong password shows an error and stays signed out' => function (): void {

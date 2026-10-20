@@ -51,9 +51,6 @@ final class SettingService
         }
         $values['max_cashier_discount_pct'] = (string) (int) $discount;
 
-        // F5: the expense categories that are fixed costs, for break-even
-        $fixed = array_values(array_unique(array_filter(array_map(static fn ($c): string => trim((string) $c), is_array($input['fixed_cats'] ?? null) ? $input['fixed_cats'] : []))));
-        $values['fixed_expense_categories'] = implode(',', $fixed);
         $values['usd_denominations'] = $this->denominations($input['usd_denominations'] ?? '', 'USD');
         $values['lbp_denominations'] = $this->denominations($input['lbp_denominations'] ?? '', 'LBP');
 

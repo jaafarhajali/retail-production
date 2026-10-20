@@ -42,6 +42,7 @@ return [
     ['GET',  'auth/password', [AuthController::class, 'showPassword'],   Router::AUTH],
     ['POST', 'auth/password', [AuthController::class, 'changePassword'], Router::AUTH],
     ['GET',  'dashboard',     [DashboardController::class, 'index'],     Router::AUTH],
+    ['POST', 'dashboard/fixed-costs', [DashboardController::class, 'saveFixedCosts'], 'settings.manage'],   // the month's fixed costs (2026-10-20)
     ['GET',  'users',             [UserController::class, 'index'],       'user.manage'],
     ['GET',  'users/create',      [UserController::class, 'create'],      'user.manage'],
     ['POST', 'users/store',       [UserController::class, 'store'],       'user.manage'],
