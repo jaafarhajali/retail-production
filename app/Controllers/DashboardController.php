@@ -36,7 +36,7 @@ final class DashboardController extends Controller
         } catch (\DomainException $e) {
             $this->failBack('dashboard', [], ['form' => $e->getMessage()]);
         }
-        Flash::set('success', 'Monthly fixed costs for ' . date('F Y', strtotime($month . '-01')) . ': ' . usd($value) . '.');
+        Flash::set('success', 'Estimated fixed costs for ' . date('F Y', strtotime($month . '-01')) . ': ' . usd($value) . '.');
         redirect('dashboard');
     }
 }

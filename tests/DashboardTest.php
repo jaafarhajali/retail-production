@@ -54,36 +54,40 @@ return [
         Auth::login(TEST_ADMIN_ID);
     },
 
-    'the break-even by product: the fixed costs split by each product\'s share of the pieces sold, weighed by what a piece earns; sold and left per product' => function () use ($setup): void {
+    "the break-even by product: each product carries the fixed costs in proportion to the profit it earned; the estimate during the month, the actual once it is over" => function () use ($setup): void {
         $s = $setup();
+        // No estimate typed yet: the actual so far (the $150 rent recorded today) stands in.
         $d = (new DashboardService())->summary();
-        // the month's money needs no fixed costs; the targets do
-        assert_same(['290.00', '68.00', '222.00', '0.00', '222.00'], array_values($d['money']));
-        assert_same([null, null], [$d['fixed']['amount'], $d['fixed']['from_month']]);
-        assert_false($d['targets']['ready'], 'no fixed costs typed yet');
-        assert_same(['Joy 100g', 'Gold 100g'], array_column($d['targets']['rows'], 'name'), 'the Stick never sold: no column; best seller first');
-        assert_same([100, 10, null], [$d['targets']['rows'][0]['sold'], $d['targets']['rows'][1]['sold'], $d['targets']['rows'][0]['need']]);
+        assert_same(["sales" => "290.00", "variable" => "68.00", "margin" => "222.00", "fixed" => "150.00", "profit" => "72.00"], $d["money"]);
+        assert_same([null, "150.00", "150.00", "actual"], [$d["fixed"]["estimate"], $d["fixed"]["actual"], $d["fixed"]["used"], $d["fixed"]["uses"]]);
+        assert_same(["Joy 100g", "Gold 100g"], array_column($d["targets"]["rows"], "name"), "the Stick earned nothing: no column; the biggest share first");
 
-        // Fixed $150. No sale last month, so the shares come from this month: Joy 100/110, Gold 10/110.
-        // Joy earns 2.50 − 0.60 = $1.90 a piece, Gold 4.00 − 0.80 = $3.20; a piece earns 1.90 × 100/110 + 3.20 × 10/110 = $2.018 on average.
-        // 150 / 2.018 = 74.3 pieces: Joy ⌈74.3 × 100/110⌉ = 68, Gold ⌈74.3 × 10/110⌉ = 7 (68 × 1.90 + 7 × 3.20 = $151.60 ≥ 150). Both already sold: left 0.
-        $v = (new DashboardService())->setFixedCosts(date('Y-m'), '150', TEST_ADMIN_ID);
-        assert_same('150.00', $v);
+        // Estimate $150. Last month sold nothing, so the shares are this month's profit: Joy 250 − 60 = $190, Gold 40 − 8 = $32, of $222.
+        // Joy carries 150 × 190/222 = $128.38 → at $1.90 a piece, 68; Gold $21.62 → at $3.20, 7. Both already sold: left 0.
+        $v = (new DashboardService())->setFixedCosts(date("Y-m"), "150", TEST_ADMIN_ID);
+        assert_same("150.00", $v);
         $d = (new DashboardService())->summary();
-        $t = $d['targets'];
-        assert_true($t['ready']);
-        assert_same(['150.00', null], [$d['fixed']['amount'], $d['fixed']['from_month']]);
-        assert_same([['Joy 100g', 68, 100, 0, '1.90', 91], ['Gold 100g', 7, 10, 0, '3.20', 9]], array_map(static fn (array $r): array => [$r['name'], $r['need'], $r['sold'], $r['left'], $r['margin_text'], $r['share_pct']], $t['rows']));
-        assert_same([75, 110, 0, 'this', '2.02'], [$t['need'], $t['sold'], $t['left'], $t['share_from'], $t['per_piece']]);
-        assert_same(['290.00', '68.00', '222.00', '150.00', '72.00'], array_values($d['money']), 'net profit = 290 − 68 − 150');
+        $t = $d["targets"];
+        assert_true($t["ready"]);
+        assert_same(["150.00", null, "estimate"], [$d["fixed"]["estimate"], $d["fixed"]["from_month"], $d["fixed"]["uses"]]);
+        assert_same([["Joy 100g", 85.6, "128.38", 68, 100, 0, "1.90"], ["Gold 100g", 14.4, "21.62", 7, 10, 0, "3.20"]],
+            array_map(static fn (array $r): array => [$r["name"], $r["share_pct"], $r["carries"], $r["need"], $r["sold"], $r["left"], $r["margin_text"]], $t["rows"]));
+        assert_same([75, 110, 0, "this"], [$t["need"], $t["sold"], $t["left"], $t["share_from"]]);
+        assert_same("72.00", $d["money"]["profit"], "net profit = 290 − 68 − 150");
 
-        // Fixed $1,500: 743.2 pieces → Joy 676 (576 left), Gold 68 (58 left); a loss so far
-        (new DashboardService())->setFixedCosts(date('Y-m'), '1,500', TEST_ADMIN_ID);
+        // Estimate $1,500: Joy $1,283.78 → 676 (576 left), Gold $216.22 → 68 (58 left); a loss so far
+        (new DashboardService())->setFixedCosts(date("Y-m"), "1,500", TEST_ADMIN_ID);
         $d = (new DashboardService())->summary();
-        assert_same([[676, 576], [68, 58]], array_map(static fn (array $r): array => [$r['need'], $r['left']], $d['targets']['rows']));
-        assert_same([744, 634], [$d['targets']['need'], $d['targets']['left']]);
-        assert_same('-1278.00', $d['money']['profit']);
+        assert_same([[676, 576], [68, 58]], array_map(static fn (array $r): array => [$r["need"], $r["left"]], $d["targets"]["rows"]));
+        assert_same([744, 634], [$d["targets"]["need"], $d["targets"]["left"]]);
+        assert_same("-1278.00", $d["money"]["profit"]);
         assert_same(1, (int) Database::pdo()->query("SELECT COUNT(*) FROM audit_log WHERE action = 'fixed_costs.set' AND amount = 1500")->fetchColumn());
+        // the history: this month, estimated $1,500, $150 recorded so far
+        assert_same([[date("F Y"), "1500.00", "150.00", "-1350.00", -90.0, false]], array_map(static fn (array $h): array => [$h["label"], $h["estimate"], $h["actual"], $h["diff"], $h["pct"], $h["final"]], $d["fixed"]["history"]));
+        // a supplier payment is not a fixed cost
+        $sup = (new \App\Services\PartyService())->saveSupplier(0, "Sugar Co", "", "", true);
+        (new ExpenseService())->create(["kind" => "supplier", "supplier_id" => $sup, "category" => "", "description" => "", "usd" => "40", "lbp" => "", "expense_date" => date("Y-m-d"), "paid_from" => "outside"], TEST_ADMIN_ID);
+        assert_same("150.00", (new DashboardService())->summary()["fixed"]["actual"]);
 
         // a return takes pieces off "Sold": 2 Gold back ($8 refunded from the drawer) → sold 8, sales 282
         $sale = (int) Database::pdo()->query("SELECT id FROM sales WHERE price_level = 'retail'")->fetchColumn();
@@ -98,27 +102,36 @@ return [
         assert_throws(DomainException::class, fn () => (new DashboardService())->setFixedCosts('2026-1', '100', TEST_ADMIN_ID));
     },
 
-    'a month without its own amount uses the latest earlier one; the shares come from last month when it sold something' => function () use ($setup): void {
+    'the estimate is carried to the next months; the shares come from last month\'s profit; a month that is over uses its actual and shows the variance' => function () use ($setup): void {
         $setup();
         $prev = date('Y-m', strtotime(date('Y-m-01') . ' -1 month'));
         (new FixedCost())->set($prev, '900.00', TEST_ADMIN_ID);
         $d = (new DashboardService())->summary();
-        assert_same(['900.00', date('F Y', strtotime($prev . '-01'))], [$d['fixed']['amount'], $d['fixed']['from_month']], 'carried over, and said so');
+        assert_same(['900.00', date('F Y', strtotime($prev . '-01')), 'estimate'], [$d['fixed']['estimate'], $d['fixed']['from_month'], $d['fixed']['uses']], 'carried over, and said so');
         assert_true($d['targets']['ready']);
-        // last month: 50 Gold sold and nothing else → every target is Gold's; Joy, unsold last month, gets no target
+        // last month: 50 Gold sold ($160 of profit) and nothing else → Gold carries 100%; Joy earned nothing last month: no target
         Database::pdo()->exec("UPDATE sales SET created_at = '{$prev}-15 10:00:00' WHERE price_level = 'retail'");
         Database::pdo()->exec("UPDATE sale_items SET qty = 50, base_qty = 50, line_total_usd = 200, line_cost_usd = 40 WHERE sale_id = (SELECT id FROM sales WHERE price_level = 'retail')");
         $t = (new DashboardService())->summary()['targets'];
         assert_same('last', $t['share_from']);
-        assert_same([['Gold 100g', 100, 282, 0, 282]], array_map(static fn (array $r): array => [$r['name'], $r['share_pct'], $r['need'], $r['sold'], $r['left']], $t['rows']), '900 / (4.00 − 0.80) = 281.25 → 282 Gold; list price and cost, since none sold this month');
+        assert_same([['Gold 100g', 100.0, 282, 0, 282]], array_map(static fn (array $r): array => [$r['name'], $r['share_pct'], $r['need'], $r['sold'], $r['left']], $t['rows']), '900 / (4.00 − 0.80) = 281.25 → 282 Gold, at last month\'s $3.20 a piece');
+
+        // last month is over: $950 of expenses recorded in it → it uses the actual; the history shows + $50, + 5.6 %
+        Database::pdo()->exec("INSERT INTO expenses (category, description, usd_paid, lbp_paid, amount_usd, exchange_rate, paid_from, user_id, expense_date, created_at)
+                               VALUES ('Salaries', '', 950, 0, 950, 90000, 'outside', " . TEST_ADMIN_ID . ", '{$prev}-28', NOW())");
+        $p = (new DashboardService())->summary($prev);
+        assert_same(['900.00', '950.00', '950.00', 'actual', true], [$p['fixed']['estimate'], $p['fixed']['actual'], $p['fixed']['used'], $p['fixed']['uses'], $p['fixed']['over']]);
+        $h = (new DashboardService())->summary()['fixed']['history'];
+        assert_same([[date('F Y'), '900.00', '150.00', false], [date('F Y', strtotime($prev . '-01')), '900.00', '950.00', true]], array_map(static fn (array $r): array => [$r['label'], $r['estimate'], $r['actual'], $r['final']], $h));
+        assert_same(['50.00', 5.6], [$h[1]['diff'], $h[1]['pct']]);
     },
 
     'the dashboard page: the targets table, the fixed costs box (administrator types, the others read), the money table; a cashier gets the plain page' => function () use ($setup): void {
         $setup();
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $page = $client->get('dashboard')->body;
-        foreach (['Break-even in ' . date('F Y'), 'Need to sell', 'Sold', 'Left', 'Joy 100g', 'Gold 100g', 'All products', 'Monthly fixed costs', 'not set', 'Type the monthly fixed costs below',
-                  'name="amount"', 'The month\'s money', 'Variable costs', 'Net profit', '$222.00'] as $needle) {
+        foreach (['Break-even in ' . date('F Y'), 'Share of fixed costs', 'Need to sell', 'Sold', 'Left', 'Joy 100g', 'Gold 100g', 'All products', 'Fixed costs · ' . date('F Y'), 'Estimated', 'not set',
+                  'Actual so far', 'Estimated fixed costs for', 'name="amount"', 'The month\'s money', 'Variable costs', 'Net profit', '$222.00', '85.6 %'] as $needle) {
             assert_contains($needle, $page, $needle);
         }
         foreach (['Finished stock', 'Who owes', 'Products sold in', 'dash-rate', 'This device', 'Stick 25g'] as $gone) {

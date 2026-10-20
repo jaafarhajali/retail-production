@@ -334,13 +334,23 @@ td.empty { background: var(--surface) !important; }
 .dash-fine { margin: .8rem 0 0; font-size: .8rem; color: var(--ink-3); }
 /* the break-even dashboard (2026-10-20): the targets table across, the fixed costs and the month's money below */
 .dash-targets { grid-column: 1 / -1; }
-.bep-table th { white-space: nowrap; }
+.dash-table.bep-table th, .dash-table.bep-table th.r { white-space: normal; vertical-align: bottom; padding-left: .7rem; line-height: 1.25; min-width: 4.5rem; }
+.dash-table.bep-table td + td { padding-left: .7rem; }
 .bep-table td { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .bep-table td.lead { font-family: var(--font); font-size: .9rem; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
 .bep-table .all { border-left: 1px solid var(--line); padding-left: 1rem; }
 .bep-table .is-done { color: var(--green); }
 .bep-table .is-left { color: var(--amber); }
 .fixed-figure { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
+.fixed-pair { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; }
+.fixed-pair > div { display: flex; flex-direction: column; gap: .1rem; }
+.fixed-pair span { font-size: .85rem; color: var(--ink-2); }
+.fixed-pair b { font-family: var(--font-display); font-size: 1.9rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fixed-pair small { color: var(--ink-3); }
+.fixed-history .is-good { color: var(--green); }
+.fixed-history .is-bad { color: var(--red); }
+.bep-table tr.share td { font-size: 1rem; color: var(--ink-2); }
+.bep-table tr.share td small { display: block; font-family: var(--font); font-size: .78rem; font-weight: 500; color: var(--ink-3); }
 .fixed-form { margin-top: .6rem; max-width: 22rem; }
 .money-table td { padding: .5rem 0; }
 .money-table tr.sub td, .money-table tr.total td { border-top: 1px solid var(--line); font-weight: 700; }
