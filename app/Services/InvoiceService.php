@@ -134,7 +134,7 @@ final class InvoiceService
             // counted in a drawer like any other cash; it is the till's own debt collection, from this page.
             $session = (new CashSession())->openForUser($userId)
                 ?? throw new \DomainException('Cash goes into a cash session. Open one first (Cash sessions → Open a session), then record the cash here.');
-            $r = (new CashService())->collectDebt($customerId, $usd, $lbp, (int) $session['id'], $userId, 'LBP', false);
+            $r = (new CashService())->collectDebt($customerId, $usd, $lbp, (int) $session['id'], $userId, 'LBP', false, 'Cash payment');   // from the Invoices page, not the till (2026-10-21)
 
             return ['paid_usd' => $r['paid_usd'], 'balance' => $r['balance']];
         }

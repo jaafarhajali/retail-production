@@ -169,7 +169,7 @@ final class CashService
      *
      * @return array{paid_usd: string, change_usd: string, change_lbp: int, balance: string}
      */
-    public function collectDebt(int $customerId, string $usd, string $lbp, int $sessionId, int $userId, string $changeCurrency = 'LBP', bool $allowShortDrawer = false): array
+    public function collectDebt(int $customerId, string $usd, string $lbp, int $sessionId, int $userId, string $changeCurrency = 'LBP', bool $allowShortDrawer = false, string $where = 'Paid at the till'): array
     {
         $customers = new Customer();
         $customer = $customers->find($customerId) ?? throw new \DomainException('Customer not found.');
@@ -217,13 +217,13 @@ final class CashService
         }
 
         $given = implode(' + ', array_filter([(float) $usdIn > 0 ? usd($usdIn) : '', $lbpIn > 0 ? lbp($lbpIn) : '']));
-        Database::transaction(function () use ($customers, $customer, $customerId, $usdIn, $lbpIn, $paid, $changeUsd, $changeLbp, $rate, $sessionId, $userId, $given, $short, $debts): void {
+        Database::transaction(function () use ($customers, $customer, $customerId, $usdIn, $lbpIn, $paid, $changeUsd, $changeLbp, $rate, $sessionId, $userId, $given, $short, $debts, $where): void {
             $debts->charge($customerId, $userId, $sessionId);
             $single = (float) $usdIn > 0 xor $lbpIn > 0;   // one currency: the ledger keeps the amount as typed
             $customers->addLedger(['customer_id' => $customerId, 'type' => 'payment', 'amount_usd' => '-' . $paid,
                                    'currency' => $single ? ((float) $usdIn > 0 ? 'USD' : 'LBP') : null,
                                    'amount_original' => $single ? ((float) $usdIn > 0 ? $usdIn : (string) $lbpIn) : null,
-                                   'exchange_rate' => $rate, 'session_id' => $sessionId, 'user_id' => $userId, 'note' => 'Paid at the till' . ($single ? '' : ': ' . $given)]);
+                                   'exchange_rate' => $rate, 'session_id' => $sessionId, 'user_id' => $userId, 'note' => $where . ($single ? '' : ': ' . $given)]);
             $cash = new CashSession();
             foreach (['USD' => $usdIn, 'LBP' => (string) $lbpIn] as $cur => $in) {
                 if ((float) $in > 0) {

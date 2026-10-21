@@ -75,6 +75,7 @@ return [
         assert_same(['amount_usd' => '-30.00', 'session_id' => $session], ['amount_usd' => $row['amount_usd'], 'session_id' => (int) $row['session_id']], 'the payment belongs to the session');
         assert_same(['debt_collection', 'USD', '30.00'], Database::pdo()->query("SELECT type, currency, amount FROM cash_movements WHERE type = 'debt_collection'")->fetch(PDO::FETCH_NUM), 'the cash is in the drawer');
         assert_same('130.00', (new \App\Models\CashSession())->expected($session)['USD']);
+        assert_same('Cash payment', Database::pdo()->query("SELECT note FROM customer_ledger WHERE type = 'payment'")->fetchColumn(), 'taken on the Invoices page, not at the till (2026-10-21)');
         assert_same('partly', $svc->outstanding($s['shop'])['items'][0]['status']);
 
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
