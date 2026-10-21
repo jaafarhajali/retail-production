@@ -153,6 +153,8 @@ return [
         $pos = $client->get('pos')->body;
         assert_contains('id="m-custom"', $pos);
         assert_contains('id="custom-pack-add"', $pos);
+        // the till sends the packaging as a list (a broken edit once sent it as text: 2026-10-21, INV-000003 took no box and no label)
+        assert_contains("fill: l.fill ? String(l.fill) : '', pack: (l.pack || []).map(function (k) { return { material_id: k.m, qty: String(k.qty) }; }) };", (string) file_get_contents(dirname(__DIR__) . '/public/assets/js/pos.js'));
         $r = $client->postJson('pos/complete', ['price_level' => 'retail', 'lines' => [['product_id' => $s['custom'], 'unit_id' => $s['unit'], 'qty' => '1', 'price' => '25', 'fill' => '650', 'cost' => '2', 'note' => 'birthday',
             'pack' => [['material_id' => $s['gift'], 'qty' => '1']]]], 'payments' => [['method' => 'cash', 'currency' => 'USD', 'amount' => '25']], 'change_currency' => 'USD']);
         assert_same(200, $r->status, $r->body);

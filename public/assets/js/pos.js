@@ -197,7 +197,7 @@
 
   // ---- below cost: the server says which lines are under their cost; the till never learns the cost itself
   function cartLines() {
-    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '', cost: l.cost === undefined || l.cost === null ? '' : String(l.cost), fill: l.fill, pack: (l.pack || []).map(function (k) { return { material_id: k.m, qty: String(k.qty) }; }) ? String(l.fill) : '' }; });
+    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '', cost: l.cost === undefined || l.cost === null ? '' : String(l.cost), fill: l.fill ? String(l.fill) : '', pack: (l.pack || []).map(function (k) { return { material_id: k.m, qty: String(k.qty) }; }) }; });
   }
   function probeCost() {   // the cart as it is right now
     if (!cart.length) return Promise.resolve([]);
