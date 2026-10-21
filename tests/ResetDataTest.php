@@ -51,7 +51,7 @@ return [
         $counters = Database::pdo()->query("SELECT name, next_value FROM counters WHERE name <> 'product' ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
         assert_same(['count', 'invoice', 'packing', 'production', 'purchase', 'return', 'session', 'z'], array_keys($counters));
         assert_same([1], array_values(array_unique(array_map('intval', $counters))));
-        assert_same('P-000001', Database::pdo()->query('SELECT MIN(internal_code) FROM products')->fetchColumn());
+        assert_same('P-000001', Database::pdo()->query('SELECT MIN(internal_code) FROM products WHERE is_custom_order = 0')->fetchColumn());
 
         // Kept: people, PIN, registers and their device links, settings.
         assert_same(1, (int) Database::pdo()->query("SELECT COUNT(*) FROM users WHERE username = 'omar'")->fetchColumn());
@@ -75,7 +75,10 @@ return [
 
         [$rc, $log] = $run('--yes --no-seed');
         assert_same(0, $rc, $log);
-        assert_same(0, $count('products'));
+        // everything is emptied except the built-in Custom order, which comes back by itself (2026-10-21)
+        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
+        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 1')->fetchColumn(), 'the Custom order is back');
+        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM product_units u JOIN products p ON p.id = u.product_id WHERE p.is_custom_order = 1')->fetchColumn());
         assert_same(0, $count('categories'));
         assert_same(1, (int) Database::pdo()->query("SELECT COUNT(*) FROM users WHERE username = 'admin'")->fetchColumn(), 'the administrator stays');
         assert_same(1, $count('exchange_rates'));
@@ -83,9 +86,10 @@ return [
 
     'without --yes it asks and, with no answer, changes nothing' => function () use ($run, $count): void {
         make_product('Kept', 'piece');
+        $was = $count('products');
         [$rc, $log] = $run('< NUL');
         assert_same(0, $rc);
         assert_contains('Cancelled. Nothing changed.', $log);
-        assert_same(1, $count('products'));
+        assert_same($was, $count('products'));
     },
 ];

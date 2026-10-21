@@ -8,7 +8,7 @@
   var low = [], lowSig = '', lowTimer = null;
   var $ = function (id) { return document.getElementById(id); };
   var modals = {};
-  ['m-line', 'm-pay', 'm-done', 'm-customer', 'm-hold', 'm-pin', 'm-return', 'm-unit', 'm-expense', 'm-settle'].forEach(function (id) { modals[id] = new bootstrap.Modal($(id)); });
+  ['m-line', 'm-pay', 'm-done', 'm-customer', 'm-hold', 'm-pin', 'm-return', 'm-unit', 'm-expense', 'm-settle', 'm-custom'].forEach(function (id) { modals[id] = new bootstrap.Modal($(id)); });
 
   function money(n) { n = Math.round(n * 100) / 100; return (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function lbp(n) { return Math.round(n).toLocaleString('en-US') + ' LBP'; }
@@ -95,7 +95,14 @@
   }
   function renderGrid() {
     var g = $('grid'); g.innerHTML = ''; var q = filter.toLowerCase();
+    if (q === '' && data.custom) {   // the custom order (2026-10-21): always first, on every tab
+      var cb = document.createElement('button'); cb.className = 'tile is-custom'; cb.style.setProperty('--tile', '#D497B6');
+      cb.innerHTML = '<div class="name">Custom order</div><div class="price"><b>price typed</b><span> · box to the customer\'s wish</span></div>';
+      cb.addEventListener('click', function () { openCustom(-1); });
+      g.appendChild(cb);
+    }
     data.products.forEach(function (p) {
+      if (p.custom) return;
       if (q === '' && !p.grid) return;
       if (q === '' && tab !== 0 && p.cat !== tab) return;
       if (q !== '' && p.name.toLowerCase().indexOf(q) < 0 && p.code.toLowerCase().indexOf(q) < 0) return;
@@ -169,7 +176,9 @@
       d.querySelector('.q small').textContent = t.u.name;
       d.querySelector('.n').textContent = t.p.name;
       d.querySelector('.t').textContent = money(t.total);
-      d.querySelector('.d').textContent = '× ' + money(t.price) + (l.mode === 'amount' ? ', sold by amount' : '') + (l.price !== null ? ', price changed' : '') + (l.fill ? ' · ' + l.fill + ' g' : (t.p.filled ? ' · weight missing' : '')) + (l.note ? ' · ' + l.note : '') + (under ? ' · BELOW COST' : '');
+      d.querySelector('.d').textContent = l.custom
+        ? '× ' + money(t.price) + ' · ' + l.fill + ' g' + ((l.pack || []).length ? ' · ' + l.pack.map(function (k) { return k.name + ' ×' + k.qty; }).join(', ') : '') + (l.note ? ' · ' + l.note : '') + (under ? ' · BELOW COST' : '')
+        : '× ' + money(t.price) + (l.mode === 'amount' ? ', sold by amount' : '') + (l.price !== null ? ', price changed' : '') + (l.fill ? ' · ' + l.fill + ' g' : (t.p.filled ? ' · weight missing' : '')) + (l.note ? ' · ' + l.note : '') + (under ? ' · BELOW COST' : '');
       d.querySelector('.x').textContent = l.discount ? '-' + money(l.discount) : '';
       d.addEventListener('click', function () { selected = i; renderCart(); });
       d.querySelector('.line-del').addEventListener('click', function (ev) { ev.stopPropagation(); removeLine(i); });
@@ -188,7 +197,7 @@
 
   // ---- below cost: the server says which lines are under their cost; the till never learns the cost itself
   function cartLines() {
-    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '', fill: l.fill ? String(l.fill) : '' }; });
+    return cart.map(function (l) { return { product_id: l.p, unit_id: l.u, qty: l.mode === 'qty' ? String(l.qty) : '', amount_usd: l.mode === 'amount' ? String(l.amount) : '', price: l.price === null ? null : String(l.price), discount: l.discount ? String(l.discount) : '', note: l.note || '', cost: l.cost === undefined || l.cost === null ? '' : String(l.cost), fill: l.fill, pack: (l.pack || []).map(function (k) { return { material_id: k.m, qty: String(k.qty) }; }) ? String(l.fill) : '' }; });
   }
   function probeCost() {   // the cart as it is right now
     if (!cart.length) return Promise.resolve([]);
@@ -210,13 +219,14 @@
   // ---- line editor
   function openLine() {
     if (selected < 0) { msg('Select a line first', true); return; }
+    if (cart[selected].custom) { openCustom(selected); return; }   // a custom order has its own dialog (2026-10-21)
     var l = cart[selected], t = lineTotals(l), sel = $('line-unit'); sel.innerHTML = '';
     t.p.units.forEach(function (u) { var o = document.createElement('option'); o.value = u.id; o.textContent = u.name + (unitPrice(u) === null ? ' (not sold)' : ' ' + money(unitPrice(u))); if (u.id === l.u) o.selected = true; sel.appendChild(o); });
     $('m-line-title').textContent = t.p.name;
     $('line-qty').value = l.mode === 'qty' ? l.qty : ''; $('line-amount').value = l.mode === 'amount' ? l.amount : ''; $('line-amount-lbp').value = '';
     $('line-price').value = l.price !== null ? l.price : ''; $('line-price').placeholder = money(unitPrice(t.u)); $('line-price').disabled = !t.p.override;
     $('line-note').value = l.note || '';
-    $('line-fill-row').hidden = !t.p.filled; $('line-fill').value = l.fill || '';
+    $('line-fill-row').hidden = !t.p.filled; $('line-fill').value = l.fill || ''; $('line-cost').value = l.cost === undefined || l.cost === null ? '' : l.cost;
     amountBoxes(t.u);
     discMode.line = l.dmode || discMode.line; syncModes();
     $('line-discount').value = l.discount ? (discMode.line === 'pct' ? trimNum(t.gross > 0 ? l.discount / t.gross * 100 : 0) : l.discount) : '';
@@ -242,7 +252,7 @@
     else { if (qty <= 0) { msg('Enter a quantity', true); return; } if (!u.fraction && qty % 1 !== 0) { msg(u.name + ' is sold in whole numbers', true); return; } l.mode = 'qty'; l.qty = qty; }
     var pr = $('line-price').value.trim(); l.price = pr === '' || !p.override ? null : num(pr);
     l.note = $('line-note').value.trim();
-    if (p.filled) { var g = parseInt($('line-fill').value, 10); if (!(g > 0)) { msg('Type the grams of marshmallow in one box', true); $('line-fill').focus(); return; } l.fill = g; }
+    if (p.filled) { var g = parseInt($('line-fill').value, 10); if (!(g > 0)) { msg('Type the grams of marshmallow in one box', true); $('line-fill').focus(); return; } l.fill = g; var c = $('line-cost').value.trim(); if (c === '' || !(num(c) >= 0)) { msg('Type what this box cost you', true); $('line-cost').focus(); return; } l.cost = num(c); }
     var before = l.discount || 0; l.discount = 0;
     var d = discountUsd('line', lineTotals(l).gross);
     l.discount = d; var over = needsApproval(), cutNow = lineCut(l).cut; l.discount = before;   // the line as it would be
@@ -929,6 +939,52 @@
     });
   });
 
+  // ---- custom order (owner, 2026-10-21): a box made to the customer's wish, nothing to set up. The price, the grams of
+  // marshmallow, the packaging taken from the stock and the other costs are typed here; the server costs the line
+  // (mix + packaging + extras at their cost of the moment) and takes the grams and the packaging out of stock.
+  var customIdx = -1;
+  function packRow(k) {
+    var row = document.createElement('div'); row.className = 'custom-pack-row';
+    var sel = document.createElement('select'); sel.className = 'form-select'; sel.setAttribute('aria-label', 'Packaging');
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '— packaging —'; sel.appendChild(o0);
+    (data.custom.materials || []).forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name + ' (' + m.stock.toLocaleString() + ' ' + m.unit + ')'; if (k && k.m === m.id) o.selected = true; sel.appendChild(o); });
+    var q = document.createElement('input'); q.className = 'form-control'; q.inputMode = 'decimal'; q.placeholder = 'qty'; q.setAttribute('aria-label', 'Quantity'); q.value = k ? k.qty : '1';
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'pos-btn danger'; x.setAttribute('aria-label', 'Remove'); x.innerHTML = '<i class="bi bi-x-lg"></i>';
+    x.addEventListener('click', function () { row.remove(); });
+    row.appendChild(sel); row.appendChild(q); row.appendChild(x);
+    $('custom-pack').appendChild(row);
+  }
+  function openCustom(idx) {
+    if (!data.custom) { msg('No custom order on this till', true); return; }
+    customIdx = idx;
+    var l = idx >= 0 ? cart[idx] : null;
+    $('custom-note').value = l ? (l.note || '') : ''; $('custom-price').value = l && l.price !== null ? l.price : '';
+    $('custom-fill').value = l && l.fill ? l.fill : ''; $('custom-extra').value = l && l.cost ? l.cost : '';
+    $('custom-pack').innerHTML = ''; (l && l.pack ? l.pack : []).forEach(packRow);
+    $('custom-mix-note').textContent = data.custom.mix ? 'The grams come out of ' + data.custom.mix.name + ' (' + (data.custom.mix.stock / 1000).toFixed(2) + ' kg in stock).' : 'No mix yet: make one first.';
+    modals['m-custom'].show(); setTimeout(function () { $('custom-price').focus(); }, 300);
+  }
+  $('custom-pack-add').addEventListener('click', function () { packRow(null); });
+  $('custom-ok').addEventListener('click', function () {
+    var price = num($('custom-price').value), g = parseInt($('custom-fill').value, 10), extra = $('custom-extra').value.trim();
+    if (!(price > 0)) { msg('Type the price of the custom order', true); $('custom-price').focus(); return; }
+    if (!(g > 0)) { msg('Type the grams of marshmallow in it', true); $('custom-fill').focus(); return; }
+    if (extra !== '' && !(num(extra) >= 0)) { msg('Other costs: a number of dollars, or empty', true); $('custom-extra').focus(); return; }
+    var pack = [], bad = false;
+    $('custom-pack').querySelectorAll('.custom-pack-row').forEach(function (row) {
+      var m = parseInt(row.querySelector('select').value, 10), raw = row.querySelector('input').value.trim(), qty = num(raw);
+      if (!m && raw === '') return;
+      if (!m || !(qty > 0)) { bad = true; return; }
+      var mat = data.custom.materials.find(function (x) { return x.id === m; });
+      pack.push({ m: m, qty: qty, name: mat ? mat.name : '' });
+    });
+    if (bad) { msg('Choose the packaging and its quantity on every line', true); return; }
+    var line = { custom: true, p: data.custom.id, u: data.custom.unit, qty: 1, mode: 'qty', amount: 0, price: price, discount: 0, fill: g, cost: extra === '' ? null : num(extra), pack: pack, note: $('custom-note').value.trim() };
+    if (customIdx >= 0) { line.discount = cart[customIdx].discount || 0; line.dmode = cart[customIdx].dmode; cart[customIdx] = line; selected = customIdx; } else { cart.push(line); selected = cart.length - 1; }
+    modals['m-custom'].hide(); renderCart();
+  });
+  $('m-custom').addEventListener('hidden.bs.modal', function () { $('search').focus(); });
+
   // ---- scanner and search: a scanner types fast and ends with Enter
   var search = $('search');
   search.addEventListener('input', function () { filter = this.value.trim(); renderGrid(); });
@@ -937,7 +993,7 @@
     e.preventDefault();
     var code = this.value.trim(), hit = data.barcodes[code];
     if (hit) { var p = product(hit.p); addLine(p, p.units.find(function (u) { return u.id === hit.u; })); this.value = ''; filter = ''; renderGrid(); return; }
-    var byCode = data.products.find(function (p) { return p.code.toLowerCase() === code.toLowerCase(); });
+    var byCode = data.products.find(function (p) { return !p.custom && p.code.toLowerCase() === code.toLowerCase(); });
     if (byCode) { pick(byCode); this.value = ''; filter = ''; renderGrid(); return; }
     var visible = $('grid').querySelectorAll('.tile'); if (visible.length === 1) { visible[0].click(); this.value = ''; filter = ''; renderGrid(); return; }
     msg('No product for "' + code + '"', true);
@@ -952,6 +1008,8 @@
     return api(P.urls.data).then(function (j) {
       var first = data === null;
       data = j; P.rate = j.rate; P.step = j.step;
+      // the custom order (2026-10-21) rides along as a product the grid never lists, so a cart line can point at it
+      if (j.custom) { data.products.push({ id: j.custom.id, name: 'Custom order', code: 'CUSTOM', cat: 0, color: '#D497B6', grid: false, base: 'piece', stock: 0, override: true, filled: true, fill: null, custom: true, img: null, units: [{ id: j.custom.unit, name: 'Piece', factor: 1, fraction: false, retail: null, wholesale: null, default: true }] }); }
       var back = first && bringSaleBack();
       renderTabs(); renderGrid(); renderCart();
       if (back) { msg('The sale you had started is back: ' + cart.length + (cart.length === 1 ? ' line' : ' lines')); }

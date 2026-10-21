@@ -16,7 +16,7 @@ return [
         };
         [$rc, $text] = $run();
         assert_same(0, $rc, $text);
-        assert_contains('Finished products: 10', $text);
+        assert_contains('Finished products: 9', $text);
         assert_contains('Raw materials and packaging: 12', $text);
         $pdo = Database::pdo();
         $kinds = [];
@@ -30,7 +30,7 @@ return [
         $joy = $pdo->query("SELECT pu.retail_price, pu.wholesale_price FROM product_units pu JOIN products p ON p.id = pu.product_id WHERE p.name = 'Joy 100g' AND pu.factor = 1")->fetch(PDO::FETCH_ASSOC);
         assert_same(['retail_price' => '3.00', 'wholesale_price' => '2.50'], $joy);
         assert_same(1, (int) $pdo->query("SELECT COUNT(*) FROM barcodes WHERE barcode = '850009611789'")->fetchColumn());
-        assert_same(1, (int) $pdo->query("SELECT allow_price_override FROM products WHERE name = 'Customized Box'")->fetchColumn());
+        assert_same($pdo->query("SELECT id FROM products WHERE name = 'Marshmallow mix'")->fetchColumn(), $pdo->query("SELECT fill_mix_id FROM products WHERE is_custom_order = 1")->fetchColumn(), 'the built-in Custom order is filled from the mix');
         assert_same(20000, (int) $pdo->query("SELECT stock_base FROM products WHERE name = 'Honey'")->fetchColumn(), '4 buckets of 5 kg');
         assert_same(0, (int) $pdo->query("SELECT COUNT(*) FROM product_units pu JOIN products p ON p.id = pu.product_id WHERE p.kind <> 'finished' AND pu.retail_price IS NOT NULL")->fetchColumn(), 'no material carries a price');
         [$rc, $text] = $run();

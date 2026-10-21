@@ -292,7 +292,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
               <label class="form-label" for="fill_grams">Marshmallow per piece (g)</label>
               <input class="form-control form-control-sm" id="fill_grams" name="fill_grams" inputmode="numeric" value="<?= e($fillGrams) ?>" placeholder="e.g. 100" <?= $dis ?>>
             </div>
-            <div class="col-sm-8 form-text">A Joy 100g holds 100. Packing adds it up to say how much marshmallow the products hold (2026-10-18). For a box filled at the sale, it is the usual weight, changed if the scale says otherwise.</div>
+            <div class="col-sm-8 form-text">A Joy 100g holds 100. Packing adds it up to say how much marshmallow the products hold (2026-10-18).</div>
           </div>
           <h2 class="h6 mb-1">Packaging per piece</h2>
           <p class="text-muted small mb-0">What one piece takes out of the packaging stock: a box, a label, 10 g of paste. When Packing records "30 made", it takes 30 of each out by itself; only the mix is typed there.</p>
@@ -391,25 +391,6 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
         <div class="form-check form-switch" data-finished-only>
           <input class="form-check-input" type="checkbox" role="switch" id="allow_price_override" name="allow_price_override" value="1" <?= (isset($stash['name']) ? isset($stash['allow_price_override']) : ($isEdit && (int) $product['allow_price_override'])) ? 'checked' : '' ?> <?= $dis ?>>
           <label class="form-check-label" for="allow_price_override">The price can be changed at the till<small>A cashier still needs the administrator's PIN.</small></label>
-        </div>
-        <div class="form-check form-switch" data-finished-only>
-          <?php
-          // Filled at the sale (2026-10-18), in place of "Assembled on the spot": the box is weighed when it is filled, and the
-          // sale takes those grams out of the mix with the packaging; the box itself keeps no stock.
-          $fillOn = isset($stash['name']) ? isset($stash['fill_on']) : ($isEdit && $product['fill_mix_id'] !== null);
-          $fillMixNow = (int) ($stash['fill_mix_id'] ?? ($product['fill_mix_id'] ?? ($mixes[0]['id'] ?? 0)));
-          ?>
-          <input class="form-check-input" type="checkbox" role="switch" id="fill_on" name="fill_on" value="1" <?= $fillOn ? 'checked' : '' ?> <?= $mixes === [] ? 'disabled' : $dis ?> data-fill-switch>
-          <label class="form-check-label" for="fill_on">Filled at the sale<small>For a box filled and weighed when it is sold (Custom Box 0.5 kg, 1 kg…): the sale takes the grams of marshmallow out of the mix, with the box's packaging. The box itself keeps no stock.<?= $mixes === [] ? ' Make a mix first.' : '' ?></small></label>
-          <div class="pf-fill mt-2" data-fill-fields <?= $fillOn ? '' : 'hidden' ?>>
-            <?php if (count($mixes) > 1): ?>
-              <label class="form-label" for="fill_mix_id">Filled from</label>
-              <select class="form-select form-select-sm mb-2" id="fill_mix_id" name="fill_mix_id" <?= $dis ?>><?php foreach ($mixes as $m): ?><option value="<?= (int) $m['id'] ?>" <?= (int) $m['id'] === $fillMixNow ? 'selected' : '' ?> dir="auto"><?= e($m['name']) ?></option><?php endforeach; ?></select>
-            <?php else: ?>
-              <input type="hidden" name="fill_mix_id" value="<?= $fillMixNow ?>">
-            <?php endif; ?>
-            <div class="form-text">Its usual weight is "Marshmallow per piece" below. Empty: typed at each sale.</div>
-          </div>
         </div>
         <div class="form-check form-switch" data-finished-only>
           <input class="form-check-input" type="checkbox" role="switch" id="price_floats" name="price_floats" value="1" <?= (isset($stash['name']) ? isset($stash['price_floats']) : ($isEdit && (int) $product['price_floats'])) ? 'checked' : '' ?> <?= $dis ?>>

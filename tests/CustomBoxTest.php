@@ -70,7 +70,7 @@ return [
         $s = $setup();
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $page = $client->get('products/edit', ['id' => $s['box']])->body;
-        assert_contains('for="fill_on">Filled at the sale', $page, 'the switch is now "Filled at the sale" (2026-10-18)');
+        assert_not_contains('name="fill_on"', $page, 'no switch on the product page: the custom order is a button on the till (2026-10-21)');
         $page = $client->get('products/edit', ['id' => $s['joy']])->body;
         assert_not_contains('name="no_stock"', $page);
         $client->get('registers');

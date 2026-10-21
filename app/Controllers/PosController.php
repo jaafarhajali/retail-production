@@ -71,6 +71,7 @@ final class PosController extends Controller
         }
         $this->json([
             'products' => $out, 'barcodes' => $barcodes,
+            'custom' => \App\Services\CustomOrderService::payload(),   // the Custom order button: price, grams, packaging and extras typed at the sale (2026-10-21)
             'categories' => array_map(static fn (array $c): array => ['id' => (int) $c['id'], 'name' => $c['name'], 'color' => $c['color']], (new Category())->forTill()),   // only categories marked for the till that hold something it can sell (2026-10-18)
             'rate' => (new ExchangeRate())->current(), 'step' => Money::step(),
         ]);

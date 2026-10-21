@@ -490,6 +490,20 @@ final class ProductService
         return $out;
     }
 
+    /**
+     * The other half of ingredientsOnly(): the packaging categories, for the custom order's "From the packaging stock"
+     * (Aya, 2026-10-21: the list offered sugar and cocoa too).
+     *
+     * @param list<array> $materials rows with id, category_name and base_unit
+     * @return list<array>
+     */
+    public static function packagingOnly(array $materials): array
+    {
+        $ingredientIds = array_map('intval', array_column(self::ingredientsOnly($materials), 'id'));
+
+        return array_values(array_filter($materials, static fn (array $m): bool => !in_array((int) $m['id'], $ingredientIds, true)));
+    }
+
     /** @return array<string, list<array>> */
     private static function groupByCategory(array $products): array
     {

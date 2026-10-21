@@ -85,7 +85,10 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
         <div class="col-6"><label class="form-label" for="line-amount">Or sell by amount (USD)</label><input class="form-control" id="line-amount" inputmode="decimal" placeholder="0.00"></div>
         <div class="col-6"><label class="form-label" for="line-amount-lbp">Or by amount (LBP)</label><input class="form-control" id="line-amount-lbp" inputmode="numeric" placeholder="0"></div>
       </div>
-      <div class="mb-3" id="line-fill-row" hidden><label class="form-label" for="line-fill">Marshmallow in one box (g)</label><input class="form-control" id="line-fill" inputmode="numeric" placeholder="as weighed"></div>
+      <div class="row g-2 mb-3" id="line-fill-row" hidden>
+        <div class="col-6"><label class="form-label" for="line-cost">Cost of this box ($)</label><input class="form-control" id="line-cost" inputmode="decimal" placeholder="box, marshmallow, extras"></div>
+        <div class="col-6"><label class="form-label" for="line-fill">Marshmallow in it (g)</label><input class="form-control" id="line-fill" inputmode="numeric" placeholder="as weighed"></div>
+      </div>
       <div class="mb-3"><label class="form-label" for="line-note">Note on this line</label><input class="form-control" id="line-note" dir="auto" maxlength="255" placeholder="flavours, weight, anything the customer asked"></div>
       <div><label class="form-label" for="line-discount">Line discount</label>
         <div class="disc-field"><input class="form-control" id="line-discount" inputmode="decimal" placeholder="0"><div class="disc-mode" role="group" aria-label="Discount type"><button type="button" data-kind="line" data-mode="pct" class="active">%</button><button type="button" data-kind="line" data-mode="usd">$</button></div></div>
@@ -246,6 +249,26 @@ try { if (localStorage.getItem('pos.theme') === 'light') { document.body.setAttr
 <div class="modal fade pos-modal" id="m-unit" tabindex="-1" aria-labelledby="unit-title"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
   <div class="modal-header"><h5 class="modal-title" id="unit-title" dir="auto">Which one?</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
   <div class="modal-body"><div class="unit-pick" id="unit-list"></div></div>
+</div></div></div>
+
+<div class="modal fade pos-modal" id="m-custom" tabindex="-1"><div class="modal-dialog modal-dialog-centered pos-dialog-wide"><div class="modal-content">
+  <div class="modal-header"><h5 class="modal-title">Custom order</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+  <div class="modal-body pos-split">
+    <div>
+      <div class="mb-3"><label class="form-label" for="custom-note">What is it</label><input class="form-control" id="custom-note" dir="auto" maxlength="255" placeholder="gift box, 4 flavours, pink ribbon"></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6"><label class="form-label" for="custom-price">Price (USD)</label><input class="form-control" id="custom-price" inputmode="decimal"></div>
+        <div class="col-6"><label class="form-label" for="custom-fill">Marshmallow in it (g)</label><input class="form-control" id="custom-fill" inputmode="numeric" placeholder="as weighed"></div>
+      </div>
+      <label class="form-label">From the packaging stock</label>
+      <div id="custom-pack"></div>
+      <button type="button" class="pos-btn mb-3" id="custom-pack-add"><i class="bi bi-plus-lg"></i> Add packaging</button>
+      <div class="mb-1"><label class="form-label" for="custom-extra">Other costs ($)</label><input class="form-control" id="custom-extra" inputmode="decimal" placeholder="bought for this order, optional"></div>
+      <div class="form-text" id="custom-mix-note"></div>
+    </div>
+    <?php require APP_PATH . '/Views/pos/_keypad.php'; ?>
+  </div>
+  <div class="modal-footer"><button class="pos-btn primary pos-apply" id="custom-ok">Add to the sale</button></div>
 </div></div></div>
 
 <div class="modal fade pos-modal" id="m-pin" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">

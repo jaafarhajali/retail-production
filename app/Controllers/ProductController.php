@@ -323,8 +323,8 @@ final class ProductController extends Controller
             'show_on_pos_grid'     => isset($_POST['show_on_pos_grid']),
             'allow_price_override' => isset($_POST['allow_price_override']),
             'price_floats'         => isset($_POST['price_floats']),
-            'track_stock'          => !isset($_POST['no_stock']) && !isset($_POST['fill_on']),
-            'fill_mix_id'          => isset($_POST['fill_on']) ? $this->inputInt('fill_mix_id') : 0,   // filled at the sale (2026-10-18)
+            'track_stock'          => !isset($_POST['no_stock']),
+            'fill_mix_id'          => 0,   // the custom order is a built-in product since 2026-10-21, no product is filled at the sale
             'fill_grams'           => $this->input('fill_grams'),   // marshmallow per piece (2026-10-18)
             'kind'                 => $this->input('kind') ?: 'finished',
         ];

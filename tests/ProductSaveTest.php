@@ -79,7 +79,7 @@ return [
             assert_throws(DomainException::class, fn () => $svc->save(0, $product(['name' => "Bad {$type} {$size}", 'base_unit' => 'piece', 'units' => ['n1' => $row($type, ['size' => $size])]]), TEST_ADMIN_ID));
         }
         assert_throws(DomainException::class, fn () => $svc->save(0, $product(['name' => 'No units', 'units' => []]), TEST_ADMIN_ID));
-        assert_same(3, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn(), 'a refused save leaves nothing behind');
+        assert_same(3, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn(), 'a refused save leaves nothing behind');
     },
 
     'half a piece cannot be sold: only kg and L are sold in parts' => function () use ($product, $row): void {
@@ -227,7 +227,7 @@ return [
         $e = assert_throws(DomainException::class, fn () => $svc->save(0, $again, TEST_ADMIN_ID));
         assert_same(ProductService::SAME_NAME, $e->getCode());
         assert_contains('code P-000001', $e->getMessage());
-        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
         $second = $svc->save(0, $again + ['allow_same_name' => true], TEST_ADMIN_ID);
         assert_same('coconut CHARCOAL', (new Product())->find($second)['name']);
         $svc->save($second, $product(['name' => 'coconut CHARCOAL', 'description' => 'the small bag', 'units' => ['u' => $row('kg', ['id' => (string) (new ProductUnit())->forProduct($second)[0]['id'], 'retail' => '18'])]]), TEST_ADMIN_ID);
@@ -240,7 +240,7 @@ return [
         assert_false($svc->isUsed($mistake));
         $svc->delete($mistake);
         assert_same(null, (new Product())->find($mistake));
-        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM product_units')->fetchColumn());
+        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM product_units u JOIN products p ON p.id = u.product_id WHERE p.is_custom_order = 0')->fetchColumn());
         assert_same(null, (new Barcode())->findByBarcode('MISTAKE-1'), 'its barcode is free again');
         assert_same(1, (int) Database::pdo()->query("SELECT COUNT(*) FROM audit_log WHERE action = 'product.deleted'")->fetchColumn());
 

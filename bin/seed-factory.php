@@ -30,7 +30,7 @@ if (APP_ENV === 'production') {
     fwrite(STDERR, "Refusing to seed into a production installation (app.env = production in config/app.ini).\n");
     exit(1);
 }
-$existing = (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn();
+$existing = (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn();   // the built-in Custom order comes with the migrations (2026-10-21)
 if ($existing > 0 && !isset($opts['force'])) {
     fwrite(STDERR, "Database " . DB_NAME . " already has {$existing} products. Run with --force to add what is missing.\n");
     exit(1);
@@ -112,7 +112,6 @@ $finished = [
     ['Pistachio 100g',         [['Piece', 1, false, '4.00', '3.25', ''], ['Box', 24, false, '', '']], '1.50', '40', '20', false],
     ['Choco Dream 100g',       [['Piece', 1, false, '4.00', '3.25', ''], ['Box', 24, false, '', '']], '1.50', '40', '20', false],
     ['Gold 100g',              [['Piece', 1, false, '4.00', '3.50', ''], ['Box', 24, false, '', '']], '1.60', '40', '20', false],
-    ['Customized Box',         [['Piece', 1, false, '10.00', '8.00', '']], '', '0', '', true],
 ];
 $made = 0;
 foreach ($finished as [$name, $unitDefs, $cost, $opening, $min, $override]) {
@@ -149,7 +148,7 @@ foreach ($finished as [$name, $unitDefs, $cost, $opening, $min, $override]) {
     }
     $made++;
 }
-$out("Finished products: {$made} (Marshmallow Stick, Joy, Mini Joy, Excellence, Pistachio, Choco Dream, Gold, Customized Box)");
+$out("Finished products: {$made} (Marshmallow Stick, Joy, Mini Joy, Excellence, Pistachio, Choco Dream, Gold)");
 
 /** Raw materials and packaging: [name, category, base, units => [type, size, fraction], cost of the first unit, opening (qty of first unit), min (qty of first unit)]. */
 $materials = [
@@ -206,9 +205,10 @@ $hasRecipe = static fn (int $productId): bool => (int) Database::pdo()->query("S
 $line = static fn (string $name, string $qty, string $type): array => ['material_id' => $pid($name), 'qty' => $qty, 'unit_id' => $unitOf($pid($name), $type)];
 $made = 0;
 $mixId = $pid('Marshmallow mix');
-// the Customized Box is filled at the sale from the mix, its weight typed each time (2026-10-18)
-if ($mixId > 0 && $pid('Customized Box') > 0) {
-    Database::pdo()->exec('UPDATE products SET fill_mix_id = ' . $mixId . ', track_stock = 0 WHERE id = ' . $pid('Customized Box') . ' AND fill_mix_id IS NULL');
+// the built-in Custom order (migration 025) is put back after a reset and filled from the mix (2026-10-21)
+(new App\Models\Product())->ensureCustomOrder();
+if ($mixId > 0) {
+    Database::pdo()->exec('UPDATE products SET fill_mix_id = ' . $mixId . ' WHERE is_custom_order = 1 AND fill_mix_id IS NULL');
 }
 if ($mixId > 0 && !$hasRecipe($mixId)) {
     $recipes->save(0, ['product_id' => $mixId, 'name' => 'Raspberry', 'output_qty' => '1', 'output_unit_id' => $unitOf($mixId, 'kg'), 'notes' => 'One kilo of raspberry marshmallow; flavour and colour are added per product',

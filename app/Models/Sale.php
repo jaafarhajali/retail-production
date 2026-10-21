@@ -59,6 +59,22 @@ final class Sale extends Model
         );
     }
 
+    /** The packaging a custom order took from the stock, per piece (2026-10-21), with the material's stock of now. */
+    public function itemPackaging(int $itemId): array
+    {
+        return $this->fetchAll(
+            'SELECT k.material_id, k.qty_base, k.cost_per_base, m.name, m.base_unit, m.stock_base FROM sale_item_packaging k JOIN products m ON m.id = k.material_id WHERE k.sale_item_id = :i ORDER BY k.id',
+            ['i' => $itemId]
+        );
+    }
+
+    /** @param array{material_id: int, qty_base: int, cost_per_base: string} $k */
+    public function addItemPackaging(int $itemId, array $k): void
+    {
+        $this->execute('INSERT INTO sale_item_packaging (sale_item_id, material_id, qty_base, cost_per_base) VALUES (:i, :m, :q, :c)',
+            ['i' => $itemId, 'm' => $k['material_id'], 'q' => $k['qty_base'], 'c' => $k['cost_per_base']]);
+    }
+
     public function payments(int $saleId): array
     {
         return $this->fetchAll('SELECT * FROM sale_payments WHERE sale_id = :s ORDER BY id', ['s' => $saleId]);

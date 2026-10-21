@@ -2,7 +2,8 @@
 $stash = is_array($_SESSION['_old'] ?? null) ? $_SESSION['_old'] : [];
 $rows = [];
 foreach (is_array($stash['lines'] ?? null) ? $stash['lines'] : [] as $l) {
-    $rows[] = ['product_id' => (int) ($l['product_id'] ?? 0), 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'pct' => (string) ($l['pct'] ?? ''), 'note' => (string) ($l['note'] ?? ''), 'fill' => (string) ($l['fill'] ?? '')];
+    $rows[] = ['product_id' => (int) ($l['product_id'] ?? 0), 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'pct' => (string) ($l['pct'] ?? ''), 'note' => (string) ($l['note'] ?? ''), 'fill' => (string) ($l['fill'] ?? ''), 'cost' => (string) ($l['cost'] ?? ''), 'price' => (string) ($l['price'] ?? ''),
+        'pack' => array_values(array_map(static fn (array $k): array => ['material_id' => (int) ($k['material_id'] ?? 0), 'qty' => (string) ($k['qty'] ?? '')], array_filter(is_array($l['pack'] ?? null) ? $l['pack'] : [], 'is_array')))];
 }
 $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
 ?>
@@ -51,7 +52,7 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
         <div class="table-responsive"><table class="table align-middle m-0" id="lines">
           <thead><tr><th style="width:34%">Product</th><th style="width:16%">Sold as</th><th style="width:11%">Qty</th><th class="text-end">Price</th><th style="width:10%">Disc. %</th><th class="text-end">Total</th><th></th></tr></thead>
           <tbody></tbody>
-          <tfoot><tr><td colspan="7"><button class="btn btn-outline-primary btn-sm" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <span class="form-text ms-2">Boxes or pieces; the stock shows under the product.</span></td></tr></tfoot>
+          <tfoot><tr><td colspan="7"><button class="btn btn-outline-primary btn-sm" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add a line</button> <?php if ($custom !== null): ?><button class="btn btn-outline-secondary btn-sm" type="button" id="add-custom"><i class="bi bi-gift"></i> Add a custom order</button><?php endif; ?> <span class="form-text ms-2">Boxes or pieces; the stock shows under the product.</span></td></tr></tfoot>
         </table></div>
       </div>
       <div class="card mb-3"><div class="card-body">
@@ -77,7 +78,7 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
 <template id="line-tpl">
   <tr>
     <td><select class="form-select form-select-sm" name="lines[IDX][product_id]" required><option value="">— choose —</option><?php foreach ($catalogue as $p): ?><option value="<?= (int) $p['id'] ?>" dir="auto"><?= e($p['name']) ?></option><?php endforeach; ?></select><div class="form-text stock"></div>
-      <div class="input-group input-group-sm mt-1 line-fill" hidden><input class="form-control" name="lines[IDX][fill]" inputmode="numeric" placeholder="grams" aria-label="Grams of marshmallow in one"><span class="input-group-text">g of marshmallow each</span></div>
+      <div class="input-group input-group-sm mt-1 line-fill" hidden><input class="form-control" name="lines[IDX][fill]" inputmode="numeric" placeholder="grams" aria-label="Grams of marshmallow in one"><span class="input-group-text">g each</span><input class="form-control" name="lines[IDX][cost]" inputmode="decimal" placeholder="cost" aria-label="Cost of one"><span class="input-group-text">$ cost each</span></div>
       <input class="form-control form-control-sm mt-1" name="lines[IDX][note]" dir="auto" maxlength="255" placeholder="note on this line (flavours…)" aria-label="Note on this line"></td>
     <td><select class="form-select form-select-sm" name="lines[IDX][unit_id]" aria-label="Sold as"></select></td>
     <td><input class="form-control form-control-sm" name="lines[IDX][qty]" inputmode="decimal" value="1" required></td>
@@ -87,9 +88,25 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
     <td class="text-end"><button class="btn btn-sm btn-outline-danger remove" type="button" title="Remove this line" aria-label="Remove this line"><i class="bi bi-trash3"></i></button></td>
   </tr>
 </template>
+<template id="custom-tpl">
+  <tr data-custom="1">
+    <td><b>Custom order</b><input type="hidden" name="lines[IDX][product_id]" value="CID"><input type="hidden" name="lines[IDX][unit_id]" value="CUID">
+      <input class="form-control form-control-sm mt-1" name="lines[IDX][note]" dir="auto" maxlength="255" placeholder="what it is: gift box, 4 flavours…" aria-label="What it is">
+      <div class="input-group input-group-sm mt-1"><input class="form-control" name="lines[IDX][fill]" inputmode="numeric" placeholder="grams" aria-label="Grams of marshmallow" required><span class="input-group-text">g of marshmallow</span></div>
+      <div class="input-group input-group-sm mt-1"><span class="input-group-text">$</span><input class="form-control" name="lines[IDX][cost]" inputmode="decimal" placeholder="other costs, optional" aria-label="Other costs"></div>
+      <div class="custom-pack"></div>
+      <button class="btn btn-link btn-sm p-0 mt-1 add-pack" type="button">+ packaging from the stock</button></td>
+    <td>Piece</td>
+    <td><input class="form-control form-control-sm" name="lines[IDX][qty]" inputmode="decimal" value="1" required></td>
+    <td class="text-end"><input class="form-control form-control-sm text-end" name="lines[IDX][price]" inputmode="decimal" placeholder="price" aria-label="Price" required></td>
+    <td><input class="form-control form-control-sm" name="lines[IDX][pct]" inputmode="decimal" placeholder="0"><input type="hidden" name="lines[IDX][discount]"></td>
+    <td class="text-end text-nowrap total"></td>
+    <td class="text-end"><button class="btn btn-sm btn-outline-danger remove" type="button" title="Remove this line" aria-label="Remove this line"><i class="bi bi-trash3"></i></button></td>
+  </tr>
+</template>
 <script>
 (function () {
-  var catalogue = <?= json_encode($catalogue, JSON_UNESCAPED_UNICODE) ?>, rows = <?= json_encode($rows, JSON_UNESCAPED_UNICODE) ?>, byId = {};
+  var catalogue = <?= json_encode($catalogue, JSON_UNESCAPED_UNICODE) ?>, rows = <?= json_encode($rows, JSON_UNESCAPED_UNICODE) ?>, custom = <?= json_encode($custom, JSON_UNESCAPED_UNICODE) ?>, byId = {};
   catalogue.forEach(function (p) { byId[p.id] = p; });
   var tbody = document.querySelector('#lines tbody'), tpl = document.getElementById('line-tpl'), idx = 0;
   var customer = document.getElementById('customer_id'), level = document.getElementById('price_level'), due = document.getElementById('due_date'), shipTo = document.getElementById('ship_to');
@@ -104,6 +121,13 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
   function recalc() {
     var sub = 0, ldisc = 0, ok = false;
     tbody.querySelectorAll('tr').forEach(function (tr) {
+      if (tr.dataset.custom) {   // a custom order: its price is typed (2026-10-21)
+        var cp = parseFloat(tr.querySelector('[name$="[price]"]').value) || 0, cq = parseFloat(tr.querySelector('[name$="[qty]"]').value) || 0, cpct = parseFloat(tr.querySelector('[name$="[pct]"]').value) || 0;
+        var cg = Math.round(cp * cq * 100) / 100, cd = Math.round(cg * Math.min(100, Math.max(0, cpct)) / 100 * 100) / 100;
+        tr.querySelector('.total').textContent = cp > 0 ? money(cg - cd) : ''; tr.querySelector('[name$="[discount]"]').value = cd > 0 ? cd.toFixed(2) : '';
+        sub += cg - cd; ldisc += cd; if (cq > 0 && cp > 0) ok = true;
+        return;
+      }
       var u = unitOf(tr), qty = parseFloat(tr.querySelector('[name$="[qty]"]').value) || 0, pct = parseFloat(tr.querySelector('[name$="[pct]"]').value) || 0;
       var price = u ? priceOf(u) : null, priceCell = tr.querySelector('.price'), totalCell = tr.querySelector('.total');
       if (!u || price === null) { priceCell.textContent = u ? 'no ' + level.value + ' price' : ''; totalCell.textContent = ''; tr.querySelector('[name$="[discount]"]').value = ''; return; }
@@ -126,15 +150,15 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
     function onProduct(selected) {
       var p = byId[parseInt(prod.value, 10)], box = tr.querySelector('.line-fill'), grams = tr.querySelector('[name$="[fill]"]');
       fillUnits(unit, p, selected);
-      tr.querySelector('.stock').textContent = p ? (p.filled ? 'filled at the sale: weigh it' : 'in stock: ' + p.stock.toLocaleString()) : '';
-      box.hidden = !(p && p.filled); grams.required = !!(p && p.filled); if (p && p.filled && !grams.value && p.fill) { grams.value = p.fill; }   // filled at the sale (2026-10-18)
+      tr.querySelector('.stock').textContent = p ? (p.filled ? 'custom order: type its cost and grams' : 'in stock: ' + p.stock.toLocaleString()) : '';
+      box.hidden = !(p && p.filled); grams.required = !!(p && p.filled); tr.querySelector('[name$="[cost]"]').required = !!(p && p.filled); if (p && p.filled && !grams.value && p.fill) { grams.value = p.fill; }   // filled at the sale (2026-10-18)
       recalc();
     }
     prod.addEventListener('change', function () { onProduct(0); });
     ['[name$="[qty]"]', '[name$="[pct]"]'].forEach(function (s) { tr.querySelector(s).addEventListener('input', recalc); });
     unit.addEventListener('change', recalc);
     tr.querySelector('.remove').addEventListener('click', function () { tr.remove(); recalc(); });
-    if (row) { prod.value = String(row.product_id); tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('[name$="[pct]"]').value = row.pct; tr.querySelector('[name$="[fill]"]').value = row.fill || ''; tr.querySelector('[name$="[note]"]').value = row.note || ''; onProduct(row.unit_id); } else { prod.focus(); }
+    if (row) { prod.value = String(row.product_id); tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('[name$="[pct]"]').value = row.pct; tr.querySelector('[name$="[fill]"]').value = row.fill || ''; tr.querySelector('[name$="[cost]"]').value = row.cost || ''; tr.querySelector('[name$="[note]"]').value = row.note || ''; onProduct(row.unit_id); } else { prod.focus(); }
   }
   function onCustomer() {
     var o = customer.selectedOptions[0];
@@ -150,8 +174,37 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
   customer.addEventListener('change', function () { customer.dataset.touched = ''; onCustomer(); });
   level.addEventListener('change', function () { customer.dataset.touched = '1'; recalc(); });
   document.getElementById('invoice_discount').addEventListener('input', recalc);
+  // a custom order line (2026-10-21): price, grams, packaging from the stock and other costs typed; nothing to set up
+  var ctpl = document.getElementById('custom-tpl');
+  function packRow(tr, k) {
+    var i = tr.dataset.idx, n = tr.querySelectorAll('.custom-pack .input-group').length, box = tr.querySelector('.custom-pack');
+    var div = document.createElement('div'); div.className = 'input-group input-group-sm mt-1';
+    var sel = document.createElement('select'); sel.className = 'form-select'; sel.name = 'lines[' + i + '][pack][' + n + '][material_id]'; sel.setAttribute('aria-label', 'Packaging');
+    var o0 = document.createElement('option'); o0.value = ''; o0.textContent = '— packaging from the stock —'; sel.appendChild(o0);
+    (custom.materials || []).forEach(function (m) { var o = document.createElement('option'); o.value = m.id; o.textContent = m.name + ' (' + m.stock.toLocaleString() + ' ' + m.unit + ')'; if (k && k.material_id === m.id) o.selected = true; sel.appendChild(o); });
+    var q = document.createElement('input'); q.className = 'form-control'; q.name = 'lines[' + i + '][pack][' + n + '][qty]'; q.inputMode = 'decimal'; q.placeholder = 'qty'; q.style.maxWidth = '4.5rem'; q.style.flex = '0 0 4.5rem'; q.value = k ? k.qty : '1'; q.setAttribute('aria-label', 'Quantity');
+    var x = document.createElement('button'); x.type = 'button'; x.className = 'btn btn-outline-danger'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove'); x.addEventListener('click', function () { div.remove(); });
+    div.appendChild(sel); div.appendChild(q); div.appendChild(x); box.appendChild(div);
+  }
+  function addCustom(row) {
+    if (!custom) return;
+    var i = idx++;
+    tbody.insertAdjacentHTML('beforeend', ctpl.innerHTML.replace(/IDX/g, String(i)).replace('CID', String(custom.id)).replace('CUID', String(custom.unit)));
+    var tr = tbody.lastElementChild; tr.dataset.idx = String(i);
+    ['[name$="[qty]"]', '[name$="[pct]"]', '[name$="[price]"]'].forEach(function (s) { tr.querySelector(s).addEventListener('input', recalc); });
+    tr.querySelector('.remove').addEventListener('click', function () { tr.remove(); recalc(); });
+    tr.querySelector('.add-pack').addEventListener('click', function () { packRow(tr, null); });
+    if (row) {
+      tr.querySelector('[name$="[qty]"]').value = row.qty; tr.querySelector('[name$="[pct]"]').value = row.pct; tr.querySelector('[name$="[price]"]').value = row.price || '';
+      tr.querySelector('[name$="[fill]"]').value = row.fill || ''; tr.querySelector('[name$="[cost]"]').value = row.cost || ''; tr.querySelector('[name$="[note]"]').value = row.note || '';
+      (row.pack || []).forEach(function (k) { packRow(tr, k); });
+    }
+    recalc();
+  }
+  var addCustomBtn = document.getElementById('add-custom');
+  if (addCustomBtn) { addCustomBtn.addEventListener('click', function () { addCustom(null); }); }
   document.getElementById('add-line').addEventListener('click', function () { addLine(null); });
-  if (rows.length) { rows.forEach(addLine); } else { addLine(null); }
+  if (rows.length) { rows.forEach(function (row) { if (custom && row.product_id === custom.id) { addCustom(row); } else { addLine(row); } }); } else { addLine(null); }
   onCustomer();
 })();
 </script>

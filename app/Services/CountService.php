@@ -26,7 +26,7 @@ final class CountService
         return Database::transaction(function () use ($counts, $scope, $categoryId, $note, $userId): int {
             $no = Counter::format('CNT-', Counter::next('count'));
             $id = $counts->create($no, $scope, $scope === 'category' ? $categoryId : null, $userId, trim($note) ?: null);
-            $sql = 'SELECT id, stock_base, cost_per_base FROM products WHERE is_active = 1' . ($scope === 'category' ? ' AND category_id = :c' : ($scope === 'all' ? '' : ' AND kind = :k'));
+            $sql = 'SELECT id, stock_base, cost_per_base FROM products WHERE is_active = 1 AND is_custom_order = 0' . ($scope === 'category' ? ' AND category_id = :c' : ($scope === 'all' ? '' : ' AND kind = :k'));
             $stmt = Database::pdo()->prepare($sql);
             $stmt->execute($scope === 'category' ? ['c' => $categoryId] : ($scope === 'all' ? [] : ['k' => $scope]));
             foreach ($stmt->fetchAll() as $p) {

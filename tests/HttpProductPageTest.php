@@ -45,7 +45,7 @@ return [
         $r = $client->postMultipart('products/save', $form(), ['image' => ['coal.png', $png(), 'image/png']]);
         assert_same(302, $r->status);
         assert_contains('products/edit', str_replace('%2F', '/', $r->location()));
-        $p = Database::pdo()->query('SELECT * FROM products')->fetch();
+        $p = Database::pdo()->query('SELECT * FROM products WHERE is_custom_order = 0')->fetch();
         assert_same('Coconut charcoal', $p['name']);
         assert_same(200000, (int) $p['stock_base']);
         assert_same('0.010000', $p['cost_per_base']);
@@ -81,7 +81,7 @@ return [
         $client->get('products/create');
         $r = $client->post('products/save', $form(['units[n2][size]' => '', 'name' => 'Charcoal typed once']));
         assert_same(302, $r->status);
-        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
         $back = $client->get('products/create')->body;
         assert_contains('How much does one Box hold?', $back);
         assert_contains('value="Charcoal typed once"', $back);
@@ -103,16 +103,16 @@ return [
         $back = $client->get('products/create')->body;
         assert_contains('Another product is called Coconut charcoal (code P-000001)', $back);
         assert_contains('name="allow_same_name"', $back);
-        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
         $client->post('products/save', $again + ['allow_same_name' => '1']);
-        assert_same(2, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        assert_same(2, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
     },
 
     'editing: one save changes name, price and barcode; a locked size and a used unit say why' => function () use ($form): void {
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $client->get('products/create');
         $client->post('products/save', $form());
-        $id = (int) Database::pdo()->query('SELECT id FROM products')->fetchColumn();
+        $id = (int) Database::pdo()->query('SELECT id FROM products WHERE is_custom_order = 0')->fetchColumn();
         $units = array_column((new ProductUnit())->forProduct($id), null, 'name');
         $kg = (int) $units['kg']['id'];
         $box = (int) $units['Box 20kg']['id'];
@@ -149,22 +149,22 @@ return [
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $client->get('products/create');
         $client->post('products/save', $form(['opening_qty' => '', 'name' => 'Typed by mistake']));
-        $id = (int) Database::pdo()->query('SELECT id FROM products')->fetchColumn();
+        $id = (int) Database::pdo()->query('SELECT id FROM products WHERE is_custom_order = 0')->fetchColumn();
         $page = $client->get('products/edit', ['id' => $id])->body;
         assert_contains('Delete this product', $page);
         assert_contains('name="opening_qty"', $page, 'no stock history yet: the opening stock can still be typed');
         assert_same(302, $client->post('products/delete', ['product_id' => $id])->status);
-        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        assert_same(0, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
         assert_contains('Typed by mistake was deleted.', $client->get('products')->body);
 
         $client->get('products/create');
         $client->post('products/save', $form());
-        $used = (int) Database::pdo()->query('SELECT id FROM products')->fetchColumn();
+        $used = (int) Database::pdo()->query('SELECT id FROM products WHERE is_custom_order = 0')->fetchColumn();
         $page = $client->get('products/edit', ['id' => $used])->body;
         assert_not_contains('Delete this product', $page);
         assert_contains('it cannot be deleted', $page);
         $client->post('products/delete', ['product_id' => $used]);
-        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products')->fetchColumn());
+        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM products WHERE is_custom_order = 0')->fetchColumn());
     },
 
     'a user who may only look sees the product without anything to save, and cannot post' => function () use ($form): void {

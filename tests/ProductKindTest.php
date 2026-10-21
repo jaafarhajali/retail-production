@@ -42,7 +42,7 @@ return [
         $joy = $make('Joy 100g', 'finished', 'piece');
         $honey = $make('Honey', 'material');
         $mix = $make('Marshmallow mix', 'intermediate');
-        $rows = Database::pdo()->query('SELECT name, kind, show_on_pos_grid FROM products ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = Database::pdo()->query('SELECT name, kind, show_on_pos_grid FROM products WHERE is_custom_order = 0 ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         assert_same([['name' => 'Joy 100g', 'kind' => 'finished', 'show_on_pos_grid' => 1], ['name' => 'Honey', 'kind' => 'material', 'show_on_pos_grid' => 0], ['name' => 'Marshmallow mix', 'kind' => 'intermediate', 'show_on_pos_grid' => 0]], $rows);
         assert_same(null, Database::pdo()->query("SELECT retail_price FROM product_units WHERE id = {$honey['unit']}")->fetchColumn(), 'a material keeps no price');
         assert_same('9.00', Database::pdo()->query("SELECT retail_price FROM product_units WHERE id = {$joy['unit']}")->fetchColumn());

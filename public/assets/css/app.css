@@ -338,7 +338,7 @@ td.empty { background: var(--surface) !important; }
 .dash-table.bep-table td + td { padding-left: .7rem; }
 .bep-table td { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .bep-table td.lead { font-family: var(--font); font-size: .9rem; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
-.bep-table .all { border-left: 1px solid var(--line); padding-left: 1rem; }
+.bep-table .all { padding-left: 1rem; }
 .bep-table .is-done { color: var(--green); }
 .bep-table .is-left { color: var(--amber); }
 .fixed-figure { font-family: var(--font-display); font-size: 2.6rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
@@ -1067,3 +1067,10 @@ body > .error-wrap .blocked { width: 100%; }
 .attachments.is-compact .att-file { width: 30px; height: 30px; border-radius: 6px; }
 .attachments.is-compact .att-pdf i { font-size: 1.1rem; }
 .attachments.is-compact .att-add .btn { padding: .1rem .45rem; min-height: 28px; font-size: .78rem; }
+.tile.is-custom { border: 2px dashed var(--rose); background: var(--rose-soft); color: var(--rose-ink); }
+.tile.is-custom .name, .tile.is-custom .price span { color: var(--rose-ink); opacity: 1; }
+.tile.is-custom .price b { color: var(--rose-text); }
+.custom-pack-row { display: flex; gap: .5rem; margin-bottom: .5rem; align-items: center; }
+.custom-pack-row .form-select { flex: 1; min-width: 0; }
+.custom-pack-row .form-control { max-width: 7rem; }
+.custom-pack-row .pos-btn { min-width: 2.6rem; padding: 0 .6rem; }

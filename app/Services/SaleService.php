@@ -50,13 +50,11 @@ final class SaleService
             $sales = new Sale();
             $saleId = $sales->create($this->saleFields($no, $in, $p, $pay, 'completed'));
             foreach ($p['lines'] as $l) {
-                $sales->addItem($saleId, $l);
+                $this->writeItem($sales, $saleId, $l);
                 if ($l['track_stock'] && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
-                if ($l['fill_mix_id'] !== null && $l['fill_stock'] - $l['fill_base'] * $l['base_qty'] < 0) {
-                    $warnings[] = $l['fill_name'] . ' is now below zero stock.';   // filled at the sale (2026-10-18)
-                }
+                array_push($warnings, ...$this->fillWarnings($l));
             }
             $this->fulfil($saleId, $no, $p['lines'], $pay, $p['customer'], $p['rate'], (int) $in['session_id'], (int) $in['user_id']);
             Audit::log('sale.completed', 'sale', $saleId, ['no' => $no, 'lines' => count($p['lines']), 'level' => $p['level']], (float) $p['total'], 'USD');
@@ -89,7 +87,7 @@ final class SaleService
             $sales = new Sale();
             $saleId = $sales->create($this->saleFields($no, $in, $p, $empty, 'on_hold') + ['held_at' => date('Y-m-d H:i:s')]);
             foreach ($p['lines'] as $l) {
-                $sales->addItem($saleId, $l);
+                $this->writeItem($sales, $saleId, $l);
             }
             Audit::log('sale.held', 'sale', $saleId, ['no' => $no, 'customer' => $p['customer']['name'], 'lines' => count($p['lines'])], (float) $p['total'], 'USD');
             $this->auditOverrides($saleId, $p, $approver);
@@ -130,13 +128,11 @@ final class SaleService
             $sales = new Sale();
             $saleId = $sales->create($this->saleFields($no, $in, $p, $pay, 'completed') + ['origin' => 'desk', 'due_date' => $dueDate, 'ship_to' => $shipTo]);
             foreach ($p['lines'] as $l) {
-                $sales->addItem($saleId, $l);
+                $this->writeItem($sales, $saleId, $l);
                 if ($l['track_stock'] && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
-                if ($l['fill_mix_id'] !== null && $l['fill_stock'] - $l['fill_base'] * $l['base_qty'] < 0) {
-                    $warnings[] = $l['fill_name'] . ' is now below zero stock.';   // filled at the sale (2026-10-18)
-                }
+                array_push($warnings, ...$this->fillWarnings($l));
             }
             $this->fulfil($saleId, $no, $p['lines'], $pay, $p['customer'], $p['rate'], null, (int) $in['user_id']);
             Audit::log('invoice.issued', 'sale', $saleId, ['no' => $no, 'customer' => $p['customer']['name'], 'lines' => count($p['lines']), 'due' => $dueDate], (float) $p['total'], 'USD');
@@ -193,6 +189,7 @@ final class SaleService
                 'cost_per_base' => $i['cost_per_base'], 'line_cost_usd' => Money::fmt($netBase * (float) $i['cost_per_base']), 'stock_base' => (int) ($product['stock_base'] ?? 0),
                 'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
                 'fill_mix_id' => $i['fill_mix_id'] !== null ? (int) $i['fill_mix_id'] : null, 'fill_base' => $i['fill_base'] !== null ? (int) $i['fill_base'] : null,
+                'pack' => $i['fill_mix_id'] !== null ? $sales->itemPackaging((int) $i['id']) : [],   // a custom order's packaging, per piece (2026-10-21)
             ];
             if ($retBase > 0) {
                 $back[] = ['sale_item_id' => (int) $i['id'], 'qty' => Quantity::unitQty($retBase, (int) $i['factor']), 'base_qty' => $retBase, 'value_usd' => $value, 'product_name' => $i['product_name']];
@@ -223,6 +220,7 @@ final class SaleService
                 if ($l['track_stock'] && $l['base_qty'] > 0 && $l['stock_base'] - $l['base_qty'] < 0) {
                     $warnings[] = $l['product_name'] . ' is now below zero stock.';
                 }
+                array_push($warnings, ...$this->fillWarnings($l));
             }
             $sales->settle($saleId, [
                 'session_id' => $sessionId, 'register_id' => $registerId, 'subtotal_usd' => Money::fmt($netSubtotal), 'discount_usd' => $netDiscount, 'total_usd' => $netTotal,
@@ -423,6 +421,44 @@ final class SaleService
         ];
     }
 
+    /** The line and, for a custom order, the packaging it took per piece (2026-10-21). */
+    private function writeItem(Sale $sales, int $saleId, array $l): int
+    {
+        $itemId = $sales->addItem($saleId, $l);
+        foreach ($l['pack'] ?? [] as $k) {
+            $sales->addItemPackaging($itemId, ['material_id' => (int) $k['material_id'], 'qty_base' => (int) $k['qty_base'], 'cost_per_base' => (string) $k['cost_per_base']]);
+        }
+
+        return $itemId;
+    }
+
+    /**
+     * What a custom order drives below zero: its mix and the packaging it takes (warned about, never refused: the mix is
+     * weighed by hand). Reads the stock of now, so settle() can use it on a line rebuilt from the items.
+     *
+     * @return list<string>
+     */
+    private function fillWarnings(array $l): array
+    {
+        if (empty($l['fill_mix_id']) || (int) $l['base_qty'] <= 0) {
+            return [];
+        }
+        $products = new Product();
+        $w = [];
+        $mix = $products->find((int) $l['fill_mix_id']);
+        if ($mix !== null && (int) $mix['stock_base'] - (int) $l['fill_base'] * (int) $l['base_qty'] < 0) {
+            $w[] = $mix['name'] . ' is now below zero stock.';
+        }
+        foreach ($l['pack'] ?? [] as $k) {
+            $material = $products->find((int) $k['material_id']);
+            if ($material !== null && (int) $material['stock_base'] - (int) $k['qty_base'] * (int) $l['base_qty'] < 0) {
+                $w[] = $material['name'] . ' is now below zero stock.';
+            }
+        }
+
+        return $w;
+    }
+
     /** Stock out, payments and their cash movements, change, and the credit part on the customer's ledger. */
     private function fulfil(int $saleId, string $no, array $lines, array $pay, ?array $customer, int $rate, ?int $sessionId, int $userId): void
     {
@@ -430,11 +466,12 @@ final class SaleService
         $products = new Product();
         foreach ($lines as $l) {
             if (!empty($l['fill_mix_id']) && (int) $l['base_qty'] > 0) {
-                // filled at the sale (2026-10-18): the grams of mix and the packaging leave the stock; the box has none of its own
+                // a custom order (2026-10-21): the grams of mix and the packaging picked at the sale leave the stock; the box
+                // itself has none of its own
                 $mix = $products->find((int) $l['fill_mix_id']);
                 $stock->move((int) $l['fill_mix_id'], -((int) $l['fill_base'] * (int) $l['base_qty']), 'sale', null, $mix['cost_per_base'] ?? null, 'sale', $saleId, $userId, $sessionId);
-                foreach ($products->packaging((int) $l['product_id']) as $pk) {
-                    $stock->move((int) $pk['material_id'], -((int) $pk['qty_base'] * (int) $l['base_qty']), 'sale', null, null, 'sale', $saleId, $userId, $sessionId);
+                foreach ($l['pack'] ?? [] as $k) {
+                    $stock->move((int) $k['material_id'], -((int) $k['qty_base'] * (int) $l['base_qty']), 'sale', null, $k['cost_per_base'], 'sale', $saleId, $userId, $sessionId);
                 }
                 continue;
             }
@@ -517,6 +554,14 @@ final class SaleService
                 throw new \DomainException($product['name'] . ' is a ' . ($product['kind'] === 'material' ? 'raw material' : 'mix') . ', it is not sold.');
             }
             $listPrice = $level === 'wholesale' ? $unit['wholesale_price'] : $unit['retail_price'];
+            $custom = (int) ($product['is_custom_order'] ?? 0) === 1;
+            if ($custom) {   // a custom order (2026-10-21): its price is typed at the sale, there is no list price
+                $typedPrice = Pricing::parse((string) ($l['price'] ?? ''), true);
+                if ($typedPrice === null || (float) $typedPrice <= 0) {
+                    throw new \DomainException('Type the price of the custom order.');
+                }
+                $listPrice = $typedPrice;
+            }
             $catalogPrice = $listPrice;   // the price the line shows; anything charged under it is recorded as a discount (2026-10-20)
             if (isset($in['agreed_prices'][(int) $unit['id']])) {
                 $listPrice = $in['agreed_prices'][(int) $unit['id']];   // the price agreed with this customer (desk invoices, 2026-10-14)
@@ -579,22 +624,45 @@ final class SaleService
             if ($atList > 0 && $cut / $atList * 100 > $worst['pct']) {
                 $worst = ['pct' => $cut / $atList * 100, 'name' => $product['name']];
             }
-            // Filled at the sale (2026-10-18): the grams of mix weighed into each piece (the product's usual weight unless
-            // typed); the piece costs that mix plus its packaging, and the sale takes both out of stock (fulfil()).
+            // A custom order (owner, 2026-10-21): a box made to the customer's wish. At the sale the grams of marshmallow (out
+            // of the mix), the packaging taken from the stock and the other costs (a ribbon bought for it) are typed; the piece
+            // costs all three at their cost of the moment, and fulfil() takes the grams and the packaging out of stock.
             $costPerBase = (string) $product['cost_per_base'];
             $fill = null;
-            if ($product['fill_mix_id'] !== null) {
+            $pack = [];
+            if ($custom || $product['fill_mix_id'] !== null) {
                 $typed = trim((string) ($l['fill'] ?? ''));
                 $grams = $typed === '' ? (int) ($product['fill_base'] ?? 0) : (ctype_digit($typed) ? (int) $typed : -1);
                 if ($grams < 1 || $grams > 100000) {
-                    throw new \DomainException("Type how many grams of marshmallow go into one {$product['name']}.");
+                    throw new \DomainException('Type how many grams of marshmallow go into the ' . ($custom ? 'custom order' : $product['name']) . '.');
                 }
-                $mix = $products->find((int) $product['fill_mix_id']) ?? throw new \DomainException('The mix of ' . $product['name'] . ' no longer exists.');
+                $mix = $products->mixFor($product) ?? throw new \DomainException('A custom order is filled from the mix, and there is no mix yet. Make one first.');
                 $packCost = 0.0;
-                foreach ($products->packaging((int) $product['id']) as $pk) {
-                    $packCost += (int) $pk['qty_base'] * (float) (($products->find((int) $pk['material_id']) ?? [])['cost_per_base'] ?? 0);
+                foreach (is_array($l['pack'] ?? null) ? $l['pack'] : [] as $k) {
+                    if (!is_array($k) || ((int) ($k['material_id'] ?? 0) === 0 && trim((string) ($k['qty'] ?? '')) === '')) {
+                        continue;   // an empty row
+                    }
+                    $material = $products->find((int) ($k['material_id'] ?? 0));
+                    if ($material === null || $material['kind'] !== 'material') {
+                        throw new \DomainException('Choose the packaging taken from the stock on every line of the custom order.');
+                    }
+                    $q = str_replace(',', '', trim((string) ($k['qty'] ?? '')));
+                    if ($q === '' || !is_numeric($q) || (float) $q <= 0) {
+                        throw new \DomainException('Enter the quantity of ' . $material['name'] . ' in the custom order.');
+                    }
+                    $qtyBase = (int) round((float) $q);
+                    if ($qtyBase < 1) {
+                        throw new \DomainException('The quantity of ' . $material['name'] . ' is too small for one ' . $material['base_unit'] . '.');
+                    }
+                    $pack[] = ['material_id' => (int) $material['id'], 'name' => $material['name'], 'base_unit' => $material['base_unit'], 'qty_base' => $qtyBase,
+                               'cost_per_base' => (string) $material['cost_per_base'], 'stock_base' => (int) $material['stock_base']];
+                    $packCost += $qtyBase * (float) $material['cost_per_base'];
                 }
-                $costPerBase = number_format($grams * (float) $mix['cost_per_base'] + $packCost, 6, '.', '');
+                $extra = str_replace([',', '$', ' '], '', trim((string) ($l['cost'] ?? '')));
+                if ($extra !== '' && (!is_numeric($extra) || (float) $extra < 0 || (float) $extra > 99999)) {
+                    throw new \DomainException('Other costs of the custom order: a number of dollars, or empty.');
+                }
+                $costPerBase = number_format($grams * (float) $mix['cost_per_base'] + $packCost + (float) ($extra === '' ? 0 : $extra), 6, '.', '');
                 $fill = ['mix_id' => (int) $mix['id'], 'grams' => $grams, 'name' => $mix['name'], 'stock' => (int) $mix['stock_base']];
             }
             $lines[] = [
@@ -604,7 +672,7 @@ final class SaleService
                 'cost_per_base' => $costPerBase, 'line_cost_usd' => Money::fmt($base * (float) $costPerBase),
                 'entry_mode' => $mode, 'price_overridden' => $overridden, 'stock_base' => (int) $product['stock_base'],
                 'note' => mb_substr(trim((string) ($l['note'] ?? '')), 0, 255) ?: null, 'track_stock' => (int) ($product['track_stock'] ?? 1) === 1,
-                'fill_mix_id' => $fill['mix_id'] ?? null, 'fill_base' => $fill['grams'] ?? null, 'fill_name' => $fill['name'] ?? null, 'fill_stock' => $fill['stock'] ?? 0,
+                'fill_mix_id' => $fill['mix_id'] ?? null, 'fill_base' => $fill['grams'] ?? null, 'fill_name' => $fill['name'] ?? null, 'fill_stock' => $fill['stock'] ?? 0, 'pack' => $pack,
             ];
         }
         if ($lines === []) {

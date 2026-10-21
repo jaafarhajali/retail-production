@@ -79,7 +79,7 @@ final class DashboardService
         // ---- each finished product sold by the piece: what one piece earns now, and its profit as the share's basis
         $products = $all("SELECT p.id, p.name, p.cost_per_base, u.retail_price, u.factor FROM products p
                           LEFT JOIN product_units u ON u.product_id = p.id AND u.is_default_sale = 1
-                          WHERE p.is_active = 1 AND p.kind = 'finished' AND p.base_unit = 'piece' ORDER BY p.name");
+                          WHERE p.is_active = 1 AND p.kind = 'finished' AND p.base_unit = 'piece' AND p.is_custom_order = 0 ORDER BY p.name");
         $profitOf = static fn (array $sold, int $id): float => isset($sold[$id]) ? $sold[$id]['total'] - $sold[$id]['cost'] : 0.0;
         $earned = static fn (array $sold): float => array_sum(array_map(static fn (array $p): float => max(0.0, $profitOf($sold, (int) $p['id'])), $products));
         $basis = $earned($lastMonth) > 0 ? 'last' : ($earned($thisMonth) > 0 ? 'this' : 'equal');

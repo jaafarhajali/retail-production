@@ -59,7 +59,8 @@ final class InvoiceController extends Controller
         $svc = new InvoiceService();
         $model = new Customer();
         $customers = array_map(static fn (array $c): array => $c + ['terms_days' => $svc->termsDays($c), 'agreed' => $model->agreedPrices((int) $c['id'])], $model->all(true));
-        $this->render('invoices/new', ['customers' => $customers, 'catalogue' => $catalogue, 'defaultTerms' => $svc->termsDays(null)], 'New invoice');
+        $this->render('invoices/new', ['customers' => $customers, 'catalogue' => $catalogue, 'defaultTerms' => $svc->termsDays(null),
+            'custom' => \App\Services\CustomOrderService::payload()], 'New invoice');   // a custom order line: price, grams, packaging, extras (2026-10-21)
     }
 
     public function store(): void
@@ -69,7 +70,7 @@ final class InvoiceController extends Controller
             if (!is_array($l) || (int) ($l['product_id'] ?? 0) === 0) {
                 continue;
             }
-            $lines[] = ['product_id' => (int) $l['product_id'], 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'discount' => (string) ($l['discount'] ?? ''), 'note' => (string) ($l['note'] ?? ''), 'fill' => (string) ($l['fill'] ?? '')];
+            $lines[] = ['product_id' => (int) $l['product_id'], 'unit_id' => (int) ($l['unit_id'] ?? 0), 'qty' => (string) ($l['qty'] ?? ''), 'discount' => (string) ($l['discount'] ?? ''), 'note' => (string) ($l['note'] ?? ''), 'fill' => (string) ($l['fill'] ?? ''), 'cost' => (string) ($l['cost'] ?? ''), 'price' => (string) ($l['price'] ?? ''), 'pack' => is_array($l['pack'] ?? null) ? array_values($l['pack']) : []];
         }
         try {
             $r = (new SaleService())->issue([

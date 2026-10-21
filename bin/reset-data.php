@@ -89,6 +89,7 @@ try {
 } finally {
     $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 }
+(new App\Models\Product())->ensureCustomOrder();   // the built-in Custom order comes back even with --no-seed (2026-10-21)
 // A register whose session is gone is free again; its device link stays.
 $out('   ' . count($wipe) . ' tables emptied, numbering back to 1.');
 

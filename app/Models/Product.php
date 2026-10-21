@@ -169,7 +169,39 @@ final class Product extends Model
     /** Every active product for the printable table, grouped by category order; one kind only when asked (F1). */
     public function forPrint(?string $kind = null): array
     {
-        return $this->fetchAll(self::LIST_SELECT . ' WHERE p.is_active = 1' . ($kind === null ? '' : ' AND p.kind = :k') . ' ORDER BY c.sort_order, c.name, p.name', $kind === null ? [] : ['k' => $kind]);
+        return $this->fetchAll(self::LIST_SELECT . ' WHERE p.is_active = 1 AND p.is_custom_order = 0' . ($kind === null ? '' : ' AND p.kind = :k') . ' ORDER BY c.sort_order, c.name, p.name', $kind === null ? [] : ['k' => $kind]);
+    }
+
+    /**
+     * The built-in Custom order product (2026-10-21): the line a box made to the customer's wish is sold on, with its
+     * price, grams of marshmallow, packaging and extras typed at each sale. Never listed; migration 025 creates it.
+     */
+    public function customOrder(): ?array
+    {
+        return $this->fetch(self::SELECT . ' WHERE p.is_custom_order = 1 LIMIT 1');
+    }
+
+    /** Puts the built-in Custom order back when it is missing (after a data reset, which empties the products): what migration 025 does. */
+    public function ensureCustomOrder(): void
+    {
+        if ($this->customOrder() !== null) {
+            return;
+        }
+        $this->execute("INSERT INTO products (name, description, internal_code, base_unit, kind, cost_per_base, stock_base, allow_price_override, show_on_pos_grid, is_active, track_stock, is_custom_order, fill_mix_id)
+                        SELECT 'Custom order', 'A box made to the customer''s wish: price, marshmallow, packaging and extras typed at each sale', 'CUSTOM', 'piece', 'finished', 0, 0, 1, 0, 1, 0, 1,
+                               (SELECT MIN(id) FROM products WHERE kind = 'intermediate' AND is_active = 1)");
+        $id = $this->lastId();
+        $this->execute('INSERT INTO product_units (product_id, name, factor, retail_price, wholesale_price, allows_fraction, is_default_sale, is_default_purchase, is_display) VALUES (:p, :n, 1, NULL, NULL, 0, 1, 0, 1)', ['p' => $id, 'n' => 'Piece']);
+    }
+
+    /** The mix a custom order is filled from: the one set on it, else the first active mix. */
+    public function mixFor(array $custom): ?array
+    {
+        if ($custom['fill_mix_id'] !== null) {
+            return $this->find((int) $custom['fill_mix_id']);
+        }
+
+        return $this->fetch(self::SELECT . " WHERE p.kind = 'intermediate' AND p.is_active = 1 ORDER BY p.id LIMIT 1");
     }
 
     /** Packaging and extras per piece of a finished product (2026-10-14): what Packing takes out by itself. */
@@ -194,7 +226,7 @@ final class Product extends Model
     public function kindCounts(): array
     {
         $counts = ['finished' => 0, 'intermediate' => 0, 'material' => 0];
-        foreach ($this->fetchAll('SELECT kind, COUNT(*) AS n FROM products WHERE is_active = 1 GROUP BY kind') as $r) {
+        foreach ($this->fetchAll('SELECT kind, COUNT(*) AS n FROM products WHERE is_active = 1 AND is_custom_order = 0 GROUP BY kind') as $r) {
             $counts[$r['kind']] = (int) $r['n'];
         }
 
@@ -212,7 +244,7 @@ final class Product extends Model
     /** @return array{0: string, 1: array<string, mixed>} */
     private function whereFor(array $filters): array
     {
-        $where = ['1=1'];
+        $where = ['p.is_custom_order = 0'];   // the built-in Custom order product is never listed (2026-10-21)
         $params = [];
         if (!$filters['inactive']) {
             $where[] = 'p.is_active = 1';
