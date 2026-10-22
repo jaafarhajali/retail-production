@@ -19,7 +19,7 @@ return [
         Auth::login(TEST_ADMIN_ID);
     },
 
-    'the filters list what happened, in plain words; a product with no history is not offered' => function (): void {
+    'the filters list what happened, in plain words; every product is offered, the built-in Custom order is not' => function (): void {
         $svc = new ProductService();
         $sugar = make_product('Sugar', 'g', null, 'material');
         $kg = $svc->addUnit($sugar, 'kg', '1000', true, true);
@@ -36,7 +36,8 @@ return [
         }
         assert_not_contains('sale void', $page, 'no raw codes');
         assert_contains('>Sugar</option>', $page);
-        assert_not_contains('>Never moved</option>', $page, 'no history, not offered');
+        assert_contains('>Never moved</option>', $page, 'a product with no history is offered too (Aya, 2026-10-22)');
+        assert_not_contains('>Custom order</option>', $page, 'the built-in Custom order has no stock');
         assert_contains('<td class="text-nowrap">Opening stock</td>', $page, 'the list says it in words too');
         assert_contains('<td class="text-nowrap">Purchase</td>', $page);
         assert_not_contains('kind=intermediate', $page, 'no Mixes tab without two mixes');

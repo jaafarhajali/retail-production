@@ -51,11 +51,11 @@ final class StockMovement extends Model
         return array_values(array_filter(array_keys(self::LABELS), static fn (string $t): bool => in_array($t, $used, true)));
     }
 
-    /** @return list<array{id: int, name: string}> the products that have stock history, of one kind or all, by name */
+    /** @return list<array{id: int, name: string}> every active product, of one kind or all, by name (the built-in Custom order is not one: it has no stock) */
     public function productsMoved(string $kind = ''): array
     {
         return $this->fetchAll(
-            'SELECT p.id, p.name FROM products p WHERE EXISTS (SELECT 1 FROM stock_movements m WHERE m.product_id = p.id)' . ($kind !== '' ? ' AND p.kind = :k' : '') . ' ORDER BY p.name',
+            'SELECT p.id, p.name FROM products p WHERE p.is_custom_order = 0 AND (p.is_active = 1 OR EXISTS (SELECT 1 FROM stock_movements m WHERE m.product_id = p.id))' . ($kind !== '' ? ' AND p.kind = :k' : '') . ' ORDER BY p.name',
             $kind !== '' ? ['k' => $kind] : []
         );
     }
