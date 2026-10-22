@@ -77,7 +77,9 @@ Run once on the server, as the Windows user that is normally signed in:
 
 It creates two Windows tasks: a backup every hour from 08:00 to 23:59 and one every night at 02:00 (the one of the
 1st is kept as the month's backup). On the Backups page, set the folder of a USB stick: every backup is copied there,
-and the dashboard turns amber when the stick is missing or the last backup is old. `bin/restore-drill.php` proves a
+and the dashboard turns amber when the stick is missing or the last backup is old. On the same page, **Google Drive**:
+paste the OAuth client made once in Google Cloud (type Web application, redirect URI shown on the page), press Connect
+on the server itself, and every daily and monthly backup is uploaded to a folder in that Google Drive. `bin/restore-drill.php` proves a
 backup restores; run it after installing and once a month. `bin/reset-data.php` backs up, empties the shop and seeds
 the catalogue again (people, registers and settings stay).
 
