@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Retail Production">
+  <title>Retail Production</title>
+  <rect width="96" height="96" rx="20" fill="#0F4A44"/>
+  <path d="M18 72V46l14 10V46l14 10V46l14 10V28h10v44z" fill="#FFFFFF"/>
+  <rect x="24" y="60" width="7" height="6" rx="1.5" fill="#48AF9E"/>
+  <rect x="38" y="60" width="7" height="6" rx="1.5" fill="#48AF9E"/>
+  <rect x="52" y="60" width="7" height="6" rx="1.5" fill="#48AF9E"/>
+  <rect x="18" y="72" width="60" height="6" rx="3" fill="#48AF9E"/>
+  <circle cx="74" cy="20" r="6" fill="#D497B6"/>
+  <circle cx="62" cy="16" r="3.5" fill="#EFB526"/>
+</svg>
