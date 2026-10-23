@@ -1,6 +1,6 @@
-<p align="center"><img src="public/assets/brand/mark.svg" width="96" height="96" alt="Retail Production"></p>
+<p align="center"><img src="public/assets/brand/codexy.svg" width="360" alt="Codexy ERP"></p>
 
-# Retail Production
+# Codexy ERP, production edition
 
 Stock, production, invoicing and sales for a small factory that makes its own products and sells them to shops, supermarkets and at the door. Prices in US dollars, payments in dollars, Lebanese pounds or both, cash drawers counted at the end of every shift, and backups that run by themselves. It runs on one PC and is used from any PC, tablet or touch screen on the network, in a browser.
 
@@ -17,10 +17,10 @@ Suppliers → raw materials and packaging → Make (a recipe makes the mix) → 
 
 ### On the factory's PC (the normal way)
 
-1. Copy `RetailProduction-Setup-<version>.exe` to the PC and run it. Windows asks to allow changes: Yes.
-2. Keep the folder it proposes, `C:\RetailProduction`.
+1. Copy `CodexyERPProduction-Setup-<version>.exe` to the PC and run it. Windows asks to allow changes: Yes.
+2. Keep the folder it proposes, `C:\CodexyERPProduction`.
 3. Type the company name and the administrator's password (8 characters or more, write it down).
-4. When it finishes it opens the browser on the sign-in page and puts **Retail Production** on the desktop.
+4. When it finishes it opens the browser on the sign-in page and puts **Codexy ERP Production** on the desktop.
 
 The setup installs everything the program needs and starts it with the PC: the web server, the database, PHP and a **backup service**. No XAMPP, no internet needed. If another program already uses the web port, the setup takes the next free one (`http://localhost:8080/`) and the shortcut knows it.
 
@@ -38,7 +38,7 @@ Run the newer setup on the same PC, same folder: the data, the settings, the log
 
 Sign in as **admin** with the password typed during the setup. Then, under **Administration**:
 
-1. **Settings** — the company name, address, phones, email and MOF number (they print on the official invoice), the receipt texts, the LBP rounding step, the maximum discount a cashier may give without your PIN, the notes used to count a drawer, and the **logo**: upload it and it goes on the menu, the sign-in page, the receipts and both invoices. Until then the program shows its own mark.
+1. **Settings** — the company name, address, phones, email and MOF number (they print on the official invoice), the receipt texts, the LBP rounding step, the maximum discount a cashier may give without your PIN, the notes used to count a drawer, and the **logo**: upload it and it goes on the menu, the sign-in page, the receipts and both invoices. Until then the program shows the Codexy ERP mark.
 2. **Exchange rate** — today's rate. Every payment is kept in its currency with its dollar value at that moment.
 3. **Users** and **Roles & permissions** — one user per person; sellers and cashiers get the Cashier role. On the administrator's user set the **approval PIN** (4 to 6 digits) that a cashier types for anything that needs your approval.
 4. **Registers** — one per till; on each till PC, **Link this device** once.
@@ -120,9 +120,9 @@ The **backup service** makes one backup a day at the time set on **Backups** (02
 
 | What you see | What to do |
 |---|---|
-| The browser cannot reach the program | Windows → Services on the server: `RetailProductionWeb` and `RetailProductionDB` must be running. Start them, or run the setup again. |
-| "Something went wrong, error 500" | Settings → Check this installation; send its screenshot and `C:\RetailProduction\app\storage\logs\php-error.log`. |
-| The dashboard says the backup is old | Windows → Services → `RetailProductionBackup` → Start; check the USB stick. |
+| The browser cannot reach the program | Windows → Services on the server: `CodexyERPProductionWeb` and `CodexyERPProductionDB` must be running. Start them, or run the setup again. |
+| "Something went wrong, error 500" | Settings → Check this installation; send its screenshot and `C:\CodexyERPProduction\app\storage\logs\php-error.log`. |
+| The dashboard says the backup is old | Windows → Services → `CodexyERPProductionBackup` → Start; check the USB stick. |
 | A cashier cannot approve something | No PIN on the administrator's user, or five wrong tries. |
 | Receipts open as a page instead of printing | Chrome without `--kiosk-printing`, or the receipt printer is not the default. |
 | A run is refused for a short material | Buy or adjust the material first; the run never moves a stock it cannot take. |
@@ -133,4 +133,4 @@ The **backup service** makes one backup a day at the time set on **Backups** (02
 
 Plain PHP 8.2 with MariaDB 10.4, no framework, no Composer: `public/` is the only web-reachable folder, `app/routes.php` lists every URL with its permission, `app/Services/` the rules (sales, production, recipes, packing, invoices, returns, cash, dashboard), `app/Models/` the SQL, `app/Views/` the pages (`sales/invoice.php`, `sales/delivery-note.php` and the credit note are the A4 prints), `database/migrations/` the numbered schema. `docs/ROADMAP.md` is the decisions log with every rule and its date; `docs/plans/2026-10-12-factory-analysis-and-plan.md` the factory design; `docs/specs/` the core design and the owner's documents.
 
-Development install on XAMPP: `config/app.ini` with `name = retail_production`, then `php bin/install.php --admin-password=...` and `php bin/seed-factory.php`. Tests: `php tests/run.php` on its own `retail_production_test` database and port 8190; `tests/browser/` drives the till in headless Chrome. The Windows setup: `tools/installer/build.ps1 -Product RetailProduction -DisplayName "Retail Production" -DefaultDir C:\RetailProduction -DbName retail_production`, see `tools/installer/README.md`.
+Development install on XAMPP: `config/app.ini` with `name = retail_production`, then `php bin/install.php --admin-password=...` and `php bin/seed-factory.php`. Tests: `php tests/run.php` on its own `retail_production_test` database and port 8190; `tests/browser/` drives the till in headless Chrome. The Windows setup: `tools/installer/build.ps1 -Product CodexyERPProduction -DisplayName "Codexy ERP Production" -DefaultDir C:\CodexyERPProduction -DbName retail_production`, see `tools/installer/README.md`.
