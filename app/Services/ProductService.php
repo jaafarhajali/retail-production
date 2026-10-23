@@ -19,8 +19,6 @@ final class ProductService
     public const CODE_PREFIX = 'P-';
 
     /** Offered in the unit dropdown (owner decision 2026-09-24); any other name may be typed. */
-    public const DEFAULT_UNIT_NAMES = ['Piece', 'Pack', 'Box', 'Dozen', 'kg', 'g', 'L', 'ml'];
-
     /**
      * The unit types an administrator can pick; there is no free text. Each type lists the base units it fits
      * and, for the plain measures, its fixed factor. Containers (Pack, Box…) ask how many base units they hold.
@@ -139,10 +137,6 @@ final class ProductService
     /** F1 (2026-10-12): what a product is. Only a finished product is sold; a mix is made and used; a material is bought and consumed. */
     public const KINDS = ['finished' => 'Finished product', 'intermediate' => 'Mix', 'material' => 'Raw material or packaging'];
 
-    public static function kindLabel(string $kind): string
-    {
-        return self::KINDS[$kind] ?? $kind;
-    }
 
     /** Only what is weighed or poured is sold in parts: 2.5 kg, 0.75 L. Half a piece or half a box is not a sale. */
     public static function soldInFractions(string $type): bool

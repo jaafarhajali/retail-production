@@ -61,7 +61,7 @@ scanner and a receipt printer with a cash drawer.
 - `php bin/seed-factory.php` fills an empty database with the **Malika factory catalogue** (company, price list, materials, mix); the dev database holds it since 2026-10-13. `php bin/reset-data.php` backs up,
   then empties the shop (keeps users, registers, settings, rate) and seeds again. `php bin/restore-drill.php`
   proves a backup restores; it only reads the live database. Test-suite backups go to `storage/backups/test`.
-  `php bin/install-backup-tasks.php` creates the one Windows task (every 30 minutes, `bin/backup.php --auto`) that makes the daily backup at the time set on the Backups page.
+  `php bin/install-backup-tasks.php` creates the one Windows task (daily at the Backups page time, hidden, `bin/backup.php --auto`); the setup's copies run a service instead.
 
 ## Rules that must never be broken
 
