@@ -58,9 +58,13 @@ final class CustomerController extends Controller
         $customer = (new Customer())->find($id) ?? throw new HttpException(404);
         $from = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('from')) ? $this->query('from') : date('Y-m-01', strtotime('-2 months'));
         $to = preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->query('to')) ? $this->query('to') : date('Y-m-d');
-        \App\Core\View::render('customers/statement', (new \App\Services\InvoiceService())->statement($id, $from, $to) + [
+        $data = (new \App\Services\InvoiceService())->statement($id, $from, $to) + [
             'customer' => $customer, 'from' => $from, 'to' => $to, 'pageTitle' => 'Statement · ' . $customer['name'], 'auto' => $this->query('auto') === '1',
-        ], 'layouts/print');
+        ];
+        if ($this->query('pdf') === '1') {   // PDF export (2026-10-29)
+            \App\Services\PdfService::send(\App\Core\View::html('customers/statement', $data, 'layouts/print'), 'Statement ' . $customer['name'] . ' ' . $from . ' to ' . $to);
+        }
+        \App\Core\View::render('customers/statement', $data, 'layouts/print');
     }
 
     public function save(): void

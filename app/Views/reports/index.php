@@ -19,5 +19,6 @@
   <?php endif; ?>
   <button class="btn btn-outline-primary" type="submit">Show</button>
   <a class="btn btn-outline-secondary" href="<?= url('reports', ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'print' => 1] + ($type === 'products' ? array_filter($filters) : [])) ?>" target="_blank"><i class="bi bi-printer"></i> Print</a>
+  <a class="btn btn-outline-secondary" href="<?= url('reports', ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'pdf' => 1] + ($type === 'products' ? array_filter($filters) : [])) ?>" title="Download this report as a PDF file"><i class="bi bi-file-earmark-pdf"></i> Save as PDF</a>
 </form>
 <?php $printing = false; require APP_PATH . '/Views/reports/' . $type . '.php'; ?>

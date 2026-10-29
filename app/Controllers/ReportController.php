@@ -55,6 +55,9 @@ final class ReportController extends Controller
         };
         $available = array_keys(array_filter(self::TYPES, static fn (string $perm): bool => Gate::allows($perm)));
         $vars = $data + ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'month' => $month !== '' ? $month : substr($from, 0, 7), 'available' => $available, 'showCost' => Gate::allows('product.view_cost')];
+        if ($this->query('pdf') === '1') {   // PDF export (2026-10-29): the print page, as a file
+            \App\Services\PdfService::send(View::html('reports/' . $type, $vars + ['pageTitle' => ucfirst($type) . ' report', 'printing' => true], 'layouts/print'), ucfirst($type) . ' report ' . $from . ' to ' . $to);
+        }
         if ($this->query('print') === '1') {
             View::render('reports/' . $type, $vars + ['pageTitle' => ucfirst($type) . ' report', 'printing' => true], 'layouts/print');
 

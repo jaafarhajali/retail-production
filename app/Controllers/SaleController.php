@@ -65,10 +65,21 @@ final class SaleController extends Controller
         $credit = (float) $onCredit > 0 && $sale['customer_id'] !== null && $sale['status'] === 'completed'
             ? ['usd' => $onCredit, 'balance' => (new \App\Models\Customer())->balanceAfterSale((int) $sale['customer_id'], (int) $sale['id'])]
             : null;
-        View::render($type === 'official' ? 'sales/invoice' : 'sales/delivery-note', [
-            'pageTitle' => ($type === 'official' ? 'Official invoice ' : 'Regular invoice ') . $sale['invoice_no'], 'sale' => $sale, 'items' => $items, 'barcodes' => $barcodes, 'credit' => $credit,
+        $title = ($type === 'official' ? 'Official invoice ' : 'Regular invoice ') . $sale['invoice_no'];
+        if ($this->query('pdf') === '1') {   // PDF export (2026-10-29): the same page, printed to a file
+            \App\Services\PdfService::send(View::html($type === 'official' ? 'sales/invoice' : 'sales/delivery-note', $this->printData($sale, $type, $items, $barcodes, $credit, $title), 'layouts/print'),
+                $title . ($sale['customer_name'] !== null ? ' - ' . $sale['customer_name'] : ''));
+        }
+        View::render($type === 'official' ? 'sales/invoice' : 'sales/delivery-note', $this->printData($sale, $type, $items, $barcodes, $credit, $title), 'layouts/print');
+    }
+
+    /** @return array<string, mixed> what the Official and the Regular invoice prints receive */
+    private function printData(array $sale, string $type, array $items, array $barcodes, ?array $credit, string $title): array
+    {
+        return [
+            'pageTitle' => $title, 'sale' => $sale, 'items' => $items, 'barcodes' => $barcodes, 'credit' => $credit,
             'customer' => $sale['customer_id'] === null ? null : (new \App\Models\Customer())->find((int) $sale['customer_id']), 'dueDate' => $sale['due_date'] ?? (new \App\Services\InvoiceService())->dueDate($sale['customer_id'] === null ? null : (new \App\Models\Customer())->find((int) $sale['customer_id']), '', $sale['created_at']), 'auto' => $this->query('auto') === '1',
-        ], 'layouts/print');
+        ];
     }
 
     public function receipt(): void

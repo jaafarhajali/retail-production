@@ -12,6 +12,14 @@ final class View
         echo $layout === null ? $content : self::capture($layout, $data + ['content' => $content]);
     }
 
+    /** The same page as render(), returned instead of echoed: what the PDF export prints (2026-10-29). */
+    public static function html(string $view, array $data = [], ?string $layout = 'layouts/main'): string
+    {
+        $content = self::capture($view, $data);
+
+        return $layout === null ? $content : self::capture($layout, $data + ['content' => $content]);
+    }
+
     /** Views must not use variables named $view or $data (reserved here). */
     public static function capture(string $view, array $data): string
     {

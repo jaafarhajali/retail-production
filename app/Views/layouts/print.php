@@ -13,6 +13,7 @@
   <strong><?= e($pageTitle ?? '') ?></strong>
   <div class="d-flex gap-2">
     <button class="btn btn-primary" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
+    <a class="btn btn-outline-primary" href="<?= e(url_with(['pdf' => 1, 'auto' => null])) ?>" title="Download this page as a PDF file"><i class="bi bi-file-earmark-pdf"></i> Save as PDF</a>
     <button class="btn btn-outline-secondary" type="button" onclick="window.close()">Close</button>
   </div>
 </div>
