@@ -8,8 +8,8 @@ foreach ($unitsById as $pid => $units) {
   <?= csrf_field() ?>
   <div class="card mb-3"><div class="card-body">
     <div class="row g-3">
-      <div class="col-md-4"><label class="form-label" for="supplier_id">Supplier</label>
-        <select class="form-select" id="supplier_id" name="supplier_id"><option value="0">— none (cash purchase) —</option>
+      <div class="col-md-4"><label class="form-label d-flex justify-content-between" for="supplier_id"><span>Supplier</span><a class="small" href="<?= url('suppliers/edit') ?>" target="_blank" title="Opens in a new tab; the list here refreshes when you come back">+ New supplier</a></label>
+        <select class="form-select" id="supplier_id" name="supplier_id" data-refresh-on-focus="<?= e(url('purchases/create')) ?>"><option value="0">— none (cash purchase) —</option>
           <?php foreach ($suppliers as $s): ?><option value="<?= (int) $s['id'] ?>" <?= (int) old('supplier_id') === (int) $s['id'] ? 'selected' : '' ?> dir="auto"><?= e($s['name']) ?></option><?php endforeach; ?></select></div>
       <div class="col-md-3"><label class="form-label" for="supplier_invoice_ref">Supplier invoice ref</label><input class="form-control" id="supplier_invoice_ref" name="supplier_invoice_ref" maxlength="60" value="<?= old('supplier_invoice_ref') ?>"></div>
       <div class="col-md-2"><label class="form-label" for="purchase_date">Date</label><input class="form-control" id="purchase_date" type="date" name="purchase_date" value="<?= old('purchase_date', date('Y-m-d')) ?>" required></div>

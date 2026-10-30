@@ -275,3 +275,30 @@
     });
   })();
 })();
+
+// "+ New supplier" / "+ New customer" beside a <select> (2026-10-30): the form opens in a new tab; when this tab gets the
+// focus back, the select refetches its own page and takes the new options, and picks the one that was just added.
+(function () {
+  'use strict';
+  var selects = document.querySelectorAll('select[data-refresh-on-focus]');
+  if (!selects.length) return;
+  var busy = false;
+  window.addEventListener('focus', function () {
+    if (busy) return;
+    busy = true;
+    selects.forEach(function (sel) {
+      fetch(sel.dataset.refreshOnFocus, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (html) {
+        var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById(sel.id);
+        if (!fresh) return;
+        var had = {}; Array.prototype.forEach.call(sel.options, function (o) { had[o.value] = true; });
+        var current = sel.value, added = null;
+        Array.prototype.forEach.call(fresh.options, function (o) { if (!had[o.value]) { added = o.value; } });
+        if (added === null) return;
+        sel.innerHTML = fresh.innerHTML;
+        sel.value = added;   // the one just created
+        if (sel.value !== added) { sel.value = current; }
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      }).catch(function () {}).finally(function () { busy = false; });
+    });
+  });
+})();

@@ -20,8 +20,8 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
       <div class="card mb-3"><div class="card-body">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label" for="customer_id">Customer</label>
-            <select class="form-select form-select-lg" id="customer_id" name="customer_id" required>
+            <label class="form-label d-flex justify-content-between" for="customer_id"><span>Customer</span><a class="small" href="<?= url('customers/edit') ?>" target="_blank" title="Opens in a new tab; the list here refreshes when you come back">+ New customer</a></label>
+            <select class="form-select form-select-lg" id="customer_id" name="customer_id" required data-refresh-on-focus="<?= e(url('invoices/new')) ?>">
               <option value="">— choose —</option>
               <?php foreach ($customers as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) $c['id'] === $selectedCustomer ? 'selected' : '' ?> data-level="<?= e($c['default_price_level']) ?>" data-terms="<?= (int) $c['terms_days'] ?>" data-address="<?= e($c['address'] ?? '') ?>" data-balance="<?= e($c['balance_usd']) ?>" data-agreed="<?= e(json_encode((object) $c['agreed'])) ?>" dir="auto"><?= e($c['name']) ?></option><?php endforeach; ?></select>
             <div class="form-text" id="cust-note"></div>
