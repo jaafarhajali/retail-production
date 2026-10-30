@@ -70,6 +70,8 @@ return [
         assert_contains('Statement', $r->headers['content-disposition'] ?? '');
         // a report, and its page has the button next to Print
         assert_contains('pdf=1', $client->get('reports', ['type' => 'sales'])->body);
+        assert_contains('>Show</button>', $client->get('reports', ['type' => 'sales'])->body, 'Sales has dates to show');
+        assert_not_contains('>Show</button>', $client->get('reports', ['type' => 'stock'])->body, 'Stock is now: no filter, no Show (2026-10-30)');
         $r = $client->get('reports', ['type' => 'sales', 'pdf' => 1]);
         assert_same(['200', '%PDF'], [(string) $r->status, substr($r->body, 0, 4)]);
         assert_contains('Sales report', $r->headers['content-disposition'] ?? '');

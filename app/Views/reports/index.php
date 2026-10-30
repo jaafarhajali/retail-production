@@ -17,7 +17,7 @@
   <?php if ($type === 'sales'): ?>
     <div><label class="form-label">Group by</label><select class="form-select" name="by"><?php foreach (['day' => 'Day', 'cashier' => 'Cashier', 'product' => 'Product', 'level' => 'Retail / wholesale'] as $k => $v): ?><option value="<?= $k ?>" <?= $by === $k ? 'selected' : '' ?>><?= $v ?></option><?php endforeach; ?></select></div>
   <?php endif; ?>
-  <button class="btn btn-outline-primary" type="submit">Show</button>
+  <?php if (!in_array($type, ['credit', 'stock'], true)): ?><button class="btn btn-outline-primary" type="submit">Show</button><?php endif; // Stock and Credit are "now": nothing to filter (2026-10-30) ?>
   <a class="btn btn-outline-secondary" href="<?= url('reports', ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'print' => 1] + ($type === 'products' ? array_filter($filters) : [])) ?>" target="_blank"><i class="bi bi-printer"></i> Print</a>
   <a class="btn btn-outline-secondary" href="<?= url('reports', ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'pdf' => 1] + ($type === 'products' ? array_filter($filters) : [])) ?>" title="Download this report as a PDF file"><i class="bi bi-file-earmark-pdf"></i> Save as PDF</a>
 </form>
