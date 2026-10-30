@@ -1067,3 +1067,7 @@ body > .error-wrap .blocked { width: 100%; }
 .till-cash { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .till-cash small { font-family: var(--font); font-size: .85rem; font-weight: 600; color: var(--ink-2); }
 .dash-till .is-bad { color: var(--red); } .dash-till .is-good { color: var(--green); }
+/* the accounting statements (2026-10-30) */
+.acct td, .acct th { font-variant-numeric: tabular-nums; }
+.acct tr.sub td { border-top: 1px solid var(--line); font-weight: 600; }
+.acct tr.total td { border-top: 2px solid var(--ink); font-weight: 700; font-size: 1.05rem; }

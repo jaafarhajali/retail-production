@@ -6,6 +6,7 @@
  */
 declare(strict_types=1);
 
+use App\Controllers\AccountingController;
 use App\Controllers\AuditController;
 use App\Controllers\AuthController;
 use App\Controllers\BackupController;
@@ -65,6 +66,8 @@ return [
     ['POST', 'settings/save', [SettingController::class, 'save'],       'settings.manage'],
     ['POST', 'settings/logo', [SettingController::class, 'logo'],       'settings.manage'],
     ['POST', 'settings/logo-delete', [SettingController::class, 'logoDelete'], 'settings.manage'],
+    ['GET',  'accounts/opening', [AccountingController::class, 'opening'],     'settings.manage'],   // the accounting side (2026-10-30)
+    ['POST', 'accounts/opening-save', [AccountingController::class, 'save'],   'settings.manage'],
     ['GET',  'settings/check', [SettingController::class, 'check'],      'settings.manage'],   // Check this installation (2026-10-23)
     ['GET',  'rates',         [ExchangeRateController::class, 'index'], 'rate.manage'],
     ['POST', 'rates/store',   [ExchangeRateController::class, 'store'], 'rate.manage'],

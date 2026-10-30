@@ -18,6 +18,7 @@ final class ReportController extends Controller
         'sales' => 'report.sales', 'payments' => 'report.sales', 'profit' => 'report.profit', 'credit' => 'report.sales',
         'stock' => 'report.stock', 'purchases' => 'report.stock', 'returns' => 'report.sales', 'waste' => 'report.stock', 'sessions' => 'report.cash',
         'production' => 'report.production', 'products' => 'report.sales', 'aging' => 'report.sales', 'discounts' => 'report.sales',
+        'income' => 'report.profit', 'cashflow' => 'report.profit', 'balance' => 'report.profit', 'trial' => 'report.profit',   // the accounting side (2026-10-30)
     ];
 
     public function index(): void
@@ -52,6 +53,10 @@ final class ReportController extends Controller
             'products' => $this->productsData($r, $from, $to),
             'aging' => ['rows' => (new \App\Services\InvoiceService())->aging()],
             'discounts' => ['d' => $r->discounts($from, $to)],   // every reduction against the list price (2026-10-20)
+            'income' => ['a' => (new \App\Services\AccountingService())->incomeStatement($from, $to)],
+            'cashflow' => ['a' => (new \App\Services\AccountingService())->cashFlow($from, $to)],
+            'balance' => ['a' => (new \App\Services\AccountingService())->balanceSheet($to), 'canOpen' => Gate::allows('settings.manage')],
+            'trial' => ['a' => (new \App\Services\AccountingService())->trialBalance($to), 'canOpen' => Gate::allows('settings.manage')],
         };
         $available = array_keys(array_filter(self::TYPES, static fn (string $perm): bool => Gate::allows($perm)));
         $vars = $data + ['type' => $type, 'from' => $from, 'to' => $to, 'by' => $by, 'month' => $month !== '' ? $month : substr($from, 0, 7), 'available' => $available, 'showCost' => Gate::allows('product.view_cost')];
