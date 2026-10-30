@@ -67,6 +67,22 @@ final class CustomerController extends Controller
         \App\Core\View::render('customers/statement', $data, 'layouts/print');
     }
 
+    /** "+ New customer" on the invoice form (2026-10-30): saved in place, with what the invoice form's box needs to know. */
+    public function quick(): void
+    {
+        try {
+            $id = (new PartyService())->saveCustomer(0, [
+                'name' => $this->input('name'), 'phone' => $this->input('phone'), 'address' => $this->input('address'), 'notes' => '', 'tva_number' => $this->input('tva_number'),
+                'default_price_level' => $this->input('default_price_level') ?: 'wholesale', 'credit_limit_usd' => '', 'payment_terms_days' => '', 'is_active' => true,
+            ]);
+        } catch (\DomainException $e) {
+            $this->json(['error' => $e->getMessage()], 422);
+        }
+        $customer = (new Customer())->find($id);
+        $this->json(['id' => $id, 'name' => $customer['name'], 'level' => $customer['default_price_level'], 'terms' => (new \App\Services\InvoiceService())->termsDays($customer),
+                     'address' => $customer['address'] ?? '', 'balance' => '0.00', 'agreed' => (object) []]);
+    }
+
     public function save(): void
     {
         $id = $this->inputInt('id');

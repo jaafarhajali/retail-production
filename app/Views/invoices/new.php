@@ -20,8 +20,8 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
       <div class="card mb-3"><div class="card-body">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label d-flex justify-content-between" for="customer_id"><span>Customer</span><a class="small" href="<?= url('customers/edit') ?>" target="_blank" title="Opens in a new tab; the list here refreshes when you come back">+ New customer</a></label>
-            <select class="form-select form-select-lg" id="customer_id" name="customer_id" required data-refresh-on-focus="<?= e(url('invoices/new')) ?>">
+            <label class="form-label d-flex justify-content-between" for="customer_id"><span>Customer</span><?php if (\App\Core\Gate::allows('customer.manage')): ?><button class="btn btn-link btn-sm p-0 small" type="button" data-bs-toggle="modal" data-bs-target="#m-new-customer">+ New customer</button><?php endif; ?></label>
+            <select class="form-select form-select-lg" id="customer_id" name="customer_id" required>
               <option value="">— choose —</option>
               <?php foreach ($customers as $c): ?><option value="<?= (int) $c['id'] ?>" <?= (int) $c['id'] === $selectedCustomer ? 'selected' : '' ?> data-level="<?= e($c['default_price_level']) ?>" data-terms="<?= (int) $c['terms_days'] ?>" data-address="<?= e($c['address'] ?? '') ?>" data-balance="<?= e($c['balance_usd']) ?>" data-agreed="<?= e(json_encode((object) $c['agreed'])) ?>" dir="auto"><?= e($c['name']) ?></option><?php endforeach; ?></select>
             <div class="form-text" id="cust-note"></div>
@@ -208,4 +208,23 @@ $selectedCustomer = (int) ($stash['customer_id'] ?? 0);
   onCustomer();
 })();
 </script>
+<?php if (\App\Core\Gate::allows('customer.manage')): ?>
+<div class="modal fade" id="m-new-customer" tabindex="-1" aria-labelledby="m-new-customer-title"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+  <form data-quick-add="<?= e(url('customers/quick')) ?>" data-quick-target="customer_id">
+    <?= csrf_field() ?>
+    <div class="modal-header"><h5 class="modal-title" id="m-new-customer-title">New customer</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <div class="mb-3"><label class="form-label" for="qc-name">Name</label><input class="form-control" id="qc-name" name="name" dir="auto" maxlength="120" required autocomplete="off"></div>
+      <div class="row g-2 mb-3">
+        <div class="col-6"><label class="form-label" for="qc-phone">Phone</label><input class="form-control" id="qc-phone" name="phone" maxlength="30"></div>
+        <div class="col-6"><label class="form-label" for="qc-level">Prices</label><select class="form-select" id="qc-level" name="default_price_level"><option value="wholesale">Wholesale</option><option value="retail">Retail</option></select></div>
+      </div>
+      <div class="mb-3"><label class="form-label" for="qc-address">Address</label><input class="form-control" id="qc-address" name="address" dir="auto" maxlength="255"></div>
+      <div class="mb-1"><label class="form-label" for="qc-tva">TVA number <small class="text-muted">for the official invoice, optional</small></label><input class="form-control" id="qc-tva" name="tva_number" maxlength="30"></div>
+      <div class="text-danger small" data-quick-error></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save customer</button></div>
+  </form>
+</div></div></div>
+<?php endif; ?>
 <?php endif; ?>

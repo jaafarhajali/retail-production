@@ -276,29 +276,31 @@
   })();
 })();
 
-// "+ New supplier" / "+ New customer" beside a <select> (2026-10-30): the form opens in a new tab; when this tab gets the
-// focus back, the select refetches its own page and takes the new options, and picks the one that was just added.
+// "+ New supplier" / "+ New customer" (2026-10-30, Aya: "in the same page"): a small form in a modal beside the box.
+// It posts to the quick route; the answer becomes a new option, selected, and the page's own listeners run ("change").
 (function () {
   'use strict';
-  var selects = document.querySelectorAll('select[data-refresh-on-focus]');
-  if (!selects.length) return;
-  var busy = false;
-  window.addEventListener('focus', function () {
-    if (busy) return;
-    busy = true;
-    selects.forEach(function (sel) {
-      fetch(sel.dataset.refreshOnFocus, { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (html) {
-        var fresh = new DOMParser().parseFromString(html, 'text/html').getElementById(sel.id);
-        if (!fresh) return;
-        var had = {}; Array.prototype.forEach.call(sel.options, function (o) { had[o.value] = true; });
-        var current = sel.value, added = null;
-        Array.prototype.forEach.call(fresh.options, function (o) { if (!had[o.value]) { added = o.value; } });
-        if (added === null) return;
-        sel.innerHTML = fresh.innerHTML;
-        sel.value = added;   // the one just created
-        if (sel.value !== added) { sel.value = current; }
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }).catch(function () {}).finally(function () { busy = false; });
+  document.querySelectorAll('form[data-quick-add]').forEach(function (form) {
+    var select = document.getElementById(form.dataset.quickTarget), modalEl = form.closest('.modal'), err = form.querySelector('[data-quick-error]');
+    if (!select || !modalEl) return;
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      err.textContent = '';
+      var btn = form.querySelector('button[type="submit"]'); btn.disabled = true;
+      fetch(form.dataset.quickAdd, { method: 'POST', body: new FormData(form), credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) { throw j; } return j; }); })
+        .then(function (j) {
+          var o = document.createElement('option'); o.value = String(j.id); o.textContent = j.name; o.setAttribute('dir', 'auto');
+          ['level', 'terms', 'address', 'balance'].forEach(function (k) { if (j[k] !== undefined) { o.dataset[k] = String(j[k]); } });
+          if (j.agreed !== undefined) { o.dataset.agreed = JSON.stringify(j.agreed); }
+          select.appendChild(o); select.value = o.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          form.reset();
+          var m = window.bootstrap && bootstrap.Modal.getInstance(modalEl); if (m) { m.hide(); }
+        })
+        .catch(function (e) { err.textContent = (e && e.error) || 'Could not save. Try again.'; })
+        .finally(function () { btn.disabled = false; });
     });
+    modalEl.addEventListener('shown.bs.modal', function () { var first = form.querySelector('input'); if (first) { first.focus(); } });
   });
 })();

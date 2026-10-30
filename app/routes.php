@@ -87,6 +87,7 @@ return [
     ['GET',  'suppliers',        [SupplierController::class, 'index'], 'supplier.manage'],
     ['GET',  'suppliers/edit',   [SupplierController::class, 'edit'],  'supplier.manage'],
     ['POST', 'suppliers/save',   [SupplierController::class, 'save'],  'supplier.manage'],
+    ['POST', 'suppliers/quick',  [SupplierController::class, 'quick'], 'supplier.manage'],   // from the purchase form, in place (2026-10-30)
     ['POST', 'suppliers/delete', [SupplierController::class, 'delete'], 'supplier.manage'],
     ['GET',  'purchases',        [PurchaseController::class, 'index'],  'purchase.manage'],
     ['GET',  'purchases/create', [PurchaseController::class, 'create'], 'purchase.manage'],
@@ -116,6 +117,7 @@ return [
     ['GET',  'customers',        [CustomerController::class, 'index'],  'customer.manage'],
     ['GET',  'customers/edit',   [CustomerController::class, 'edit'],   'customer.manage'],
     ['POST', 'customers/save',   [CustomerController::class, 'save'],   'customer.manage'],
+    ['POST', 'customers/quick',  [CustomerController::class, 'quick'],  'customer.manage'],   // from the invoice form, in place (2026-10-30)
     ['POST', 'customers/adjust', [CustomerController::class, 'adjust'], 'customer.manage'],
     ['GET',  'sessions',         [SessionController::class, 'index'],     Router::AUTH],
     ['GET',  'sessions/open',    [SessionController::class, 'openForm'],  'session.open_own'],

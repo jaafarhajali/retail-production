@@ -26,6 +26,17 @@ final class SupplierController extends Controller
             $supplier === null ? 'New supplier' : $supplier['name']);
     }
 
+    /** "+ New supplier" on the purchase form (2026-10-30): saved in place, the new name goes straight into the box. */
+    public function quick(): void
+    {
+        try {
+            $id = (new PartyService())->saveSupplier(0, $this->input('name'), $this->input('phone'), $this->input('notes'), true);
+        } catch (\DomainException $e) {
+            $this->json(['error' => $e->getMessage()], 422);
+        }
+        $this->json(['id' => $id, 'name' => trim($this->input('name'))]);
+    }
+
     public function save(): void
     {
         $id = $this->inputInt('id');

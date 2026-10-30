@@ -8,8 +8,8 @@ foreach ($unitsById as $pid => $units) {
   <?= csrf_field() ?>
   <div class="card mb-3"><div class="card-body">
     <div class="row g-3">
-      <div class="col-md-4"><label class="form-label d-flex justify-content-between" for="supplier_id"><span>Supplier</span><a class="small" href="<?= url('suppliers/edit') ?>" target="_blank" title="Opens in a new tab; the list here refreshes when you come back">+ New supplier</a></label>
-        <select class="form-select" id="supplier_id" name="supplier_id" data-refresh-on-focus="<?= e(url('purchases/create')) ?>"><option value="0">— none (cash purchase) —</option>
+      <div class="col-md-4"><label class="form-label d-flex justify-content-between" for="supplier_id"><span>Supplier</span><?php if (\App\Core\Gate::allows('supplier.manage')): ?><button class="btn btn-link btn-sm p-0 small" type="button" data-bs-toggle="modal" data-bs-target="#m-new-supplier">+ New supplier</button><?php endif; ?></label>
+        <select class="form-select" id="supplier_id" name="supplier_id"><option value="0">— none (cash purchase) —</option>
           <?php foreach ($suppliers as $s): ?><option value="<?= (int) $s['id'] ?>" <?= (int) old('supplier_id') === (int) $s['id'] ? 'selected' : '' ?> dir="auto"><?= e($s['name']) ?></option><?php endforeach; ?></select></div>
       <div class="col-md-3"><label class="form-label" for="supplier_invoice_ref">Supplier invoice ref</label><input class="form-control" id="supplier_invoice_ref" name="supplier_invoice_ref" maxlength="60" value="<?= old('supplier_invoice_ref') ?>"></div>
       <div class="col-md-2"><label class="form-label" for="purchase_date">Date</label><input class="form-control" id="purchase_date" type="date" name="purchase_date" value="<?= old('purchase_date', date('Y-m-d')) ?>" required></div>
@@ -79,3 +79,18 @@ foreach ($unitsById as $pid => $units) {
   addLine();
 })();
 </script>
+<?php if (\App\Core\Gate::allows('supplier.manage')): ?>
+<div class="modal fade" id="m-new-supplier" tabindex="-1" aria-labelledby="m-new-supplier-title"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+  <form data-quick-add="<?= e(url('suppliers/quick')) ?>" data-quick-target="supplier_id">
+    <?= csrf_field() ?>
+    <div class="modal-header"><h5 class="modal-title" id="m-new-supplier-title">New supplier</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+    <div class="modal-body">
+      <div class="mb-3"><label class="form-label" for="qs-name">Name</label><input class="form-control" id="qs-name" name="name" dir="auto" maxlength="120" required autocomplete="off"></div>
+      <div class="mb-3"><label class="form-label" for="qs-phone">Phone</label><input class="form-control" id="qs-phone" name="phone" maxlength="30"></div>
+      <div class="mb-1"><label class="form-label" for="qs-notes">Notes</label><input class="form-control" id="qs-notes" name="notes" dir="auto" maxlength="255"></div>
+      <div class="text-danger small" data-quick-error></div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save supplier</button></div>
+  </form>
+</div></div></div>
+<?php endif; ?>
