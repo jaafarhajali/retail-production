@@ -48,10 +48,11 @@ final class Purchase extends Model
     public function create(array $f): int
     {
         $this->execute(
-            'INSERT INTO purchases (purchase_no, supplier_id, supplier_invoice_ref, purchase_date, total_usd, paid_now_usd, notes, user_id, session_id)
-             VALUES (:no, :s, :ref, :d, :t, :paid, :n, :u, :ses)',
+            'INSERT INTO purchases (purchase_no, supplier_id, supplier_invoice_ref, purchase_date, subtotal_usd, discount_usd, total_usd, paid_now_usd, notes, user_id, session_id)
+             VALUES (:no, :s, :ref, :d, :sub, :disc, :t, :paid, :n, :u, :ses)',
             [
                 'no' => $f['purchase_no'], 's' => $f['supplier_id'], 'ref' => $f['supplier_invoice_ref'], 'd' => $f['purchase_date'],
+                'sub' => $f['subtotal_usd'] ?? $f['total_usd'], 'disc' => $f['discount_usd'] ?? '0.00',   // the supplier's discount on the bill (2026-10-30)
                 't' => $f['total_usd'], 'paid' => $f['paid_now_usd'], 'n' => $f['notes'], 'u' => $f['user_id'], 'ses' => $f['session_id'],
             ]
         );
@@ -62,11 +63,11 @@ final class Purchase extends Model
     public function addItem(int $purchaseId, array $l): int
     {
         $this->execute(
-            'INSERT INTO purchase_items (purchase_id, product_id, product_unit_id, qty, base_qty, unit_cost_usd, line_total_usd, cost_per_base)
-             VALUES (:p, :pr, :u, :q, :b, :c, :t, :cb)',
+            'INSERT INTO purchase_items (purchase_id, product_id, product_unit_id, qty, base_qty, unit_cost_usd, line_discount_usd, line_total_usd, cost_per_base)
+             VALUES (:p, :pr, :u, :q, :b, :c, :ld, :t, :cb)',
             [
                 'p' => $purchaseId, 'pr' => $l['product_id'], 'u' => $l['product_unit_id'], 'q' => $l['qty'], 'b' => $l['base_qty'],
-                'c' => $l['unit_cost_usd'], 't' => $l['line_total_usd'], 'cb' => $l['cost_per_base'],
+                'c' => $l['unit_cost_usd'], 'ld' => $l['line_discount_usd'] ?? '0.00', 't' => $l['line_total_usd'], 'cb' => $l['cost_per_base'],
             ]
         );
 

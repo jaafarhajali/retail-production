@@ -6,6 +6,10 @@
         <dt>Date</dt><dd><?= e(date('d/m/Y', strtotime($purchase['purchase_date']))) ?></dd>
         <dt>Supplier</dt><dd dir="auto"><?= $purchase['supplier_id'] ? '<a href="' . url('suppliers/edit', ['id' => $purchase['supplier_id']]) . '">' . e($purchase['supplier_name']) . '</a>' : '—' ?></dd>
         <dt>Supplier ref</dt><dd><?= e($purchase['supplier_invoice_ref'] ?? '—') ?></dd>
+        <?php if ((float) ($purchase['discount_usd'] ?? 0) > 0): ?>
+          <dt>Subtotal</dt><dd><?= usd($purchase['subtotal_usd']) ?></dd>
+          <dt>Discount</dt><dd>− <?= usd($purchase['discount_usd']) ?> <small class="text-muted">spread across the lines; the costs below are net</small></dd>
+        <?php endif; ?>
         <dt>Total</dt><dd><strong><?= usd($purchase['total_usd']) ?></strong></dd>
         <dt>Paid now</dt><dd><?= usd($purchase['paid_now_usd']) ?></dd>
         <dt>Posted by</dt><dd><?= e($purchase['username'] ?? '') ?> · <?= e(date('d/m/Y H:i', strtotime($purchase['created_at']))) ?></dd>
@@ -24,7 +28,7 @@
       <tbody>
       <?php foreach ($items as $i): ?>
         <tr><td dir="auto"><?= e($i['product_name']) ?></td><td class="text-end"><?= e(rtrim(rtrim($i['qty'], '0'), '.')) ?></td><td><?= e($i['unit_name']) ?></td>
-          <td class="text-end"><?= usd($i['unit_cost_usd']) ?></td><td class="text-end"><?= usd($i['line_total_usd']) ?></td><td class="text-end">$<?= e($i['cost_per_base']) ?>/<?= e($i['base_unit']) ?></td></tr>
+          <td class="text-end"><?= usd($i['unit_cost_usd']) ?></td><td class="text-end"><?= usd($i['line_total_usd']) ?><?= (float) ($i['line_discount_usd'] ?? 0) > 0 ? ' <small class="text-muted">after −' . usd($i['line_discount_usd']) . '</small>' : '' ?></td><td class="text-end">$<?= e($i['cost_per_base']) ?>/<?= e($i['base_unit']) ?></td></tr>
       <?php endforeach; ?>
       </tbody>
     </table></div></div>

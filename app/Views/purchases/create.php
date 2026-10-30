@@ -21,7 +21,11 @@ foreach ($unitsById as $pid => $units) {
     <div class="table-responsive"><table class="table align-middle" id="lines">
       <thead><tr><th style="width:38%">Product</th><th style="width:16%">Unit</th><th style="width:14%">Quantity</th><th style="width:16%">Cost per unit (USD)</th><th class="text-end">Line total</th><th></th></tr></thead>
       <tbody></tbody>
-      <tfoot class="totals"><tr class="grand"><td colspan="3"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add line</button></td><td class="text-end align-middle">Total</td><td class="text-end align-middle" id="total">$0.00</td><td></td></tr></tfoot>
+      <tfoot class="totals">
+        <tr><td colspan="3" rowspan="3" class="align-top"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add line</button></td><td class="text-end align-middle">Subtotal</td><td class="text-end align-middle" id="subtotal">$0.00</td><td></td></tr>
+        <tr><td class="text-end align-middle"><label for="discount" class="mb-0">Discount</label></td><td class="text-end"><input class="form-control form-control-sm text-end" id="discount" name="discount" inputmode="decimal" placeholder="10 or 10%" value="<?= old('discount') ?>" title="The supplier's discount on the bill: dollars (10) or percent (10%). It is spread across the lines, so each material goes into stock at its real cost."></td><td></td></tr>
+        <tr class="grand"><td class="text-end align-middle">Total</td><td class="text-end align-middle" id="total">$0.00</td><td></td></tr>
+      </tfoot>
     </table></div>
   </div>
 
@@ -61,8 +65,14 @@ foreach ($unitsById as $pid => $units) {
       var c = parseFloat((tr.querySelector('[name$="[unit_cost]"]').value || '0').replace(/,/g, '')) || 0;
       var t = q * c; total += t; tr.querySelector('.line-total').textContent = money(t);
     });
-    document.getElementById('total').textContent = money(total);
+    // the supplier's discount on the bill: "10" dollars or "10%" (2026-10-30)
+    var d = (document.getElementById('discount').value || '').replace(/[\s,$]/g, ''), disc = 0;
+    if (d !== '') { disc = d.slice(-1) === '%' ? total * (parseFloat(d) || 0) / 100 : (parseFloat(d) || 0); }
+    disc = Math.min(Math.max(disc, 0), total);
+    document.getElementById('subtotal').textContent = money(total);
+    document.getElementById('total').textContent = money(total - disc);
   }
+  document.getElementById('discount').addEventListener('input', recalc);
   function addLine() {
     var html = tpl.innerHTML.replace(/IDX/g, String(idx++));
     tbody.insertAdjacentHTML('beforeend', html);
