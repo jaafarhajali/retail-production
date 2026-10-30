@@ -68,9 +68,11 @@ return [
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
         $form = $client->get('purchases/create')->body;
         assert_contains('id="discount" name="discount"', $form);
+        assert_contains('name="discount_mode" id="discount-pct" value="pct" checked', $form, '% by default, like the till');
+        assert_contains('name="discount_mode" id="discount-usd" value="usd"', $form);
         assert_contains('id="subtotal"', $form);
         $client->get('purchases/create');
-        $r = $client->post('purchases/store', ['supplier_id' => (string) $s['supplier'], 'supplier_invoice_ref' => '', 'purchase_date' => date('Y-m-d'), 'paid_now' => '', 'notes' => '', 'discount' => '10%',
+        $r = $client->post('purchases/store', ['supplier_id' => (string) $s['supplier'], 'supplier_invoice_ref' => '', 'purchase_date' => date('Y-m-d'), 'paid_now' => '', 'notes' => '', 'discount' => '10', 'discount_mode' => 'pct',
             'lines[0][product_id]' => (string) $s['box'], 'lines[0][unit_id]' => (string) $s['boxU'], 'lines[0][qty]' => '20', 'lines[0][unit_cost]' => '0.5',
             'lines[1][product_id]' => (string) $s['gelatin'], 'lines[1][unit_id]' => (string) $s['kg'], 'lines[1][qty]' => '30', 'lines[1][unit_cost]' => '3']);
         assert_same(302, $r->status, $r->body);
@@ -79,5 +81,12 @@ return [
         foreach (['<dt>Subtotal</dt><dd>$100.00</dd>', '<dt>Discount</dt><dd>− $10.00', '<dd><strong>$90.00</strong></dd>', 'after −$9.00', '$0.002700/g'] as $needle) {
             assert_contains($needle, $page, $needle);
         }
+        // the same, in dollars
+        $client->get('purchases/create');
+        $r = $client->post('purchases/store', ['supplier_id' => (string) $s['supplier'], 'supplier_invoice_ref' => '', 'purchase_date' => date('Y-m-d'), 'paid_now' => '', 'notes' => '', 'discount' => '25', 'discount_mode' => 'usd',
+            'lines[0][product_id]' => (string) $s['box'], 'lines[0][unit_id]' => (string) $s['boxU'], 'lines[0][qty]' => '20', 'lines[0][unit_cost]' => '0.5',
+            'lines[1][product_id]' => (string) $s['gelatin'], 'lines[1][unit_id]' => (string) $s['kg'], 'lines[1][qty]' => '30', 'lines[1][unit_cost]' => '3']);
+        assert_same(302, $r->status, $r->body);
+        assert_same(['100.00', '25.00', '75.00'], Database::pdo()->query('SELECT subtotal_usd, discount_usd, total_usd FROM purchases ORDER BY id DESC LIMIT 1')->fetch(PDO::FETCH_NUM), '$25 off, not 25%');
     },
 ];

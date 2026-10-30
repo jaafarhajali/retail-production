@@ -31,6 +31,14 @@ final class PurchaseController extends Controller
         $this->render('purchases/create', ['suppliers' => (new Supplier())->all(true), 'products' => $products, 'unitsById' => $units], 'New purchase');
     }
 
+    /** The Discount box with its % / $ choice (like the till, 2026-10-30): "10" + percent → "10%", the service's own form. */
+    private function discount(): string
+    {
+        $d = trim(str_replace('%', '', $this->input('discount')));
+
+        return $d !== '' && $this->input('discount_mode') !== 'usd' ? $d . '%' : $d;
+    }
+
     public function store(): void
     {
         $lines = [];
@@ -45,7 +53,7 @@ final class PurchaseController extends Controller
         }
         try {
             $id = (new PurchaseService())->create($this->inputInt('supplier_id') ?: null, $this->input('supplier_invoice_ref'), $this->input('purchase_date'), $lines,
-                $this->input('paid_now'), 'outside', $this->input('notes'), Auth::id(), $this->input('discount'));   // the supplier's discount on the bill (2026-10-30)
+                $this->input('paid_now'), 'outside', $this->input('notes'), Auth::id(), $this->discount());   // the supplier's discount on the bill (2026-10-30)
         } catch (\DomainException $e) {
             $this->failBack('purchases/create', [], ['form' => $e->getMessage()]);
         }

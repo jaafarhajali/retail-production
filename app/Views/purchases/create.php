@@ -23,7 +23,13 @@ foreach ($unitsById as $pid => $units) {
       <tbody></tbody>
       <tfoot class="totals">
         <tr><td colspan="3" rowspan="3" class="align-top"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add line</button></td><td class="text-end align-middle">Subtotal</td><td class="text-end align-middle" id="subtotal">$0.00</td><td></td></tr>
-        <tr><td class="text-end align-middle"><label for="discount" class="mb-0">Discount</label></td><td class="text-end"><input class="form-control form-control-sm text-end" id="discount" name="discount" inputmode="decimal" placeholder="10 or 10%" value="<?= old('discount') ?>" title="The supplier's discount on the bill: dollars (10) or percent (10%). It is spread across the lines, so each material goes into stock at its real cost."></td><td></td></tr>
+        <tr><td class="text-end align-middle"><label for="discount" class="mb-0">Discount</label></td><td class="text-end">
+          <?php $mode = old('discount_mode') === 'usd' ? 'usd' : 'pct';   // % or $, like the till (2026-10-30) ?>
+          <div class="input-group input-group-sm flex-nowrap justify-content-end" title="The supplier's discount on the bill. It is spread across the lines, so each material goes into stock at its real cost.">
+            <input class="form-control text-end" id="discount" name="discount" inputmode="decimal" placeholder="0" value="<?= e(rtrim(old('discount'), '%')) ?>" style="max-width: 7rem">
+            <input type="radio" class="btn-check" name="discount_mode" id="discount-pct" value="pct" <?= $mode === 'pct' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="discount-pct">%</label>
+            <input type="radio" class="btn-check" name="discount_mode" id="discount-usd" value="usd" <?= $mode === 'usd' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="discount-usd">$</label>
+          </div></td><td></td></tr>
         <tr class="grand"><td class="text-end align-middle">Total</td><td class="text-end align-middle" id="total">$0.00</td><td></td></tr>
       </tfoot>
     </table></div>
@@ -66,13 +72,13 @@ foreach ($unitsById as $pid => $units) {
       var t = q * c; total += t; tr.querySelector('.line-total').textContent = money(t);
     });
     // the supplier's discount on the bill: "10" dollars or "10%" (2026-10-30)
-    var d = (document.getElementById('discount').value || '').replace(/[\s,$]/g, ''), disc = 0;
-    if (d !== '') { disc = d.slice(-1) === '%' ? total * (parseFloat(d) || 0) / 100 : (parseFloat(d) || 0); }
-    disc = Math.min(Math.max(disc, 0), total);
+    var d = parseFloat((document.getElementById('discount').value || '').replace(/[\s,$%]/g, '')) || 0, pct = document.getElementById('discount-pct').checked;
+    var disc = Math.min(Math.max(pct ? total * d / 100 : d, 0), total);
     document.getElementById('subtotal').textContent = money(total);
     document.getElementById('total').textContent = money(total - disc);
   }
   document.getElementById('discount').addEventListener('input', recalc);
+  ['discount-pct', 'discount-usd'].forEach(function (id) { document.getElementById(id).addEventListener('change', recalc); });
   function addLine() {
     var html = tpl.innerHTML.replace(/IDX/g, String(idx++));
     tbody.insertAdjacentHTML('beforeend', html);
