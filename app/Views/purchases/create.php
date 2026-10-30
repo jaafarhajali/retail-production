@@ -25,8 +25,8 @@ foreach ($unitsById as $pid => $units) {
         <tr><td colspan="3" rowspan="3" class="align-top"><button class="btn btn-outline-primary" type="button" id="add-line"><i class="bi bi-plus-lg"></i> Add line</button></td><td class="text-end align-middle">Subtotal</td><td class="text-end align-middle" id="subtotal">$0.00</td><td></td></tr>
         <tr><td class="text-end align-middle"><label for="discount" class="mb-0">Discount</label></td><td class="text-end">
           <?php $mode = old('discount_mode') === 'usd' ? 'usd' : 'pct';   // % or $, like the till (2026-10-30) ?>
-          <div class="input-group input-group-sm flex-nowrap justify-content-end" title="The supplier's discount on the bill. It is spread across the lines, so each material goes into stock at its real cost.">
-            <input class="form-control text-end" id="discount" name="discount" inputmode="decimal" placeholder="0" value="<?= e(rtrim(old('discount'), '%')) ?>" style="max-width: 7rem">
+          <div class="input-group input-group-sm flex-nowrap ms-auto" style="width: 11rem" title="The supplier's discount on the bill. It is spread across the lines, so each material goes into stock at its real cost.">
+            <input class="form-control text-end" id="discount" name="discount" inputmode="decimal" placeholder="0" value="<?= e(rtrim(old('discount'), '%')) ?>" style="min-width: 5rem">
             <input type="radio" class="btn-check" name="discount_mode" id="discount-pct" value="pct" <?= $mode === 'pct' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="discount-pct">%</label>
             <input type="radio" class="btn-check" name="discount_mode" id="discount-usd" value="usd" <?= $mode === 'usd' ? 'checked' : '' ?>><label class="btn btn-outline-primary" for="discount-usd">$</label>
           </div></td><td></td></tr>
