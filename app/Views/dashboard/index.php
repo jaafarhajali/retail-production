@@ -92,6 +92,25 @@ $canSetFixed = Gate::allows('settings.manage');
         </tbody>
       </table>
     </section>
+
+    <section class="dash-panel dash-till">
+      <div class="dash-head"><h2 class="dash-label">Money in the till</h2><a class="dash-more" href="<?= url('sessions') ?>">Cash sessions</a></div>
+      <?php $till = $d['till']; ?>
+      <?php if ($till['open'] === []): ?>
+        <p class="dash-empty">No drawer is open.</p>
+      <?php else: ?>
+        <?php foreach ($till['open'] as $o): ?>
+          <div class="till-drawer">
+            <div><b dir="auto"><?= e($o['register']) ?></b> <small class="text-muted"><?= e($o['session_no']) ?> · <?= e($o['cashier']) ?> · since <?= e($o['since']) ?></small></div>
+            <div class="till-cash"><?= usd($o['usd']) ?><?= (int) $o['lbp'] !== 0 ? ' <small>+ ' . e(number_format((int) $o['lbp'])) . ' LBP</small>' : '' ?></div>
+          </div>
+        <?php endforeach; ?>
+        <p class="dash-fine mb-0">What the drawer should hold now: opening cash + cash sales + debts collected − refunds − expenses paid from it.</p>
+      <?php endif; ?>
+      <?php if ($till['last'] !== null): ?>
+        <p class="dash-fine">Last counted: <?= e($till['last']['session_no']) ?> on <?= e($till['last']['counted_at']) ?>, expected <?= usd($till['last']['expected_usd']) ?>, counted <?= usd($till['last']['counted_usd']) ?><?= (float) $till['last']['diff_usd'] != 0.0 ? ' <span class="' . ((float) $till['last']['diff_usd'] < 0 ? 'is-bad' : 'is-good') . '">(' . ((float) $till['last']['diff_usd'] > 0 ? '+ ' : '− ') . usd(abs((float) $till['last']['diff_usd'])) . ')</span>' : ', no difference' ?>.</p>
+      <?php endif; ?>
+    </section>
   <?php else: ?>
     <section class="dash-panel dash-device">
       <h2 class="dash-label">This device</h2>

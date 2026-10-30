@@ -27,6 +27,18 @@ final class CashSession extends Model
         return $this->fetch(self::SELECT . " WHERE s.user_id = :u AND s.status = 'open' ORDER BY s.id DESC LIMIT 1", ['u' => $userId]);
     }
 
+    /** Every open session, oldest first: the drawers in use right now (the dashboard, 2026-10-30). */
+    public function openAll(): array
+    {
+        return $this->fetchAll(self::SELECT . " WHERE s.status = 'open' ORDER BY s.id");
+    }
+
+    /** The last session that was counted and closed, with its figures. */
+    public function lastClosed(): ?array
+    {
+        return $this->fetch(self::SELECT . " WHERE s.status <> 'open' ORDER BY s.id DESC LIMIT 1");
+    }
+
     public function recent(int $limit = 60, ?int $userId = null): array
     {
         $params = [];

@@ -61,6 +61,9 @@ return [
         assert_same(["sales" => "290.00", "variable" => "68.00", "margin" => "222.00", "fixed" => "150.00", "profit" => "72.00"], $d["money"]);
         assert_same([null, "150.00", "150.00", "actual"], [$d["fixed"]["estimate"], $d["fixed"]["actual"], $d["fixed"]["used"], $d["fixed"]["uses"]]);
         assert_same(["Joy 100g", "Gold 100g"], array_column($d["targets"]["rows"], "name"), "the Stick earned nothing: no column; the biggest share first");
+        // the money in the till (2026-10-30): one open drawer, $100 opening + $40 cash sale; the $250 on credit is not cash
+        assert_same([["S-000001", "Register 01", "admin", "140.00", "0"]], array_map(static fn (array $o): array => [$o["session_no"], $o["register"], $o["cashier"], $o["usd"], $o["lbp"]], $d["till"]["open"]));
+        assert_same(null, $d["till"]["last"], "nothing counted yet");
 
         // Estimate $150. Last month sold nothing, so the shares are this month's profit: Joy 250 − 60 = $190, Gold 40 − 8 = $32, of $222.
         // Joy carries 150 × 190/222 = $128.38 → at $1.90 a piece, 68; Gold $21.62 → at $3.20, 7. Both already sold: left 0.
@@ -133,6 +136,9 @@ return [
         foreach (['Break-even in ' . date('F Y'), 'Share of fixed costs', 'Need to sell', 'Sold', 'Left', 'Joy 100g', 'Gold 100g', 'All products', 'Fixed costs · ' . date('F Y'), 'Estimated', 'not set',
                   'Actual so far', 'Estimated fixed costs for', 'name="amount"', 'The month\'s money', 'Variable costs', 'Net profit', '$222.00', '85.6 %'] as $needle) {
             assert_contains($needle, $page, $needle);
+        }
+        foreach (['Money in the till', 'Register 01', 'S-000001', '$140.00', 'No drawer is open'] as $needle) {   // the till panel (2026-10-30)
+            if ($needle === 'No drawer is open') { assert_not_contains($needle, $page); } else { assert_contains($needle, $page, $needle); }
         }
         foreach (['Finished stock', 'Who owes', 'Products sold in', 'dash-rate', 'This device', 'Stick 25g'] as $gone) {
             assert_not_contains($gone, $page, $gone . ' is not on the dashboard any more');

@@ -120,8 +120,30 @@ final class DashboardService
         return [
             'month' => $month, 'month_label' => date('F Y', strtotime($from)), 'prev_label' => date('F Y', strtotime($prev . '-01')),
             'fixed' => $fixedInfo, 'money' => $money,
-            'targets' => ['ready' => $ready, 'rows' => array_values($rows), 'need' => $sum('need'), 'sold' => $sum('sold'), 'left' => $sum('left'), 'share_from' => $basis],
+            'till' => $this->till(),
+            'targets' => ['ready' => $ready, 'rows' => array_values($rows),'need' => $sum('need'), 'sold' => $sum('sold'), 'left' => $sum('left'), 'share_from' => $basis],
         ];
+    }
+
+    /**
+     * The money in the till now (owner, 2026-10-30): every open drawer with what it should hold (opening cash + cash
+     * sales + debts collected − refunds − expenses from the drawer), and the last drawer that was counted.
+     *
+     * @return array{open: list<array{session_no: string, register: string, cashier: string, since: string, usd: string, lbp: string}>, last: ?array{session_no: string, counted_at: string, expected_usd: string, counted_usd: string, diff_usd: string}}
+     */
+    public function till(): array
+    {
+        $sessions = new \App\Models\CashSession();
+        $open = [];
+        foreach ($sessions->openAll() as $s) {
+            $expected = $sessions->expected((int) $s['id']);
+            $open[] = ['session_no' => $s['session_no'], 'register' => (string) ($s['register_name'] ?? ''), 'cashier' => (string) ($s['username'] ?? ''),
+                       'since' => date('d/m H:i', strtotime((string) $s['opened_at'])), 'usd' => $expected['USD'], 'lbp' => $expected['LBP']];
+        }
+        $last = $sessions->lastClosed();
+
+        return ['open' => $open, 'last' => $last === null ? null : ['session_no' => $last['session_no'], 'counted_at' => date('d/m H:i', strtotime((string) $last['counted_at'])),
+            'expected_usd' => Money::fmt((float) $last['expected_usd']), 'counted_usd' => Money::fmt((float) $last['counted_usd']), 'diff_usd' => Money::fmt((float) $last['diff_usd'])]];
     }
 
     /** The month's actual fixed costs: every expense recorded in it, supplier payments left out. */
