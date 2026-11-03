@@ -1,8 +1,8 @@
 <h2 class="h6 text-muted">Cash flow · <?= e(date('d/m/Y', strtotime($a['from']))) ?> – <?= e(date('d/m/Y', strtotime($a['to']))) ?></h2>
 <div class="row g-3">
-  <?php foreach (['drawers' => 'Cash in the drawers', 'bank' => "Bank and owner's money"] as $key => $title): $s = $a[$key]; ?>
+  <?php foreach ($a['boxes'] as $s): ?>
     <div class="col-lg-6"><div class="card h-100"><div class="table-responsive"><table class="table table-sm mb-0 acct">
-      <thead><tr><th colspan="2"><?= $title ?></th></tr></thead>
+      <thead><tr><th colspan="2" dir="auto"><?= e($s['title']) ?></th></tr></thead>
       <tbody>
         <tr class="sub"><td>Opening</td><td class="text-end"><?= usd($s['opening']) ?></td></tr>
         <?php foreach ($s['in'] as $r): ?><tr><td class="ps-4"><?= e($r['what']) ?></td><td class="text-end">+ <?= usd($r['amount']) ?></td></tr><?php endforeach; ?>

@@ -1071,3 +1071,15 @@ body > .error-wrap .blocked { width: 100%; }
 .acct td, .acct th { font-variant-numeric: tabular-nums; }
 .acct tr.sub td { border-top: 1px solid var(--line); font-weight: 600; }
 .acct tr.total td { border-top: 2px solid var(--ink); font-weight: 700; font-size: 1.05rem; }
+
+/* The chart of accounts on the Opening balances page (2026-11-03): the owner's numbers and names. */
+.chart-edit td { vertical-align: middle; }
+.chart-edit input.num { width: 6.5rem; }
+.chart-edit tr.group td { padding-top: 1rem; font-size: .8rem; font-weight: 600; color: var(--bs-secondary-color); border-bottom: 0; }
+.chart-edit td:nth-child(2) { min-width: 15rem; }
+.chart-edit tr.is-closed input { color: var(--bs-secondary-color); }
+
+/* Journal entries (2026-11-03): the account picker takes the room, the amounts keep one width. */
+.journal-lines th:nth-child(2), .journal-lines th:nth-child(3) { width: 7.5rem; }
+.journal-lines select { min-width: 12rem; }
+.journal-entry td.amt { width: 8.5rem; white-space: nowrap; }

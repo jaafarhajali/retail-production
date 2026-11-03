@@ -68,6 +68,13 @@ return [
     ['POST', 'settings/logo-delete', [SettingController::class, 'logoDelete'], 'settings.manage'],
     ['GET',  'accounts/opening', [AccountingController::class, 'opening'],     'settings.manage'],   // the accounting side (2026-10-30)
     ['POST', 'accounts/opening-save', [AccountingController::class, 'save'],   'settings.manage'],
+    ['POST', 'accounts/chart-save',   [AccountingController::class, 'saveChart'], 'settings.manage'],
+    ['GET',  'accounts',              [AccountingController::class, 'chart'],     'settings.manage'],   // the chart grows with the business (2026-11-03)
+    ['POST', 'accounts/add',          [AccountingController::class, 'add'],       'settings.manage'],
+    ['POST', 'accounts/delete',       [AccountingController::class, 'delete'],    'settings.manage'],
+    ['GET',  'accounts/journal',      [AccountingController::class, 'journal'],   'settings.manage'],
+    ['POST', 'accounts/journal-save', [AccountingController::class, 'journalSave'], 'settings.manage'],
+    ['POST', 'accounts/journal-reverse', [AccountingController::class, 'journalReverse'], 'settings.manage'],
     ['GET',  'settings/check', [SettingController::class, 'check'],      'settings.manage'],   // Check this installation (2026-10-23)
     ['GET',  'rates',         [ExchangeRateController::class, 'index'], 'rate.manage'],
     ['POST', 'rates/store',   [ExchangeRateController::class, 'store'], 'rate.manage'],

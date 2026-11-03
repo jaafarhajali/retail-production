@@ -6,13 +6,16 @@ require_once __DIR__ . '/support/http.php';
 use App\Core\Auth;
 use App\Core\Database;
 use App\Core\Settings;
+use App\Models\Account;
 use App\Models\OpeningBalance;
 use App\Models\Register;
 use App\Models\Setting;
 use App\Services\AccountingService;
 use App\Services\CashService;
+use App\Services\ChartService;
 use App\Services\ExpenseService;
 use App\Services\InvoiceService;
+use App\Services\JournalService;
 use App\Services\PackingService;
 use App\Services\PartyService;
 use App\Services\ProductService;
@@ -65,6 +68,20 @@ $month = static function (): array {
     return ['customer' => $customer, 'supplier' => $supplier, 'joy' => $joy, 'register' => $register];
 };
 
+/** The id of a built-in account by its key ('1100'). */
+$acct = static fn (string $key): int => (int) Database::pdo()->query('SELECT id FROM accounts WHERE system_key = ' . Database::pdo()->quote($key))->fetchColumn();
+/** The chart form as it is now: num[id] and name[id] of every account but the expense categories. */
+$chartForm = static function (): array {
+    $num = [];
+    $name = [];
+    foreach (Database::pdo()->query("SELECT id, number, name FROM accounts WHERE system_key IS NULL OR system_key NOT LIKE 'exp:%'")->fetchAll(\PDO::FETCH_ASSOC) as $r) {
+        $num[(int) $r['id']] = $r['number'];
+        $name[(int) $r['id']] = $r['name'];
+    }
+
+    return [$num, $name];
+};
+
 return [
     '__before' => function (): void {
         test_db_reset();
@@ -76,7 +93,7 @@ return [
         $a = new AccountingService();
         $is = $a->incomeStatement(date('Y-m-01'), date('Y-m-d'));
         assert_same(['160.00', '0.00', '12.00', '148.00', '510.00', '-362.00'], [$is['sales'], $is['returns'], $is['cogs'], $is['gross'], $is['total_expenses'], $is['net']]);
-        assert_same([['6101', 'Rent', '500.00'], ['6102', 'Water', '10.00']], array_map(static fn (array $x): array => [$x['code'], $x['name'], $x['amount']], $is['expenses']));
+        assert_same([['6101', 'Water', '10.00'], ['6102', 'Rent', '500.00']], array_map(static fn (array $x): array => [$x['code'], $x['name'], $x['amount']], $is['expenses']));
     },
 
     'the balance sheet balances, with and without typed openings; the trial balance too; the cash flow agrees with both' => function () use ($month): void {
@@ -117,7 +134,7 @@ return [
         assert_same(['', '25.00'], [$row('2000')['debit'], $row('2000')['credit']]);
         assert_same(['', '160.00'], [$row('4000')['debit'], $row('4000')['credit']]);
         assert_same(['12.00', ''], [$row('5000')['debit'], $row('5000')['credit']]);
-        assert_same(['500.00', ''], [$row('6101')['debit'], $row('6101')['credit']]);
+        assert_same(['500.00', ''], [$row('6102')['debit'], $row('6102')['credit']], 'rent: the second category used');
         assert_same('none', $row('1000')['debit'], 'an account at zero is not listed');
 
         $cf = $a->cashFlow(date('Y-m-01'), $today);
@@ -173,5 +190,179 @@ return [
         $cashier = login_as('cashier1', 'password123');
         assert_same(403, $cashier->get('accounts/opening')->status);
         assert_same(403, $cashier->get('reports', ['type' => 'trial'])->status);
+    },
+
+    "the owner's own chart: numbers and names on every statement, a number used twice is refused, a new category takes the next free number" => function () use ($month, $acct, $chartForm): void {
+        $month();
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        $bankId = $acct('1100');
+        $page = $client->get('accounts')->body;
+        assert_contains('name="num[' . $bankId . ']"', $page);
+        assert_contains('name="name[' . $bankId . ']"', $page);
+        assert_contains('name="exp_cat[]" value="Water"', $page, 'the expense categories used are listed');
+        [$num, $name] = $chartForm();
+        $num[$bankId] = '512';
+        $name[$bankId] = 'Banque';
+        $r = $client->post('accounts/chart-save', ['num' => $num, 'name' => $name, 'exp_cat' => ['Water', 'Rent'], 'exp_num' => ['6101', '613']]);
+        assert_same(302, $r->status, $r->body);
+        assert_same(['512', 'Banque'], [(new Account())->find($bankId)['number'], (new Account())->find($bankId)['name']]);
+
+        $svc = new AccountingService();
+        $bank = array_values(array_filter($svc->balanceSheet(date('Y-m-d'))['assets'], static fn (array $a): bool => $a['key'] === '1100'))[0];
+        assert_same(['512', 'Banque', '-425.00'], [$bank['code'], $bank['name'], $bank['amount']], 'same figure, the owner\'s number and name');
+        $tb = $svc->trialBalance(date('Y-m-d'));
+        assert_true($tb['balanced']);
+        $codes = array_column($tb['rows'], 'code');
+        $sorted = $codes;
+        sort($sorted, SORT_STRING);
+        assert_same($sorted, $codes, 'the trial balance follows the owner\'s numbers digit by digit, by class');
+        assert_same(['1300', '512', '6101'], array_slice(array_values(array_intersect($codes, ['1300', '512', '6101'])), 0, 3), 'class 5 after class 1, before class 6');
+        $rent = array_values(array_filter($tb['rows'], static fn (array $x): bool => $x['name'] === 'Rent'))[0];
+        assert_same(['613', '500.00'], [$rent['code'], $rent['debit']]);
+        $trial = $client->get('reports', ['type' => 'trial'])->body;
+        assert_contains('Banque', $trial);
+        assert_contains('613', $trial);
+
+        // a number used twice: refused, nothing changes
+        $equipmentId = $acct('1500');
+        $num[$equipmentId] = '512';
+        $client->post('accounts/chart-save', ['num' => $num, 'name' => $name, 'exp_cat' => ['Water', 'Rent'], 'exp_num' => ['6101', '613']]);
+        assert_contains('alert-danger', $client->get('accounts')->body, 'the refusal is shown');
+        assert_same('1500', (new Account())->find($equipmentId)['number'], 'equipment keeps its number');
+        // a name left empty: refused
+        $num[$equipmentId] = '1500';
+        $name[$acct('2100')] = '  ';
+        $client->post('accounts/chart-save', ['num' => $num, 'name' => $name, 'exp_cat' => ['Water', 'Rent'], 'exp_num' => ['6101', '613']]);
+        assert_same('Loans', (new Account())->find($acct('2100'))['name']);
+
+        // a new category: the first free number from 6101 (6101 is Water; Rent moved to 613, so 6102 is free)
+        (new ExpenseService())->create(['kind' => 'expense', 'category' => 'Electricity', 'description' => '', 'usd' => '40', 'lbp' => '', 'expense_date' => date('Y-m-d'), 'paid_from' => 'outside'], TEST_ADMIN_ID);
+        $x = array_map(static fn (array $e): array => [$e['code'], $e['name']], (new AccountingService())->incomeStatement(date('Y-m-01'), date('Y-m-d'))['expenses']);
+        assert_same([['6101', 'Water'], ['6102', 'Electricity'], ['613', 'Rent']], $x, 'by number; the new category takes 6102');
+    },
+
+    'the business grows: his own accounts, journal entries that balance, a second money account, a reversal; every statement still balances' => function () use ($month, $acct): void {
+        $month();
+        $today = date('Y-m-d');
+        $first = date('Y-m-01');
+        $chart = new ChartService();
+        $vehicles = $chart->add('1510', 'Vehicles', 'asset', false, TEST_ADMIN_ID);
+        $vanLoan = $chart->add('2110', 'Van loan', 'liability', false, TEST_ADMIN_ID);
+        $depreciation = $chart->add('6810', 'Depreciation', 'expense', false, TEST_ADMIN_ID);
+        $accumulated = $chart->add('1590', 'Accumulated depreciation', 'asset', false, TEST_ADMIN_ID);
+        $interest = $chart->add('7100', 'Interest received', 'income', false, TEST_ADMIN_ID);
+        $whish = $chart->add('5122', 'Whish', 'asset', true, TEST_ADMIN_ID);
+        foreach ([['1510', 'Again', 'asset', 'taken by Vehicles'], ['1100', 'Bank 2', 'asset', 'taken by a built-in account'], ['6101', 'X', 'expense', 'taken by the Water category'],
+                  ['1700', 'X', 'nonsense', 'a type'], ['1701', ' ', 'asset', 'a name'], ['12 34', 'X', 'asset', 'a number with a space']] as [$n, $nm, $t, $why]) {
+            assert_throws(\DomainException::class, static fn () => $chart->add($n, $nm, $t, false, TEST_ADMIN_ID), 'refused: ' . $why);
+        }
+
+        $j = new JournalService();
+        $line = static fn (int $account, string $debit, string $credit): array => ['account_id' => $account, 'debit' => $debit, 'credit' => $credit];
+        $j->post($today, 'Van bought on a loan', [$line($vehicles, '15,000', ''), $line($vanLoan, '', '15000')], TEST_ADMIN_ID);
+        $j->post($today, 'Depreciation of the van', [$line($depreciation, '250', ''), $line($accumulated, '', '250')], TEST_ADMIN_ID);
+        $loanPayment = $j->post($today, 'First loan payment', [$line($vanLoan, '500', ''), $line($acct('1100'), '', '500')], TEST_ADMIN_ID);
+        $j->post($today, 'Money moved to Whish', [$line($whish, '100', ''), $line($acct('1100'), '', '100')], TEST_ADMIN_ID);
+        $j->post($today, 'Interest from the bank', [$line($acct('1100'), '5', ''), $line($interest, '', '5')], TEST_ADMIN_ID);
+        foreach ([
+            'debits 100, credits 90' => [$line($vehicles, '100', ''), $line($vanLoan, '', '90')],
+            'one line only' => [$line($vehicles, '100', '')],
+            'the stock is fed by the stock movements' => [$line($acct('1300'), '100', ''), $line($vanLoan, '', '100')],
+            'sales come from the invoices' => [$line($acct('1100'), '100', ''), $line($acct('4000'), '', '100')],
+            'both sides on one line' => [$line($vehicles, '100', '100'), $line($vanLoan, '', '100')],
+            'a negative amount' => [$line($vehicles, '-100', ''), $line($vanLoan, '', '-100')],
+        ] as $why => $lines) {
+            assert_throws(\DomainException::class, static fn () => $j->post($today, 'Bad', $lines, TEST_ADMIN_ID), 'refused: ' . $why);
+        }
+        assert_throws(\DomainException::class, static fn () => $j->post($today, '', [$line($vehicles, '1', ''), $line($vanLoan, '', '1')], TEST_ADMIN_ID), 'refused: no description');
+
+        $svc = new AccountingService();
+        $is = $svc->incomeStatement($first, $today);
+        assert_same('-607.00', $is['net'], '−362 as before, − 250 depreciation + 5 interest');
+        assert_same([['7100', 'Interest received', '5.00']], array_map(static fn (array $x): array => [$x['code'], $x['name'], $x['amount']], $is['other_income']));
+        assert_true(in_array(['6810', 'Depreciation', '250.00'], array_map(static fn (array $x): array => [$x['code'], $x['name'], $x['amount']], $is['expenses']), true), 'depreciation among the expenses');
+
+        $bs = $svc->balanceSheet($today);
+        $all = array_merge($bs['assets'], $bs['liabilities'], $bs['equity']);
+        $get = static function (array $all, string $code): string {
+            return array_values(array_filter($all, static fn (array $r): bool => $r['code'] === $code))[0]['amount'] ?? 'none';
+        };
+        assert_same(['-1020.00', '15000.00', '-250.00', '100.00', '14500.00'], [$get($all, '1100'), $get($all, '1510'), $get($all, '1590'), $get($all, '5122'), $get($all, '2110')], 'bank −425 − 500 − 100 + 5; the van; its depreciation; Whish; the loan left');
+        assert_same('none', $get($all, '3900'), 'no Differences: every entry balances');
+        assert_same($bs['total_assets'], $bs['total_right']);
+
+        $tb = $svc->trialBalance($today);
+        assert_true($tb['balanced'], 'debits = credits');
+        $row = static fn (string $code): array => array_values(array_filter($tb['rows'], static fn (array $r): bool => $r['code'] === $code))[0] ?? ['debit' => 'none', 'credit' => 'none'];
+        assert_same([['15000.00', ''], ['', '250.00'], ['', '14500.00'], ['', '5.00'], ['250.00', '']], [[$row('1510')['debit'], $row('1510')['credit']], [$row('1590')['debit'], $row('1590')['credit']], [$row('2110')['debit'], $row('2110')['credit']], [$row('7100')['debit'], $row('7100')['credit']], [$row('6810')['debit'], $row('6810')['credit']]]);
+
+        $cf = $svc->cashFlow($first, $today);
+        $bankIn = array_column($cf['bank']['in'], 'amount', 'what');
+        $bankOut = array_column($cf['bank']['out'], 'amount', 'what');
+        assert_same(['5.00', '600.00', '-1020.00'], [$bankIn['Journal entries'] ?? 'none', $bankOut['Journal entries'] ?? 'none', $cf['bank']['closing']]);
+        $box = array_values(array_filter($cf['boxes'], static fn (array $b): bool => $b['title'] === '5122 Whish'))[0] ?? null;
+        assert_true($box !== null, 'Whish has its own box in the cash flow');
+        assert_same(['0.00', '100.00', '100.00'], [$box['opening'], $box['total_in'], $box['closing']]);
+        assert_same('-920.00', $cf['closing_total'], 'drawers 0 + bank −1,020 + Whish 100: the move to Whish changes nothing in all cash');
+
+        // a reversal undoes the loan payment; once only; a reversal is not reversed
+        $rev = $j->reverse($loanPayment, TEST_ADMIN_ID);
+        $bs = (new AccountingService())->balanceSheet($today);
+        $all = array_merge($bs['assets'], $bs['liabilities'], $bs['equity']);
+        assert_same(['-520.00', '15000.00'], [$get($all, '1100'), $get($all, '2110')], 'the bank and the loan as before the payment');
+        assert_same($bs['total_assets'], $bs['total_right']);
+        assert_throws(\DomainException::class, static fn () => $j->reverse($loanPayment, TEST_ADMIN_ID), 'reversed once only');
+        assert_throws(\DomainException::class, static fn () => $j->reverse($rev, TEST_ADMIN_ID), 'a reversal is not reversed');
+
+        // an account with entries stays; an unused one can go; a built-in one never goes
+        assert_throws(\DomainException::class, static fn () => $chart->delete($vehicles), 'it has entries');
+        $spare = $chart->add('1520', 'Furniture', 'asset', false, TEST_ADMIN_ID);
+        $chart->delete($spare);
+        assert_same(null, (new Account())->find($spare));
+        assert_throws(\DomainException::class, static fn () => $chart->delete($acct('1500')), 'built-in');
+    },
+
+    'the pages: the chart, the journal, opening balances; a closed account takes no entry; a cashier is kept out' => function () use ($month, $acct, $chartForm): void {
+        $month();
+        $client = login_as('admin', TEST_ADMIN_PASSWORD);
+        assert_contains('r=accounts"', $client->get('dashboard')->body, 'Accounts in the menu');
+        $r = $client->post('accounts/add', ['number' => '5121', 'name' => 'Bank Audi', 'type' => 'asset', 'is_money' => '1']);
+        assert_same(302, $r->status, $r->body);
+        $audi = (int) (new Account())->byNumber('5121')['id'];
+        assert_same(1, (int) (new Account())->find($audi)['is_money']);
+        $page = $client->get('accounts')->body;
+        assert_contains('Bank Audi', $page);
+        assert_contains('name="closed[' . $audi . ']"', $page, 'his own account can be closed');
+
+        $journal = $client->get('accounts/journal')->body;
+        assert_contains('name="line_account[]"', $journal);
+        assert_contains('5121 · Bank Audi', $journal, 'his account is offered');
+        assert_true(!str_contains($journal, '<option value="' . $acct('1300') . '"'), 'the stock account is not offered');
+        $r = $client->post('accounts/journal-save', ['entry_date' => date('Y-m-d'), 'description' => 'Opened the Audi account',
+            'line_account' => [$audi, $acct('1100'), ''], 'line_debit' => ['1,000', '', ''], 'line_credit' => ['', '1000', '']]);
+        assert_same(302, $r->status, $r->body);
+        $entry = (int) Database::pdo()->query("SELECT id FROM journal_entries WHERE description = 'Opened the Audi account'")->fetchColumn();
+        assert_true($entry > 0, 'the entry is saved; the empty third line is skipped');
+        assert_contains('Opened the Audi account', $client->get('accounts/journal')->body);
+        $bad = $client->post('accounts/journal-save', ['entry_date' => date('Y-m-d'), 'description' => 'Bad', 'line_account' => [$audi, $acct('1100')], 'line_debit' => ['10', ''], 'line_credit' => ['', '9']]);
+        assert_same(302, $bad->status);
+        assert_contains('alert-danger', $client->get('accounts/journal')->body, 'an unbalanced entry is refused and said');
+        assert_same(302, $client->post('accounts/journal-reverse', ['id' => $entry])->status);
+        assert_same(1, (int) Database::pdo()->query('SELECT COUNT(*) FROM journal_entries WHERE reverses_id = ' . $entry)->fetchColumn(), 'reversed');
+
+        // closing his account: no more entries on it
+        [$num, $name] = $chartForm();
+        assert_same(302, $client->post('accounts/chart-save', ['num' => $num, 'name' => $name, 'closed' => [$audi => '1'], 'exp_cat' => ['Water', 'Rent'], 'exp_num' => ['6101', '6102']])->status);
+        assert_same(0, (int) (new Account())->find($audi)['is_active']);
+        assert_true(!str_contains($client->get('accounts/journal')->body, '5121 · Bank Audi</option>'), 'a closed account is not offered');
+        assert_throws(\DomainException::class, static fn () => (new JournalService())->post(date('Y-m-d'), 'X', [['account_id' => $audi, 'debit' => '1', 'credit' => ''], ['account_id' => $acct('1100'), 'debit' => '', 'credit' => '1']], TEST_ADMIN_ID), 'closed');
+
+        assert_contains('name="ob_1100"', $client->get('accounts/opening')->body);
+        make_user('cashier1');
+        $cashier = login_as('cashier1', 'password123');
+        foreach (['accounts', 'accounts/journal', 'accounts/opening'] as $route) {
+            assert_same(403, $cashier->get($route)->status, $route);
+        }
+        assert_same(403, $cashier->post('accounts/journal-save', ['entry_date' => date('Y-m-d'), 'description' => 'X'])->status);
     },
 ];

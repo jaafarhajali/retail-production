@@ -31,6 +31,7 @@ $navGroups = [
     ['Money', false, [
         ['expenses', 'wallet2', 'Expenses', 'expense.manage'],
         ['reports', 'bar-chart-line', 'Reports', 'report.sales'],
+        ['accounts', 'journal-bookmark', 'Accounts', 'settings.manage'],   // chart, journal, opening balances (2026-11-03)
     ]],
     ['Administration', true, [
         ['users', 'people', 'Users', 'user.manage'],
