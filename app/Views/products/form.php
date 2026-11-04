@@ -189,7 +189,8 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
           </div>
         <?php endif; ?>
 
-        <div class="table-responsive">
+        <p class="text-muted small mb-0" <?= $only('intermediate') ?>>Nothing else to set: Production and Packing weigh it in kg.</p>
+        <div class="table-responsive" <?= $only('finished material') ?>>
           <table class="table align-middle pf-table">
             <thead><tr>
               <th class="pf-main" data-finished-only title="The till shows this price on the product's button and offers this way first">Till button</th><th><span data-finished-only>Sold as</span><span data-not-finished>Unit</span></th><th>Holds</th><th data-finished-only>Retail</th><th data-finished-only>Wholesale</th><th <?= $only('finished material') ?>>Barcodes</th><th></th>
@@ -200,11 +201,10 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
           </table>
         </div>
         <?php if (!$readonly): ?>
-          <div class="pf-add">
+          <div class="pf-add" <?= $only('finished material') ?>>
             <button class="btn btn-outline-primary" type="button" data-add-row><i class="bi bi-plus-lg"></i> <span data-finished-only>Add another way to sell it</span><span data-not-finished>Add another unit</span></button>
             <span class="form-text" <?= $only('finished') ?>>For example a Box of 24. Selling one box takes 24 pieces from the stock.</span>
             <span class="form-text" <?= $only('material') ?>>For example a Bag 25kg. Buying one bag adds 25 kg to the stock.</span>
-            <span class="form-text" <?= $only('intermediate') ?>>kg is usually enough: Production and Packing count the mix in kg.</span>
           </div>
         <?php endif; ?>
         <template id="unit-row-template"><?= $renderRow('__KEY__', ['id' => 0, 'type' => 'Box', 'size' => '', 'size_unit' => '', 'retail' => '', 'wholesale' => '', 'barcodes' => ''], null) ?></template>

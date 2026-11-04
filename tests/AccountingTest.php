@@ -358,6 +358,14 @@ return [
         assert_throws(\DomainException::class, static fn () => (new JournalService())->post(date('Y-m-d'), 'X', [['account_id' => $audi, 'debit' => '1', 'credit' => ''], ['account_id' => $acct('1100'), 'debit' => '', 'credit' => '1']], TEST_ADMIN_ID), 'closed');
 
         assert_contains('name="ob_1100"', $client->get('accounts/opening')->body);
+        // Back returns to the report the page was opened from (2026-11-04)
+        $balance = $client->get('reports', ['type' => 'balance'])->body;
+        assert_contains('back=reports%3Ftype%3Dbalance', $balance, 'the report link says where it comes from');
+        $opening = $client->get('accounts/opening', ['back' => 'reports?type=balance&from=2026-10-01&to=2026-10-31'])->body;
+        assert_contains('class="back-link" href="index.php?r=reports&amp;type=balance&amp;from=2026-10-01&amp;to=2026-10-31"', $opening, 'Back goes to the balance sheet');
+        assert_contains('name="back" value="reports?type=balance', $opening, 'Save keeps it');
+        assert_contains('class="back-link" href="index.php?r=accounts"', $client->get('accounts/opening')->body, 'without it, Back goes to the Accounts section');
+        assert_contains('class="back-link" href="index.php?r=accounts"', $client->get('accounts/opening', ['back' => 'http://evil.example/x'])->body, 'an outside address is ignored');
         make_user('cashier1');
         $cashier = login_as('cashier1', 'password123');
         foreach (['accounts', 'accounts/journal', 'accounts/opening'] as $route) {

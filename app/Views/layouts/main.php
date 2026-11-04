@@ -14,8 +14,18 @@ $navLocked = (int) ($authUser['must_change_password'] ?? 0) === 1;
 $backRoute = trim(is_string($_GET['r'] ?? null) ? $_GET['r'] : 'dashboard', '/');
 $backParts = explode('/', $backRoute);
 $backTo = null;
+$backHref = null;
 if (!$navLocked && $backRoute !== '' && $backRoute !== 'dashboard') {
     $backTo = (count($backParts) > 1 || array_diff_key($_GET, ['r' => 1]) !== []) && $backParts[0] !== 'auth' ? $backParts[0] : 'dashboard';
+    $backHref = url($backTo);
+    // A page reached from elsewhere (a report → Opening balances) says where with ?back=route or ?back=route?a=b,
+    // and Back returns there (2026-11-04). Only a route of this app is accepted.
+    $backParam = is_string($_GET['back'] ?? null) ? $_GET['back'] : '';
+    if (preg_match('/^[a-z][a-z0-9\/_-]*(\?[a-z0-9_=&%+.-]*)?$/i', $backParam)) {
+        [$backR, $backQ] = array_pad(explode('?', $backParam, 2), 2, '');
+        parse_str($backQ, $backParams);
+        $backHref = url($backR, $backParams);
+    }
 }
 ?>
 <!doctype html>
@@ -35,7 +45,7 @@ if (!$navLocked && $backRoute !== '' && $backRoute !== 'dashboard') {
   <main class="app-main">
     <header class="app-top">
       <div class="app-top-title">
-        <?php if ($backTo !== null): ?><a class="back-link" href="<?= url($backTo) ?>" title="Back"><i class="bi bi-arrow-left"></i><span>Back</span></a><?php endif; ?>
+        <?php if ($backTo !== null): ?><a class="back-link" href="<?= e($backHref) ?>" title="Back"><i class="bi bi-arrow-left"></i><span>Back</span></a><?php endif; ?>
         <h1 dir="auto"><?= e($pageTitle ?? '') ?></h1>
       </div>
       <div class="app-top-actions">

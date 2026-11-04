@@ -147,10 +147,10 @@ final class AccountingController extends Controller
             (new Setting())->setMany(['fiscal_year_start_month' => (string) $month]);
             Settings::flush();
         } catch (\DomainException $e) {
-            $this->failBack('accounts/opening', [], ['form' => $e->getMessage()]);
+            $this->failBack('accounts/opening', $this->input('back') !== '' ? ['back' => $this->input('back')] : [], ['form' => $e->getMessage()]);
         }
         Audit::log('accounts.opening', 'opening_balances', null, ['month' => $month]);
         Flash::set('success', 'Opening balances saved.');
-        redirect('accounts/opening');
+        redirect('accounts/opening', $this->input('back') !== '' ? ['back' => $this->input('back')] : []);   // Back still returns to the report it came from
     }
 }

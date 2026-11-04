@@ -2,7 +2,7 @@
 <div class="row g-3">
   <div class="col-lg-7">
     <form method="post" action="<?= url('accounts/opening-save') ?>" class="card"><div class="card-body">
-      <?= csrf_field() ?>
+      <?= csrf_field() ?><?php if ($backKeep !== []): ?><input type="hidden" name="back" value="<?= e($backKeep['back']) ?>"><?php endif; ?>
       <h2 class="h5">What the system cannot know</h2>
       <p class="text-muted small">The accounts below are not in any sale, purchase or expense, so they are typed once, as they were on the day the system started. Everything else (cash in the drawers, what customers owe, the stock, what suppliers are owed) the system works out by itself. After the start, record what changes (a new machine, a loan repaid) as a <a href="<?= url('accounts/journal') ?>">journal entry</a>, so the history stays.</p>
       <div class="row g-3">

@@ -39,5 +39,9 @@ $cols = ($single ? 5 : 6) + ($showCost ? 2 : 0);
   </table>
 </div></div>
 <?php if ($canAddMix): ?>
-  <p class="text-muted small mt-3">Making something that must be counted apart from <?= $mixes === [] ? 'the flavours' : e($mixes[0]['name']) ?>, for example a chocolate coating? <a href="<?= url('products/create', ['kind' => 'intermediate']) ?>">Add a new mix</a>: it gets its own stock and its own flavours.</p>
+  <div class="card mt-3"><div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div><div class="fw-semibold">Making something that must be counted apart from <?= $mixes === [] ? 'the flavours' : e($mixes[0]['name']) ?>?</div>
+      <div class="text-muted small">For example a chocolate coating or cotton candy. A new mix gets its own stock and its own flavours.</div></div>
+    <a class="btn btn-outline-primary" href="<?= url('products/create', ['kind' => 'intermediate']) ?>"><i class="bi bi-plus-lg"></i> Add a new mix</a>
+  </div></div>
 <?php endif; ?>

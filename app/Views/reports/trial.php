@@ -1,6 +1,6 @@
 <div class="d-flex justify-content-between align-items-baseline flex-wrap gap-2">
   <h2 class="h6 text-muted">Trial balance · as of <?= e(date('d/m/Y', strtotime($a['to']))) ?> <small>(income and expenses since <?= e(date('d/m/Y', strtotime($a['year_start']))) ?>)</small></h2>
-  <?php if (!empty($canOpen) && empty($printing)): ?><a class="small" href="<?= url('accounts/opening') ?>">Opening balances and fiscal year</a><?php endif; ?>
+  <?php if (!empty($canOpen) && empty($printing)): ?><a class="small" href="<?= url('accounts/opening', ['back' => 'reports?' . http_build_query(['type' => $type, 'from' => $from, 'to' => $to])]) ?>">Opening balances and fiscal year</a><?php endif; ?>
 </div>
 <div class="card"><div class="table-responsive"><table class="table table-sm mb-0 acct">
   <thead><tr><th>No.</th><th>Account</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead>
