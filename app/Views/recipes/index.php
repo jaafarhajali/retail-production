@@ -8,7 +8,7 @@ $cols = ($single ? 5 : 6) + ($showCost ? 2 : 0);
 <div class="toolbar">
   <div class="toolbar-note">
     <?php foreach ($mixes as $m): ?>
-      <div dir="auto"><i class="bi bi-box2"></i> <?= \App\Core\Gate::allows('product.view') ? '<a href="' . url('products/edit', ['id' => $m['id']]) . '">' . e($m['name']) . '</a>' : e($m['name']) ?> in stock: <strong><?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?></strong></div>
+      <div dir="auto"><i class="bi bi-box2"></i> <?= \App\Core\Gate::allows('product.view') ? '<a href="' . url('products/edit', ['id' => $m['id'], 'back' => 'recipes']) . '">' . e($m['name']) . '</a>' : e($m['name']) ?> in stock: <strong><?= e(ProductionService::baseText((int) $m['stock_base'], $m['base_unit'])) ?></strong></div>
     <?php endforeach; ?>
     <div class="text-muted small">Each flavour says what one batch is made of. <strong>Make</strong> adds it to the stock<?= $single ? '' : ' of its mix' ?>; Packing turns that stock into jars and boxes.</div>
   </div>
@@ -42,6 +42,6 @@ $cols = ($single ? 5 : 6) + ($showCost ? 2 : 0);
   <div class="card mt-3"><div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
     <div><div class="fw-semibold">Making something that must be counted apart from <?= $mixes === [] ? 'the flavours' : e($mixes[0]['name']) ?>?</div>
       <div class="text-muted small">For example a chocolate coating or cotton candy. A new mix gets its own stock and its own flavours.</div></div>
-    <a class="btn btn-outline-primary" href="<?= url('products/create', ['kind' => 'intermediate']) ?>"><i class="bi bi-plus-lg"></i> Add a new mix</a>
+    <a class="btn btn-outline-primary" href="<?= url('products/create', ['kind' => 'intermediate', 'back' => 'recipes']) ?>"><i class="bi bi-plus-lg"></i> Add a new mix</a>
   </div></div>
 <?php endif; ?>

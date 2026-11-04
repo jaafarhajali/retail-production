@@ -110,6 +110,15 @@ return [
 
         $list = $plain($client->get('recipes')->body);
         assert_contains('>Marshmallow mix</a> in stock: <strong>0 g</strong>', $list, 'the mix name opens its page');
+        // Back from the mix's page returns to Flavours (2026-11-04)
+        assert_contains('r=products/edit&id=' . $k['mix']['id'] . '&back=recipes', $list, 'the link says it comes from Flavours');
+        $mixPage = $client->get('products/edit', ['id' => $k['mix']['id'], 'back' => 'recipes'])->body;
+        assert_contains('class="back-link" href="index.php?r=recipes"', $mixPage, 'Back goes to Flavours');
+        assert_contains('name="back" value="recipes"', $mixPage, 'Save keeps it');
+        assert_contains('>Back to flavours</a>', $mixPage);
+        $plainPage = $client->get('products/edit', ['id' => $k['mix']['id']])->body;
+        assert_contains('class="back-link" href="index.php?r=products"', $plainPage, 'from Products, Back goes to Products');
+        assert_contains('>Back to products</a>', $plainPage);
         assert_contains('Add a flavour', $list);
         assert_contains('500 g Sugar', $list, 'each flavour lists what goes into one batch');
         assert_not_contains('<th>Makes</th>', $list);
@@ -148,7 +157,7 @@ return [
         assert_not_contains('id="kind-intermediate"', $client->get('products/edit', ['id' => $k['sugar']['id']])->body);
 
         $flavours = $plain($client->get('recipes')->body);
-        assert_contains('href="index.php?r=products/create&kind=intermediate"', $flavours);
+        assert_contains('href="index.php?r=products/create&kind=intermediate&back=recipes"', $flavours);
         assert_contains('Add a new mix', $flavours);
         assert_contains('id="kind-intermediate"', $client->get('products/create', ['kind' => 'intermediate'])->body, 'the link opens the form on Mix');
 

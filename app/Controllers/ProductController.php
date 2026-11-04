@@ -69,6 +69,7 @@ final class ProductController extends Controller
     public function save(): void
     {
         $id = $this->inputInt('product_id');
+        $back = preg_match('/^[a-z][a-z0-9\/_-]*$/i', $this->input('back')) ? ['back' => $this->input('back')] : [];   // Back still returns where the page was opened from
         try {
             $saved = (new ProductService())->save($id, $this->productInput() + [
                 'is_active' => $id === 0 || isset($_POST['is_active']), 'allow_same_name' => isset($_POST['allow_same_name']),
@@ -79,7 +80,7 @@ final class ProductController extends Controller
                 'packaging' => is_array($_POST['packaging'] ?? null) ? $_POST['packaging'] : (isset($_POST['packaging_given']) ? [] : null),
             ], \App\Core\Auth::id());
         } catch (\DomainException $e) {
-            $this->failBack($id > 0 ? 'products/edit' : 'products/create', $id > 0 ? ['id' => $id] : [],
+            $this->failBack($id > 0 ? 'products/edit' : 'products/create', ($id > 0 ? ['id' => $id] : []) + $back,
                 [$e->getCode() === ProductService::SAME_NAME ? 'same_name' : 'form' => $e->getMessage()]);
         }
 
@@ -104,9 +105,9 @@ final class ProductController extends Controller
         $name = (string) ((new Product())->find($saved)['name'] ?? 'The product');
         Flash::set($photo === '' ? 'success' : 'warning', $name . ($id === 0 ? ' was added.' : ' was saved.') . $photo);
         if ($this->input('then') === 'add') {
-            redirect('products/create');
+            redirect('products/create', $back);
         }
-        redirect('products/edit', ['id' => $saved]);
+        redirect('products/edit', ['id' => $saved] + $back);
     }
 
     /** Only a product that was never sold, purchased, counted or moved; any other is deactivated on its page. */

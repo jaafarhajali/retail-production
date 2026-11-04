@@ -136,6 +136,8 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
 <form method="post" action="<?= url('products/save') ?>" enctype="multipart/form-data" id="product-form" class="product-form"
       data-cost-base="<?= $showCost && $isEdit ? e($product['cost_per_base']) : '0' ?>" data-show-cost="<?= $showCost ? '1' : '0' ?>" novalidate>
   <?= csrf_field() ?>
+  <?php $backKeep = is_string($_GET['back'] ?? null) && preg_match('/^[a-z][a-z0-9\/_-]*$/i', $_GET['back']) ? $_GET['back'] : ''; // the page it was opened from (Flavours), kept through Save ?>
+  <?php if ($backKeep !== ''): ?><input type="hidden" name="back" value="<?= e($backKeep) ?>"><?php endif; ?>
   <input type="hidden" name="product_id" value="<?= $pid ?>">
   <input type="hidden" name="then" value="stay" data-then>
 
@@ -444,7 +446,7 @@ $natural = ['piece' => ['piece', 1], 'g' => ['kg', 1000], 'ml' => ['L', 1000]][$
       <button class="btn btn-primary btn-lg" type="submit" data-then-set="stay"><i class="bi bi-check2"></i> Save</button>
       <button class="btn btn-outline-primary btn-lg" type="submit" data-then-set="add">Save and add another</button>
     <?php endif; ?>
-    <a class="btn btn-link" href="<?= url('products') ?>">Back to products</a>
+    <?php if ($backKeep === 'recipes'): ?><a class="btn btn-link" href="<?= url('recipes') ?>">Back to flavours</a><?php else: ?><a class="btn btn-link" href="<?= url('products') ?>">Back to products</a><?php endif; ?>
     <span class="pf-unsaved" data-unsaved hidden><i class="bi bi-circle-fill"></i> Not saved yet</span>
   </div>
 </form>

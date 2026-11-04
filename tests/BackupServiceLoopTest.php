@@ -35,8 +35,8 @@ return [
         assert_contains('daily backup written: ', $line);
         assert_contains('USB copy: off', $line);
         assert_same(1, count(glob(BackupService::dir() . '/*-daily.zip') ?: []));
-        // the zip is named with today's real date, so "done for today" is judged on the real day; the fake day has none yet
-        assert_contains('nothing due', $svc->serviceTick(time() + 3600 * 24), 'nothing more today once a daily zip exists for the real date');
+        // the zip is named with today's real date, so a tick on the real day finds it done (or not yet due): nothing is written twice
+        assert_contains('nothing due', $svc->serviceTick(time()), 'nothing more today once a daily zip exists for the real date');
     },
 
     'the script runs one tick with --once and logs it; the Backups page says "service" when the installer set it' => function (): void {
@@ -48,7 +48,8 @@ return [
         assert_true(is_file($log), 'the log exists');
         assert_contains('daily backup at 21:30', (string) file_get_contents($log));
 
-        (new Setting())->setMany(['backup_runner' => 'service']);
+        // after 21:30 that one tick made the day's backup; the page below is about the wording for a service that has not run yet
+        (new Setting())->setMany(['backup_runner' => 'service', 'backup_last_at' => '']);
         Settings::flush();
         assert_same('service', BackupService::runner());
         $client = login_as('admin', TEST_ADMIN_PASSWORD);
