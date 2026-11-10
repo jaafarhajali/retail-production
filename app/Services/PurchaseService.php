@@ -61,13 +61,26 @@ final class PurchaseService
             throw new \DomainException('Add at least one line.');
         }
         // The supplier's discount on the bill (2026-10-30), "10" dollars or "10%": spread across the lines in proportion, as on an
-        // invoice, so each material goes into stock at its real net cost. The last line takes the rounding remainder.
+        // invoice, so each material goes into stock at its real net cost. The biggest line takes the rounding remainder (a free
+        // sample as the last line would otherwise end with a negative cost, review of 2026-11-10).
         $subtotalUsd = Money::fmt($total);
         $discountUsd = self::discountAmount($discount, $total);
         $spread = 0.0;
-        $last = count($prepared) - 1;
+        $biggest = 0;
+        foreach ($prepared as $i => $l) {
+            if ((float) $l['line_total_usd'] > (float) $prepared[$biggest]['line_total_usd']) {
+                $biggest = $i;
+            }
+        }
+        foreach ($prepared as $i => $l) {   // every line but the biggest takes its rounded share; the biggest takes what is left
+            if ($i !== $biggest) {
+                $spread += $total > 0 ? round((float) $discountUsd * (float) $l['line_total_usd'] / $total, 2) : 0.0;
+            }
+        }
+        $rest = (float) $discountUsd - $spread;
+        $spread = 0.0;
         foreach ($prepared as $i => &$line) {
-            $share = $i === $last ? (float) $discountUsd - $spread : ($total > 0 ? round((float) $discountUsd * (float) $line['line_total_usd'] / $total, 2) : 0.0);
+            $share = $i === $biggest ? $rest : ($total > 0 ? round((float) $discountUsd * (float) $line['line_total_usd'] / $total, 2) : 0.0);
             $spread += $share;
             $net = (float) $line['line_total_usd'] - $share;
             $line['line_discount_usd'] = Money::fmt($share);

@@ -459,9 +459,11 @@ final class AccountingService
     }
 
     /** Customer payments that did not go through a drawer: card, Whish, transfer, cheque (the ledger holds them negative). */
+    /** Payments that reached the bank: card, Whish, transfer and cheque recorded on the Invoices page, and card payments taken at the till (review of 2026-11-10). */
     private function bankReceipts(string $from, string $to): float
     {
-        return -$this->sum("SELECT COALESCE(SUM(amount_usd), 0) FROM customer_ledger WHERE type = 'payment' AND session_id IS NULL AND created_at BETWEEN :f AND :t", $from, $to);
+        return -$this->sum("SELECT COALESCE(SUM(amount_usd), 0) FROM customer_ledger WHERE type = 'payment' AND session_id IS NULL AND created_at BETWEEN :f AND :t", $from, $to)
+            + $this->sum("SELECT COALESCE(SUM(p.amount_usd), 0) FROM sale_payments p JOIN sales s ON s.id = p.sale_id WHERE p.method = 'card' AND s.status = 'completed' AND s.created_at BETWEEN :f AND :t", $from, $to);
     }
 
     private function expensesOutside(string $from, string $to): float
